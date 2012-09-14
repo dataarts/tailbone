@@ -126,6 +126,9 @@ def as_json(func):
         "url": url
       }
       logging.error(str(e))
+    except api.datastore_errors.BadArgumentError as e:
+      resp = { "error": str(e) }
+      logging.error(str(e))
     if not isinstance(resp, str):
       resp = json.dumps(resp, default=json_extras)
     callback = self.request.get("callback")
@@ -191,10 +194,10 @@ def construct_filter(filter_str):
   if m:
     filters = [construct_filter(f) for f in re_split.split(m.group(2))]
     if m.group(1) == "AND":
-      return ndb.query.AND(filters)
+      return ndb.query.AND(*filters)
     else:
-      return ndb.query.OR(filters)
-  m = re_filter.match(f)
+      return ndb.query.OR(*filters)
+  m = re_filter.match(filter_str)
   if m:
     name, opsymbol, value = m.groups()
     if value == "true":
@@ -208,13 +211,25 @@ def construct_filter(filter_str):
         pass
     if opsymbol == "==":
       opsymbol = "="
-    return ndb.query.FilterNod(name, opsymbol, value)
-  return construct_filter("AND({})".format(filter_str))
+    return ndb.query.FilterNode(name, opsymbol, value)
+  if re_split.match(filter_str):
+    return construct_filter("AND({})".format(filter_str))
+  raise AppError("Filter format is unsupported: {}".format(filter_str))
+
+def construct_order(cls, o):
+  neg = True if o[0] == "-" else False
+  o = o[1:] if neg else o
+  if hasattr(cls, o):
+    p = getattr(cls, o)
+  else:
+    p = ndb.GenericProperty(o)
+  return -p if neg else p
 
 def construct_query(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
-  q = q.order(*[ndb.GenericProperty(o) if o[0] != "-" else -ndb.GenericProperty(o[1:]) for o in orders])
+  # TODO: correctly auto append orders when necessary like on a mutliselect
+  q = q.order(*[construct_order(cls,o) for o in orders])
   return q
 
 

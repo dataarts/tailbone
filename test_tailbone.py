@@ -108,6 +108,17 @@ class RestfulTestCase(unittest.TestCase):
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
+  def test_query_OR_AND(self):
+    num_items = 3
+    for i in xrange(num_items):
+      data = {"text": i}
+      response, response_data = self.create(self.model_url, data)
+
+    request = webapp2.Request.blank("{}?filter=OR(text==0, text==2)&order=text&order=key".format(self.model_url))
+    response = request.get_response(tailbone.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 2)
+
   def test_order_asc(self):
     num_items = 3
     for i in xrange(num_items):
