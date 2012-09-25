@@ -353,6 +353,11 @@ class AdminHandler(webapp2.RequestHandler):
     if not api.users.is_current_user_admin():
       raise LoginError("You must be an admin.")
 
+
+class BiDiHandler(webapp2.RequestHandler):
+  def post(self):
+    pass
+
 APP_YAML = yaml.load(open("app.yaml"))
 # prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
@@ -371,6 +376,7 @@ app = webapp2.WSGIApplication([
   (r"%sadmin/(.+)" % PREFIX, AdminHandler),
   (r"%susers/(.*)" % PREFIX, UsersHandler),
   (r"%saccess/([^/]+)/?(.*)" % PREFIX, AccessHandler),
+  (r"/_bidi" % PREFIX, BiDiHandler),
   (r"%s([^/]+)/?(.*)" % PREFIX, RestfulHandler),
   ])
 

@@ -9,12 +9,15 @@ handlers:
   # - url: /custom/.*
   #   script: custom.app
 
-  # use this javascript file if you want the databinding abilities
-  - url: /api/tailbone.js
-    static_files: tailbone.js
-    upload: tailbone.js
   # This is the main tailbone app
   - url: /api/.*
+    script: tailbone.app
+
+  # use this javascript file if you want the bidi databinding abilities
+  - url: /_bidi/tailbone.js
+    static_files: tailbone.js
+    upload: tailbone.js
+  - url: /_bidi
     script: tailbone.app
 
   # this links everything else in your client/app folder to be served
