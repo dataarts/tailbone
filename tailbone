@@ -23,7 +23,6 @@ sys.path.extend(appcfg.EXTRA_PATHS)
 
 
 """
-
 ./tailbone validator resource_name relative_path_to/validator.py
 
 # set the schema for a resource
@@ -57,7 +56,10 @@ sys.path.extend(appcfg.EXTRA_PATHS)
 ./tailbone run
 
 # toggle using git versioning and branch name for the app.yaml version
-./tailbone git
+./tailbone toggle_git
+
+# generate the documentation branch for tailbone
+./tailbone generate_docs
 """
 
 def test(args):

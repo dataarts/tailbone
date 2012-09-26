@@ -19,11 +19,16 @@ from google.appengine import api
 from google.appengine.ext import ndb
 
 """
+Intention:
+  Try to stay as direct to the appengine api where applicable so it is an easy transition if you
+  need to extend this.
+  Make the api abstract enough so that any javascript framework will do and so that the same
+  frontend could be used with another backend that implements the same api calls.
+
 Ideas:
   Scoping private/public
     Capital is public
     lowercase is private
-
 
   Open Questions:
     cron job to look for data inconsistencies to notify you if they come up
@@ -187,7 +192,7 @@ def parse_id(id, data_id=None):
 
 re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
-re_split = re.compile(r", ?")
+re_split = re.compile(r",\W*")
 
 def construct_filter(filter_str):
   m = re_composite_filter.match(filter_str)
@@ -228,10 +233,9 @@ def construct_order(cls, o):
 def construct_query(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
-  # TODO: correctly auto append orders when necessary like on a mutliselect
+  # TODO(doug) correctly auto append orders when necessary like on a multiselect
   q = q.order(*[construct_order(cls,o) for o in orders])
   return q
-
 
 class RestfulHandler(webapp2.RequestHandler):
   @as_json
@@ -239,6 +243,7 @@ class RestfulHandler(webapp2.RequestHandler):
     pass
   @as_json
   def get(self, model, id):
+    # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
     cls = type(model.lower(), (ScopedExpando,), {})
     if id:
       id = parse_id(id)
