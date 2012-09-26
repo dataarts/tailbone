@@ -1,3 +1,4 @@
+'use strict';
 /*
  * Bi-Directional data binding with AppEngine and the channel api
  */
@@ -28,8 +29,6 @@ var BACKOFF = 1;
 var event_map = {};
 var queue = [];
 var socket;
-
-co
 
 function onOpen() {
   CONNECTED = true;
@@ -139,35 +138,140 @@ function unbind(name, fn) {
   post("/gaeplus/events", JSON.stringify({"method": "unbind", "name": name}), errorHandler);
 }
 
+function FILTER(name, opsymbol, value) {
+  return [name, opsymbol, value];
+}
 
-Model = function() {
+function ORDER(name) {
+  return name;
+}
+
+function AND() {
+  var f = [];
+  for(var i=0;i<arguments.length;i++){
+    f.concat(arguments[i]);
+  }
+  return f;
+}
+
+function OR() {
+  var f = [];
+  for(var i=0;i<arguments.length;i++){
+    f.push(arguments[i]);
+  }
+  return f;
+}
+
+var QueryIterator = function(query) {
+  this.query = query;
+  this.offset = 0;
 };
 
-Model.query = function() {
+QueryIterator.prototype.next = function() {
+  return
+}
 
-};
-
-/*
- * Dollar sign prefix names are ignored on the model as are underscore
- * _name
- * and
- * $name
- * are not included in the jsonifying of an object
+/**
+ * Query is an iterable collection of a Model
  */
-Model.prototype.$save = function() {
-
+var Query = function() {
+  this.filter = [];
+  this.order = [];
+  this.page_size = 100;
+  this._more = false;
+  this._dirty = false;
 };
 
-Model.prototype.$delete = function() {
+/**
+ * _type is the resource type this query is bound to.
+ */
+Query.prototype._type = undefined;
 
+/**
+ * onChange callback function
+ */
+Query.prototype.onChange = undefined;
+
+Query.prototype.__iterator__ = function() {
+  return new QueryIterator(this);
 };
+
+Query.prototype.next_page = function() {
+};
+
+Query.prototype.next = function() {
+};
+
+Query.prototype.prev_page = function() {
+};
+
+Query.prototype.has_more = function() {
+  return this._more;
+};
+
+Query.prototype.filter = function() {
+  switch arguments.length {
+    case 1:
+      this.filter = this.filter.concat(arguments[0])
+      break;
+    case 3:
+      this.filter = this.filter.concat(FILTER.call(arguments))
+      break;
+    default:
+      throw Error("Undefined FILTER format."");
+    }
+};
+
+Query.prototype.order = function(name) {
+  this.order.push(ORDER(name))
+};
+
+function save(model) {
+}
+
+function del(model) {
+}
+
+
+var ModelFactory = function(type, opt_schema) {
+  var Model = function() {
+  };
+
+  /*
+   * query generates a iterator for a query object.
+   */
+  Model.query = function() {
+
+  };
+
+  /*
+  * Dollar sign prefix names are ignored on the model as are underscore
+  * _name
+  * and
+  * $name
+  * are not included in the jsonifying of an object
+  */
+  Model.prototype.$save = function() {
+    save(this);
+  };
+
+  Model.prototype.$delete = function() {
+    del(this)
+  };
+  return Model;
+};
+
 
 // Add the channel js for appengine and bind the events.
 
 
 // Exports
 return {
-  Model: Model
+  Model: ModelFactory,
+  FILTER: FILTER,
+  ORDER: ORDER,
+  AND: AND,
+  OR: OR
 }
 
 })(this, this.document);

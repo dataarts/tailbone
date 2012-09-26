@@ -1,0 +1,81 @@
+#!/usr/bin/env python2.7
+
+import argparse
+import os
+import sys
+from unittest import loader
+from unittest import runner
+
+for path in os.environ['PATH'].split(':'):
+  if 'dev_appserver.py' in os.listdir(path):
+    break
+else:
+  raise RuntimeError("Couldn't find dev_appserver.py")
+
+# find and append appengine dir to path
+app_engine_path = os.path.realpath(os.path.join(path,'dev_appserver.py'))
+app_engine_path = os.path.dirname(app_engine_path)
+sys.path.append(app_engine_path)
+
+import appcfg
+sys.path.extend(appcfg.EXTRA_PATHS)
+
+
+
+"""
+
+./tailbone validator resource_name relative_path_to/validator.py
+
+# set the schema for a resource
+./tailbone schema resource_name relative_path_to/schema.json
+
+# get the schema for a resource
+./tailbone schema resource_name
+
+# backup the data
+./tailbone backup
+
+# backup the data for a resource
+./tailbone backup resource_name
+
+# load backup data to the test server
+./tailbone restore backup.db
+
+# clean and clear a database
+./tailbone clear_database
+
+# clean and clear memcache
+./tailbone clear_memcache
+
+# set the version name in the app.yaml
+./tailbone version version_name
+
+# update the server
+./tailbone deploy
+
+# run the local server
+./tailbone run
+
+# toggle using git versioning and branch name for the app.yaml version
+./tailbone git
+"""
+
+def test(args):
+  tests = loader.TestLoader().discover('.')
+  result = runner.TextTestRunner().run(tests)
+  sys.exit(result.wasSuccessful())
+
+parser = argparse.ArgumentParser(description="Tailbone helper utility.")
+subparsers = parser.add_subparsers()
+
+"""
+Test tailbone
+  This will also test any of your custom handlers.
+./tailbone test
+"""
+parser_test = subparsers.add_parser("test")
+parser_test.set_defaults(func=test)
+
+if __name__ == '__main__':
+  args = parser.parse_args()
+  args.func(args)

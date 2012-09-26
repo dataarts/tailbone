@@ -24,21 +24,17 @@
         <script src="/_ah/channel/jsapi"></script>
         <script src="/tailbone.js"></script>
 
-        <script src="scripts/vendor/angular.js"></script>
-        <script src="scripts/vendor/angular-resource.js"></script>
 
-        <!-- build:js scripts/scripts.js -->
-        <script src="scripts/app.js"></script>
-        <script src="scripts/controllers.js"></script>
-        <script src="scripts/services.js"></script>
-        <!-- endbuild -->
-
-        <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
         <script>
-            var _gaq=[['_setAccount','UA-XXXXX-X'],['_trackPageview']];
-            (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-            g.src=('https:'==location.protocol?'//ssl':'//www')+'.google-analytics.com/ga.js';
-            s.parentNode.insertBefore(g,s)}(document,'script'));
+
+          var Todo = new tailbone.Model("todos");
+          var todo = new Todo();
+          todo.$save();
+          var todos = Todo.query();
+          for (var t in todos) {
+            console.log(t);
+          }
         </script>
     </body>
 </html>
+

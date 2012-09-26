@@ -355,29 +355,43 @@ class AdminHandler(webapp2.RequestHandler):
 
 
 class BiDiHandler(webapp2.RequestHandler):
+  """
+  Return the access token for the channel api.
+  """
+  def get(self):
+    pass
   def post(self):
     pass
 
 APP_YAML = yaml.load(open("app.yaml"))
 # prefix is taken from parsing the app.yaml
-PREFIX = "/api/"
+RESTFUL_PREFIX = "/api/"
+BIDI_ROUTE = "/_bidi"
 for h in APP_YAML.get("handlers"):
-  if h.get("script") == "tailbone.app":
-    PREFIX = h.get("url").replace(".*","")
+  script = h.get("script")
+  if script == "tailbone.app":
+    RESTFUL_PREFIX = h.get("url").replace(".*","")
+  elif script == "tailbone.bidi":
+    BIDI_ROUTE = h.get("url")
+
 
 # VERSION is used to set the namespace
 VERSION = APP_YAML.get("version")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
 
-app = webapp2.WSGIApplication([
-  (r"%slogin" % PREFIX, LoginHandler),
-  (r"%slogout" % PREFIX, LogoutHandler),
-  (r"%sadmin/(.+)" % PREFIX, AdminHandler),
-  (r"%susers/(.*)" % PREFIX, UsersHandler),
-  (r"%saccess/([^/]+)/?(.*)" % PREFIX, AccessHandler),
-  (r"/_bidi" % PREFIX, BiDiHandler),
-  (r"%s([^/]+)/?(.*)" % PREFIX, RestfulHandler),
-  ])
+restful = webapp2.WSGIApplication([
+  (r"{}login".format(RESTFUL_PREFIX), LoginHandler),
+  (r"{}logout" .format(RESTFUL_PREFIX), LogoutHandler),
+  (r"{}admin/(.+)".format(RESTFUL_PREFIX), AdminHandler),
+  (r"{}users/(.*)".format(RESTFUL_PREFIX), UsersHandler),
+  (r"{}access/([^/]+)/?(.*)".format(RESTFUL_PREFIX), AccessHandler),
+  (r"{}([^/]+)/?(.*)".format(RESTFUL_PREFIX), RestfulHandler),
+  ], debug=DEBUG)
+
+
+bidi = webapp2.WSGIApplication([
+  (BIDI_ROUTE, BiDiHandler),
+  ], debug=DEBUG)
 
 

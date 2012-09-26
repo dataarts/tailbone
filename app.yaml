@@ -1,5 +1,5 @@
 application: tailbone
-version: dev
+version: master
 runtime: python27
 api_version: 1
 threadsafe: true
@@ -9,18 +9,21 @@ handlers:
   # - url: /custom/.*
   #   script: custom.app
 
-  # This is the main tailbone app
+  # This is the main tailbone restful app handler
   - url: /api/.*
-    script: tailbone.app
+    script: tailbone.restful
 
   # use this javascript file if you want the bidi databinding abilities
-  - url: /_bidi/tailbone.js
+  - url: /tailbone.js
     static_files: tailbone.js
     upload: tailbone.js
+
+  # this is where the bidi javascript posts messages to
   - url: /_bidi
-    script: tailbone.app
+    script: tailbone.bidi
 
   # this links everything else in your client/app folder to be served
+  # Change this to something else if your public folder is not client/app
   - url: (/?.*)/
     static_files: client/app\1/index.html
     upload: client/app(.*)/index.html
