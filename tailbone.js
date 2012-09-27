@@ -268,6 +268,24 @@ var ModelFactory = function(type, opt_schema) {
     this.order.push(ORDER(name))
   };
 
+  Query.prototype.to_json = function() {
+    return {
+      filter: this.filter,
+      order: this.order,
+      page_size: this._page_size
+    }
+  };
+
+  Query.prototype.fetch = function(opt_callback) {
+    var _this = this;
+    function callback() {
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(_this);
+      }
+    }
+    GET("/api/"+type, {"params":JSON.stringify(this.to_json())}, callback);
+  };
 
   var Model = function() {
   };
@@ -277,6 +295,7 @@ var ModelFactory = function(type, opt_schema) {
    */
   Model.get = function(id, opt_callback) {
     var m = new Model();
+    m.Id = id;
     // xhr update model m
     return m;
   };
@@ -286,11 +305,17 @@ var ModelFactory = function(type, opt_schema) {
    */
   Model.query = function(opt_callback) {
     var query = new Query();
-    // xhr query for collection
-    // tailbone.bind("type", function() {
-    //   updatecollection;
-    // });
+    // xhr query for collection with timeout to allow for chaining
+    setTimeout(function() {
+      query.fetch(opt_callback);
+    }, 0);
+    tailbone.bind(type, query.fetch);
     return query;
+  };
+
+  Model.to_json = function(model) {
+    var obj = {};
+    return obj;
   };
 
   /*
@@ -301,13 +326,13 @@ var ModelFactory = function(type, opt_schema) {
   * are not included in the jsonifying of an object
   */
   Model.prototype.$save = function(opt_callback) {
-    // tailbone.trigger("type");
     save(type, this);
+    tailbone.trigger(type);
   };
 
   Model.prototype.$delete = function(opt_callback) {
-    // tailbone.trigger("type");
     del(type, this)
+    tailbone.trigger(type);
   };
 
   return Model;
