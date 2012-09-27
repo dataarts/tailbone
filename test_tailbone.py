@@ -63,6 +63,22 @@ class RestfulTestCase(unittest.TestCase):
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
 
+  def test_query_gte_json_params(self):
+    num_items = 3
+    for i in xrange(num_items):
+      data = {"text": i+0.1}
+      response, response_data = self.create(self.model_url, data)
+    data = {"text": 2}
+    response, response_data = self.create(self.model_url, data)
+
+    params = {
+        "filter": ["text",">=",1]
+        }
+    request = webapp2.Request.blank("{}?params={}".format(self.model_url, json.dumps(params)))
+    response = request.get_response(tailbone.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 3)
+
   def test_query_gte(self):
     num_items = 3
     for i in xrange(num_items):

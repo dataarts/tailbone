@@ -5,9 +5,9 @@
 
 window.tailbone = (function(window, document, undefined) {
 
-function post(url, data, callback) {
-  var r = new XMLHttpRequest();
-  if (r) {
+function POST(url, data, callback) {
+  if (XMLHttpRequest) {
+    r = new XMLHttpRequest();
     r.onreadystatechange = function() {
       if (r.readyState == 4) {
         callback(JSON.parse(r.responseText));
@@ -21,15 +21,32 @@ function post(url, data, callback) {
   }
 }
 
-function get(url, data, callback) {
-  var r = new XMLHttpRequest();
-  if (r) {
+function GET(url, data, callback) {
+  if (XMLHttpRequest) {
+    r = new XMLHttpRequest();
     r.onreadystatechange = function() {
       if (r.readyState == 4) {
         callback(JSON.parse(r.responseText));
       }
     };
+
     r.open("GET", url, true);
+    r.setRequestHeader("Content-Type","application/json");
+    r.send();
+  } else {
+    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
+  }
+}
+
+function DELETE(url, callback) {
+  if (XMLHttpRequest) {
+    r = new XMLHttpRequest();
+    r.onreadystatechange = function() {
+      if (r.readyState == 4) {
+        callback(JSON.parse(r.responseText));
+      }
+    };
+    r.open("DELETE", url, true);
     r.setRequestHeader("Content-Type","application/json");
     r.send();
   } else {
@@ -132,15 +149,17 @@ function errorHandler(msg) {
 }
 
 function trigger(name, payload) {
-  post("/api/events/",
-      JSON.stringify({"method": "trigger", "client_id": client_id, "name": name, "payload": payload}),
+  POST("/api/events/",
+      JSON.stringify({"method": "trigger",
+                      "client_id": client_id, "name": name, "payload": payload}),
       errorHandler);
 }
 
 function bind(name, fn) {
   event_map[name] = event_map[name] || [];
   event_map[name].push(fn);
-  post("/api/events/", JSON.stringify({"method": "bind", "client_id": client_id, "name": name}), errorHandler);
+  POST("/api/events/",
+      JSON.stringify({"method": "bind", "client_id": client_id, "name": name}), errorHandler);
 }
 
 function unbind(name, fn) {
@@ -154,7 +173,8 @@ function unbind(name, fn) {
   } else {
     event_map = {};
   }
-  post("/api/events/", JSON.stringify({"method": "unbind", "client_id": client_id, "name": name}), errorHandler);
+  POST("/api/events/",
+      JSON.stringify({"method": "unbind", "client_id": client_id, "name": name}), errorHandler);
 }
 
 
@@ -171,15 +191,15 @@ function ORDER(name) {
 }
 
 function AND() {
-  var f = [];
+  var f = ["AND"];
   for(var i=0;i<arguments.length;i++){
-    f.concat(arguments[i]);
+    f.push(arguments[i]);
   }
   return f;
 }
 
 function OR() {
-  var f = [];
+  var f = ["OR"];
   for(var i=0;i<arguments.length;i++){
     f.push(arguments[i]);
   }

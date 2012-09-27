@@ -151,7 +151,7 @@ def reflective_create(cls, data):
   m = cls()
   for k,v in data.iteritems():
     m._default_indexed = True
-    if type(v) in [str, unicode]:
+    if type(v) in [unicode, str]:
       if len(bytearray(v, encoding="utf8")) >= 500:
         m._default_indexed = False
     elif type(v) == dict:
@@ -200,6 +200,23 @@ re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
+def convert_value(value):
+  if value == "true":
+    value = True
+  elif value == "false":
+    value = False
+  else:
+    try:
+      value = float(value)
+    except:
+      pass
+  return value
+
+def convert_opsymbol(opsymbol):
+  if opsymbol == "==":
+    opsymbol = "="
+  return opsymbol
+
 def construct_filter(filter_str):
   m = re_composite_filter.match(filter_str)
   if m:
@@ -211,18 +228,7 @@ def construct_filter(filter_str):
   m = re_filter.match(filter_str)
   if m:
     name, opsymbol, value = m.groups()
-    if value == "true":
-      value = True
-    elif value == "false":
-      value = False
-    else:
-      try:
-        value = float(value)
-      except:
-        pass
-    if opsymbol == "==":
-      opsymbol = "="
-    return ndb.query.FilterNode(name, opsymbol, value)
+    return ndb.query.FilterNode(name, convert_opsymbol(opsymbol), convert_value(value))
   if re_split.match(filter_str):
     return construct_filter("AND({})".format(filter_str))
   raise AppError("Filter format is unsupported: {}".format(filter_str))
@@ -236,7 +242,30 @@ def construct_order(cls, o):
     p = ndb.GenericProperty(o)
   return -p if neg else p
 
-def construct_query(cls, filters, orders):
+def construct_filter_json(f):
+  t = type(f)
+  if t == list:
+    if f[0] == "AND":
+      filters = [construct_filter_json(f) for f in f[1:]]
+      return ndb.query.AND(*filters)
+    elif f[0] == "OR":
+      filters = [construct_filter_json(f) for f in f[1:]]
+      return ndb.query.OR(*filters)
+    else:
+      name, opsymbol, value = f
+      return ndb.query.FilterNode(name, convert_opsymbol(opsymbol), convert_value(value))
+  else:
+    return f
+
+def construct_query_from_json(cls, filters, orders):
+  q = cls.query()
+  if filters:
+    q = q.filter(construct_filter_json(filters))
+  if orders:
+    q = q.order(*[construct_order(cls,o) for o in orders])
+  return q
+
+def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
   # TODO(doug) correctly auto append orders when necessary like on a multiselect
@@ -258,13 +287,22 @@ class RestfulHandler(webapp2.RequestHandler):
         raise AppError("There does not exists a %s with id %s" % (model, id))
       return m.to_dict()
     else:
-      page_size = int(self.request.get("page_size", default_value=100))
-      cursor = self.request.get("cursor")
+      params = self.request.get("params")
+      if params:
+        params = json.loads(params)
+        page_size = params.get("page_size", 100)
+        cursor = params.get("cursor")
+        filters = params.get("filter")
+        orders = params.get("order")
+        q = construct_query_from_json(cls, filters, orders)
+      else:
+        page_size = int(self.request.get("page_size", default_value=100))
+        cursor = self.request.get("cursor")
+        projection = self.request.get("projection")
+        filters = self.request.get_all("filter")
+        orders = self.request.get_all("order")
+        q = construct_query_from_url_args(cls, filters, orders)
       cursor = Cursor.from_websafe_string(cursor) if cursor else None
-      projection = self.request.get("projection")
-      filters = self.request.get_all("filter")
-      orders = self.request.get_all("order")
-      q = construct_query(cls, filters, orders)
 
       results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor)
       self.response.headers["More"] = "true" if more else "false"
