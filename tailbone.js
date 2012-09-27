@@ -17,10 +17,30 @@ function post(url, data, callback) {
     r.setRequestHeader("Content-Type","application/json");
     r.send(data);
   } else {
-    throw Error("Browser does not support post. Try adding modernizer to polyfill.");
+    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
   }
 }
 
+function get(url, data, callback) {
+  var r = new XMLHttpRequest();
+  if (r) {
+    r.onreadystatechange = function() {
+      if (r.readyState == 4) {
+        callback(JSON.parse(r.responseText));
+      }
+    };
+    r.open("GET", url, true);
+    r.setRequestHeader("Content-Type","application/json");
+    r.send();
+  } else {
+    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
+  }
+}
+
+
+/////////////////////////
+// Events via Channel API
+/////////////////////////
 
 var CONNECTED = false;
 var CONNECTING = false;
@@ -29,11 +49,12 @@ var BACKOFF = 1;
 var event_map = {};
 var queue = [];
 var socket;
+var client_id = parseInt(Date.now() / Math.random());
 
 function onOpen() {
   CONNECTED = true;
   BACKOFF = 1;
-  for(i=0,l=queue.length;i<l;i++) {
+  for(var i=0,l=queue.length;i<l;i++) {
     queue[i].call(this);
   }
   queue = [];
@@ -60,7 +81,7 @@ function onClose() {
 
 function onError() {
   // TODO: try reconnecting with backoff or alert system of lack of channel capability
-  //    throw new Error("ERROR", arguments)
+  throw new Error("Channel not connectable.");
 }
 
 function onMessage(msg) {
@@ -72,7 +93,7 @@ function onMessage(msg) {
   }
   var fns = event_map[data.name];
   if (fns && fns.length > 0) {
-    for(i=0,l=fns.length;i<l;i++) {
+    for(var i=0,l=fns.length;i<l;i++) {
       fns[i].call(this, data.payload);
     }
   }
@@ -81,8 +102,9 @@ function onMessage(msg) {
 function connect(callback) {
   if (callback) queue.push(callback);
   if (!CONNECTING) {
-    post("/_bidi", JSON.stringify({"method": "token"}), function(token) {
-      var channel = new goog.appengine.Channel(token);
+    post("/api/events/",
+        JSON.stringify({"method": "token", "client_id": client_id}), function(resp) {
+      var channel = new goog.appengine.Channel(resp.token);
       socket = channel.open();
       socket.onopen = onOpen;
       socket.onmessage = onMessage;
@@ -104,24 +126,21 @@ function if_connected(fn, arg1, arg2) {
 }
 
 function errorHandler(msg) {
-  if (msg) {
-    msg = JSON.parse(msg);
-    if (msg && msg.error && console && console.log) {
-      console.log(msg.error);
-    }
+  if (msg && msg.error) {
+    throw new Error(msg.error);
   }
 }
 
 function trigger(name, payload) {
-  post("/gaeplus/events",
-      JSON.stringify({"method": "trigger", "name": name, "payload": payload}),
+  post("/api/events/",
+      JSON.stringify({"method": "trigger", "client_id": client_id, "name": name, "payload": payload}),
       errorHandler);
 }
 
 function bind(name, fn) {
   event_map[name] = event_map[name] || [];
   event_map[name].push(fn);
-  post("/gaeplus/events", JSON.stringify({"method": "bind", "name": name}), errorHandler);
+  post("/api/events/", JSON.stringify({"method": "bind", "client_id": client_id, "name": name}), errorHandler);
 }
 
 function unbind(name, fn) {
@@ -135,8 +154,13 @@ function unbind(name, fn) {
   } else {
     event_map = {};
   }
-  post("/gaeplus/events", JSON.stringify({"method": "unbind", "name": name}), errorHandler);
+  post("/api/events/", JSON.stringify({"method": "unbind", "client_id": client_id, "name": name}), errorHandler);
 }
+
+
+/////////////////////////
+// Quering and Filtering
+/////////////////////////
 
 function FILTER(name, opsymbol, value) {
   return [name, opsymbol, value];
@@ -162,86 +186,91 @@ function OR() {
   return f;
 }
 
-var QueryIterator = function(query) {
-  this.query = query;
-  this.offset = 0;
-};
-
-QueryIterator.prototype.next = function() {
-  return
+function save(type, model) {
 }
 
-/**
- * Query is an iterable collection of a Model
- */
-var Query = function() {
-  this.filter = [];
-  this.order = [];
-  this.page_size = 100;
-  this._more = false;
-  this._dirty = false;
-};
-
-/**
- * _type is the resource type this query is bound to.
- */
-Query.prototype._type = undefined;
-
-/**
- * onChange callback function
- */
-Query.prototype.onChange = undefined;
-
-Query.prototype.__iterator__ = function() {
-  return new QueryIterator(this);
-};
-
-Query.prototype.next_page = function() {
-};
-
-Query.prototype.next = function() {
-};
-
-Query.prototype.prev_page = function() {
-};
-
-Query.prototype.has_more = function() {
-  return this._more;
-};
-
-Query.prototype.filter = function() {
-  switch arguments.length {
-    case 1:
-      this.filter = this.filter.concat(arguments[0])
-      break;
-    case 3:
-      this.filter = this.filter.concat(FILTER.call(arguments))
-      break;
-    default:
-      throw Error("Undefined FILTER format."");
-    }
-};
-
-Query.prototype.order = function(name) {
-  this.order.push(ORDER(name))
-};
-
-function save(model) {
-}
-
-function del(model) {
+function del(type, model) {
 }
 
 
 var ModelFactory = function(type, opt_schema) {
+  ignored_prefixes = ["_","$"];
+
+  /**
+  * Query is an iterable collection of a Model
+  */
+  var Query = function() {
+    this.filter = [];
+    this.order = [];
+    this._page_size = 100;
+    this._more = false;
+    this._dirty = false;
+  };
+
+  Query.prototype = new Array();
+
+  /**
+  * onChange callback function
+  */
+  Query.prototype.onchange = undefined;
+
+  Query.prototype.next = function() {
+    return true;
+  };
+
+  Query.prototype.previous = function() {
+    return true;
+  };
+
+  Query.prototype.__defineGetter__("more", function(){ return this._more; });
+
+  Query.prototype.__defineGetter__("page_size", function(){ return this._page_size; });
+  Query.prototype.__defineSetter__("page_size",
+      function(page_size){
+        this._page_size = page_size;
+        this._dirty = true;
+      });
+
+  Query.prototype.filter = function() {
+    switch (arguments.length) {
+      case 1:
+        this.filter = this.filter.concat(arguments[0])
+        break;
+      case 3:
+        this.filter = this.filter.concat(FILTER.call(arguments))
+        break;
+      default:
+        throw Error("Undefined FILTER format.");
+    }
+  };
+
+  Query.prototype.order = function(name) {
+    this.order.push(ORDER(name))
+  };
+
+
   var Model = function() {
+  };
+
+  /*
+   * Get a model by its id.
+   */
+  Model.get = function(id, opt_callback) {
+    var m = new Model();
+    // xhr update model m
+    return m;
   };
 
   /*
    * query generates a iterator for a query object.
    */
-  Model.query = function() {
-
+  Model.query = function(opt_callback) {
+    var query = new Query();
+    // xhr query for collection
+    // tailbone.bind("type", function() {
+    //   updatecollection;
+    // });
+    return query;
   };
 
   /*
@@ -251,13 +280,16 @@ var ModelFactory = function(type, opt_schema) {
   * $name
   * are not included in the jsonifying of an object
   */
-  Model.prototype.$save = function() {
-    save(this);
+  Model.prototype.$save = function(opt_callback) {
+    // tailbone.trigger("type");
+    save(type, this);
   };
 
-  Model.prototype.$delete = function() {
-    del(this)
+  Model.prototype.$delete = function(opt_callback) {
+    // tailbone.trigger("type");
+    del(type, this)
   };
+
   return Model;
 };
 
@@ -271,7 +303,10 @@ return {
   FILTER: FILTER,
   ORDER: ORDER,
   AND: AND,
-  OR: OR
+  OR: OR,
+  trigger: function(name, payload) { if_connected(trigger, name, payload); },
+  bind: function(name, fn) { if_connected(bind, name, fn); },
+  unbind: function(name, fn) { if_connected(unbind, name, fn); }
 }
 
 })(this, this.document);

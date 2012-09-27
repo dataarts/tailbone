@@ -9,6 +9,7 @@ import functools
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -16,7 +17,10 @@ import webapp2
 import yaml
 
 from google.appengine import api
+from google.appengine.api import channel
 from google.appengine.ext import ndb
+from google.appengine.ext import deferred
+
 
 """
 Intention:
@@ -165,8 +169,9 @@ def parse_body(self):
     # TODO: must do further processing this into an dict
     # TODO: must upload any FieldStorage objects to blobstore
     data = self.request.params
-  data = data or {}
-  Id = data.get("Id")
+  return data or {}
+
+def clean_data(data):
   # strips any disallowed names {id, _*, etc}
   disallowed = ["Id", "id", "key"]
   exceptions = ["Id"]
@@ -175,7 +180,8 @@ def parse_body(self):
       if key not in exceptions:
         logging.warn("Disallowed key {%s} passed in object creation." % key)
       del data[key]
-  return Id, data
+  return data
+
 
 def parse_id(id, data_id=None):
   try:
@@ -268,8 +274,9 @@ class RestfulHandler(webapp2.RequestHandler):
       return [m.to_dict() for m in results]
   def set_or_create(self, model, id):
     cls = type(model.lower(), (ScopedExpando,), {})
-    data_id, data = parse_body(self)
-    id = parse_id(id, data_id)
+    data = parse_body(self)
+    id = parse_id(id, data.get("Id"))
+    clean_data(data)
     m = reflective_create(cls, data)
     if id:
       m.key = ndb.Key(model, id)
@@ -359,44 +366,143 @@ class AdminHandler(webapp2.RequestHandler):
       raise LoginError("You must be an admin.")
 
 
-class BiDiHandler(webapp2.RequestHandler):
-  """
-  Return the access token for the channel api.
-  """
-  def get(self):
-    pass
+#-----------------
+# START Event code
+#-----------------
+class events(ndb.Model):
+  NUM_SHARDS = 20
+  name = ndb.StringProperty()
+  shard_id = ndb.IntegerProperty()
+  listeners = ndb.IntegerProperty(repeated=True)
+
+
+def bind(user_key, name):
+  event = events.query(events.listeners == user_key, events.name == name).get()
+  if not event:
+    def txn():
+      shard_id = random.randint(0, events.NUM_SHARDS - 1)
+      event_key = ndb.Key(events, "{}_{}".format(name, shard_id))
+      event = event_key.get()
+      if not event:
+        event = events(name=name, shard_id=shard_id, key=event_key)
+      event.listeners.append(user_key)
+      event.put()
+      return event
+    event = ndb.transaction(txn)
+  return event
+
+def unbind(user_key, name=None):
+  eventlist = events.query(events.listeners == user_key)
+  if name:
+    eventlist = eventlist.filter(events.name == name)
+  modified = []
+  for event in eventlist:
+    def txn():
+      event.listeners = [l for l in event.listeners if l != user_key]
+      if event.listeners:
+        event.put()
+      else:
+        event.key.delete()
+    ndb.transaction(txn)
+    modified.append(event.to_dict())
+  return modified
+
+def trigger(name, payload):
+  msg = json.dumps({ "name": name,
+                     "payload": payload })
+  sent_to = set()
+  for e in events.query(events.name == name):
+    for l in e.listeners:
+      if l not in sent_to:
+        sent_to.add(l)
+        deferred.defer(channel.send_message, str(l), msg)
+  return sent_to
+
+
+class ConnectedHandler(webapp2.RequestHandler):
+  @as_json
   def post(self):
-    pass
+    client_id = self.request.get('from')
+    try:
+      client_id = int(client_id)
+    except:
+      pass
+    logging.info("Connecting client id {}".format(client_id))
+
+
+class DisconnectedHandler(webapp2.RequestHandler):
+  @as_json
+  def post(self):
+    client_id = self.request.get('from')
+    try:
+      client_id = int(client_id)
+    except:
+      pass
+    logging.info("Disconnecting client id {}".format(client_id))
+    unbind(client_id)
+
+
+class RebootHandler(webapp2.RequestHandler):
+  @as_json
+  def get(self):
+    # remove all event bindings and
+    # force all current listeners to close and reconnect.
+    logging.info("REBOOT")
+    send_to = set()
+    to_delete = set()
+    msg = json.dumps({ "reboot": True })
+    for e in events.query():
+      for l in e.listeners:
+        if l not in send_to:
+          sent_to.add(l)
+      to_delete.add(e.key)
+    def delete():
+      ndb.delete_multi(to_delete)
+    ndb.transaction(delete)
+    for l in send_to:
+      deferred.defer(channel.send_message, str(l), msg)
+
+
+class EventsHandler(webapp2.RequestHandler):
+  @as_json
+  def post(self):
+    data = parse_body(self)
+    method = data.get("method")
+    client_id = data.get("client_id")
+    if method == "token":
+      return {"token": channel.create_channel(str(client_id))}
+    elif method == "bind":
+      bind(client_id, data.get("name"))
+    elif method == "unbind":
+      unbind(client_id, data.get("name"))
+    elif method == "trigger":
+      trigger(data.get("name"), data.get("payload"))
+
+# ---------------
+# END Event Code
+# ---------------
+
 
 APP_YAML = yaml.load(open("app.yaml"))
 # prefix is taken from parsing the app.yaml
-RESTFUL_PREFIX = "/api/"
-BIDI_ROUTE = "/_bidi"
-for h in APP_YAML.get("handlers"):
-  script = h.get("script")
-  if script == "tailbone.app":
-    RESTFUL_PREFIX = h.get("url").replace(".*","")
-  elif script == "tailbone.bidi":
-    BIDI_ROUTE = h.get("url")
-
+PREFIX = "/api/"
 
 # VERSION is used to set the namespace
 VERSION = APP_YAML.get("version")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
-
-restful = webapp2.WSGIApplication([
-  (r"{}login".format(RESTFUL_PREFIX), LoginHandler),
-  (r"{}logout" .format(RESTFUL_PREFIX), LogoutHandler),
-  (r"{}admin/(.+)".format(RESTFUL_PREFIX), AdminHandler),
-  (r"{}users/(.*)".format(RESTFUL_PREFIX), UsersHandler),
-  (r"{}access/([^/]+)/?(.*)".format(RESTFUL_PREFIX), AccessHandler),
-  (r"{}([^/]+)/?(.*)".format(RESTFUL_PREFIX), RestfulHandler),
+app = webapp2.WSGIApplication([
+  ("/_ah/channel/connected/", ConnectedHandler),
+  ("/_ah/channel/disconnected/", DisconnectedHandler),
+  (r"{}login".format(PREFIX), LoginHandler),
+  (r"{}logout" .format(PREFIX), LogoutHandler),
+  (r"{}admin/(.+)".format(PREFIX), AdminHandler),
+  (r"{}users/(.*)".format(PREFIX), UsersHandler),
+  (r"{}access/([^/]+)/?(.*)".format(PREFIX), AccessHandler),
+  (r"{}events/.*".format(PREFIX), EventsHandler),
+  (r"{}([^/]+)/(.*)".format(PREFIX), RestfulHandler),
   ], debug=DEBUG)
 
 
-bidi = webapp2.WSGIApplication([
-  (BIDI_ROUTE, BiDiHandler),
-  ], debug=DEBUG)
 
 

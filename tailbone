@@ -21,7 +21,6 @@ import appcfg
 sys.path.extend(appcfg.EXTRA_PATHS)
 
 
-
 """
 ./tailbone validator resource_name relative_path_to/validator.py
 

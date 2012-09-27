@@ -9,32 +9,6 @@ from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.ext import testbed
 
-class DataBindingTestCase(unittest.TestCase):
-  def setUp(self):
-    self.testbed = testbed.Testbed()
-    self.testbed.activate()
-    self.testbed.init_datastore_v3_stub()
-    self.testbed.init_memcache_stub()
-    self.model_url = "/api/todo/"
-
-  def tearDown(self):
-    self.testbed.deactivate()
-
-  def test_save(self):
-    #TODO
-    request = webapp2.Request.blank('/_bidi')
-    request.method = "POST"
-    request.headers["Content-Type"] = "application/json"
-    response = request.get_response(tailbone.bidi)
-
-  def test_delete(self):
-    #TODO
-    pass
-
-  def test_query(self):
-    #TODO
-    pass
-
 class RestfulTestCase(unittest.TestCase):
 
   def setUp(self):
@@ -52,7 +26,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "POST"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     self.assertEqual(response.headers["Content-Type"], "application/json")
     response_data = json.loads(response.body)
     return response, response_data
@@ -73,7 +47,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
 
     self.assertJsonResponseData(response, data)
 
@@ -84,7 +58,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
@@ -98,7 +72,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text>=1".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 3)
 
@@ -111,7 +85,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text==true".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -127,7 +101,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text.sub==true".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -138,7 +112,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=OR(text==0, text==2)&order=text&order=key".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 2)
 
@@ -149,7 +123,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=text".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":0, "Id": 1})
     self.assertEqual(len(items), num_items)
@@ -161,7 +135,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=-text".format(self.model_url))
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":2, "Id": 3})
     self.assertEqual(len(items), num_items)
@@ -170,6 +144,11 @@ class RestfulTestCase(unittest.TestCase):
     data = {"text": "example"}
     response, response_data = self.create(self.model_url, data)
     data["Id"] = 1
+    self.assertEqual(json.dumps(data), json.dumps(response_data))
+
+  def test_create_with_post_and_id(self):
+    data = {"text": "example", "Id": 1}
+    response, response_data = self.create(self.model_url, data)
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
   def test_update_with_put(self):
@@ -181,7 +160,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
 
     self.assertEqual(json.loads(response.body).get("Id"), 1)
 
@@ -196,12 +175,12 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "DELETE"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     response_data = json.loads(response.body)
     self.assertEqual(json.dumps(response_data), json.dumps({}))
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 0)
 
@@ -220,7 +199,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.restful)
+    response = request.get_response(tailbone.app)
     items = json.loads(response.body)
 
   def test_datetime(self):
