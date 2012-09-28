@@ -21,7 +21,7 @@ function POST(url, data, callback) {
   }
 }
 
-function GET(url, data, callback) {
+function GET(url, callback) {
   if (XMLHttpRequest) {
     r = new XMLHttpRequest();
     r.onreadystatechange = function() {
@@ -278,14 +278,20 @@ var ModelFactory = function(type, opt_schema) {
 
   Query.prototype.fetch = function(opt_callback) {
     var _this = this;
-    function callback() {
+    function callback(data) {
       var fn = opt_callback || _this.onchange;
       if (fn) {
         fn(_this);
       }
     }
-    GET("/api/"+type, {"params":JSON.stringify(this.to_json())}, callback);
+    GET("/api/"+type+"?params="+JSON.stringify(this.to_json()), callback);
   };
+
+  function update(model, data) {
+    for(var k in data) {
+      model[k] = data[k]
+    }
+  }
 
   var Model = function() {
   };
@@ -296,7 +302,14 @@ var ModelFactory = function(type, opt_schema) {
   Model.get = function(id, opt_callback) {
     var m = new Model();
     m.Id = id;
-    // xhr update model m
+    function callback(data) {
+      update(m, data);
+      var fn = opt_callback || m.onchange;
+      if (fn) {
+        fn(m);
+      }
+    }
+    GET("/api/"+type+"/"+id, callback);
     return m;
   };
 

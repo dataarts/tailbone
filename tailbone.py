@@ -520,6 +520,17 @@ class EventsHandler(webapp2.RequestHandler):
 # END Event Code
 # ---------------
 
+class JsTestHandler(webapp2.RequestHandler):
+  def get(self):
+    self.response.out.write("""
+<html><head>
+<script src="/_ah/channel/jsapi"></script>
+<script src="/tailbone.js"></script>
+<script>
+window.stuff = "thingy";
+</script>
+</head><body></body><html>""")
+
 
 APP_YAML = yaml.load(open("app.yaml"))
 # prefix is taken from parsing the app.yaml
@@ -532,6 +543,7 @@ DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 app = webapp2.WSGIApplication([
   ("/_ah/channel/connected/", ConnectedHandler),
   ("/_ah/channel/disconnected/", DisconnectedHandler),
+  ("{}test.html", JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
