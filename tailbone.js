@@ -13,11 +13,12 @@ function POST(url, data, callback) {
         callback(JSON.parse(r.responseText));
       }
     };
-    r.open("POST", url, true);
-    r.setRequestHeader("Content-Type","application/json");
+    r.open('POST', url, true);
+    r.setRequestHeader('Content-Type', 'application/json');
     r.send(data);
   } else {
-    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
+    throw Error('Browser does not support XMLHttpRequest. ' +
+        'Try adding modernizer to polyfill.');
   }
 }
 
@@ -30,11 +31,12 @@ function GET(url, callback) {
       }
     };
 
-    r.open("GET", url, true);
-    r.setRequestHeader("Content-Type","application/json");
+    r.open('GET', url, true);
+    r.setRequestHeader('Content-Type', 'application/json');
     r.send();
   } else {
-    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
+    throw Error('Browser does not support XMLHttpRequest. ' +
+        'Try adding modernizer to polyfill.');
   }
 }
 
@@ -46,11 +48,12 @@ function DELETE(url, callback) {
         callback(JSON.parse(r.responseText));
       }
     };
-    r.open("DELETE", url, true);
-    r.setRequestHeader("Content-Type","application/json");
+    r.open('DELETE', url, true);
+    r.setRequestHeader('Content-Type', 'application/json');
     r.send();
   } else {
-    throw Error("Browser does not support XMLHttpRequest. Try adding modernizer to polyfill.");
+    throw Error('Browser does not support XMLHttpRequest. ' +
+        'Try adding modernizer to polyfill.');
   }
 }
 
@@ -71,7 +74,7 @@ var client_id = parseInt(Date.now() / Math.random());
 function onOpen() {
   CONNECTED = true;
   BACKOFF = 1;
-  for(var i=0,l=queue.length;i<l;i++) {
+  for (var i = 0, l = queue.length; i < l; i++) {
     queue[i].call(this);
   }
   queue = [];
@@ -85,7 +88,7 @@ function rebind() {
     }
   }
   event_map = {};
-  for (var i=0,l=event_bindings.length; i<l; i++) {
+  for (var i = 0, l = event_bindings.length; i < l; i++) {
     if_connected(bind, event_bindings[i][0], event_bindings[i][1]);
   }
 }
@@ -97,8 +100,8 @@ function onClose() {
 }
 
 function onError() {
-  // TODO: try reconnecting with backoff or alert system of lack of channel capability
-  throw new Error("Channel not connectable.");
+  // TODO: try reconnecting with backoff or alert system of lack of capability.
+  throw new Error('Channel not connectable.');
 }
 
 function onMessage(msg) {
@@ -110,7 +113,7 @@ function onMessage(msg) {
   }
   var fns = event_map[data.name];
   if (fns && fns.length > 0) {
-    for(var i=0,l=fns.length;i<l;i++) {
+    for (var i = 0, l = fns.length; i < l; i++) {
       fns[i].call(this, data.payload);
     }
   }
@@ -119,15 +122,17 @@ function onMessage(msg) {
 function connect(callback) {
   if (callback) queue.push(callback);
   if (!CONNECTING) {
-    post("/api/events/",
-        JSON.stringify({"method": "token", "client_id": client_id}), function(resp) {
-      var channel = new goog.appengine.Channel(resp.token);
-      socket = channel.open();
-      socket.onopen = onOpen;
-      socket.onmessage = onMessage;
-      socket.onclose = onClose;
-      socket.onerror = onError;
-    });
+    post('/api/events/',
+        JSON.stringify({'method': 'token', 'client_id': client_id}),
+        function(resp) {
+          var channel = new goog.appengine.Channel(resp.token);
+          socket = channel.open();
+          socket.onopen = onOpen;
+          socket.onmessage = onMessage;
+          socket.onclose = onClose;
+          socket.onerror = onError;
+        }
+    );
   } else {
     CONNECTING = true;
   }
@@ -138,7 +143,7 @@ function if_connected(fn, arg1, arg2) {
   if (CONNECTED) {
     fn.call(_this, arg1, arg2);
   } else {
-    connect(function(){fn.call(_this, arg1, arg2);});
+    connect(function() {fn.call(_this, arg1, arg2);});
   }
 }
 
@@ -149,17 +154,20 @@ function errorHandler(msg) {
 }
 
 function trigger(name, payload) {
-  POST("/api/events/",
-      JSON.stringify({"method": "trigger",
-                      "client_id": client_id, "name": name, "payload": payload}),
+  POST('/api/events/',
+      JSON.stringify({'method': 'trigger',
+                      'client_id': client_id,
+                      'name': name, 'payload': payload}),
       errorHandler);
 }
 
 function bind(name, fn) {
   event_map[name] = event_map[name] || [];
   event_map[name].push(fn);
-  POST("/api/events/",
-      JSON.stringify({"method": "bind", "client_id": client_id, "name": name}), errorHandler);
+  POST('/api/events/',
+      JSON.stringify({'method': 'bind',
+                      'client_id': client_id, 'name': name}),
+      errorHandler);
 }
 
 function unbind(name, fn) {
@@ -173,8 +181,10 @@ function unbind(name, fn) {
   } else {
     event_map = {};
   }
-  POST("/api/events/",
-      JSON.stringify({"method": "unbind", "client_id": client_id, "name": name}), errorHandler);
+  POST('/api/events/',
+      JSON.stringify({'method': 'unbind',
+                      'client_id': client_id, 'name': name}),
+      errorHandler);
 }
 
 
@@ -191,16 +201,16 @@ function ORDER(name) {
 }
 
 function AND() {
-  var f = ["AND"];
-  for(var i=0;i<arguments.length;i++){
+  var f = ['AND'];
+  for (var i = 0; i < arguments.length; i++) {
     f.push(arguments[i]);
   }
   return f;
 }
 
 function OR() {
-  var f = ["OR"];
-  for(var i=0;i<arguments.length;i++){
+  var f = ['OR'];
+  for (var i = 0; i < arguments.length; i++) {
     f.push(arguments[i]);
   }
   return f;
@@ -214,7 +224,7 @@ function del(type, model) {
 
 
 var ModelFactory = function(type, opt_schema) {
-  ignored_prefixes = ["_","$"];
+  ignored_prefixes = ['_', '$'];
 
   /**
   * Query is an iterable collection of a Model
@@ -242,11 +252,12 @@ var ModelFactory = function(type, opt_schema) {
     return true;
   };
 
-  Query.prototype.__defineGetter__("more", function(){ return this._more; });
+  Query.prototype.__defineGetter__('more', function() { return this._more; });
 
-  Query.prototype.__defineGetter__("page_size", function(){ return this._page_size; });
-  Query.prototype.__defineSetter__("page_size",
-      function(page_size){
+  Query.prototype.__defineGetter__('page_size',
+      function() { return this._page_size; });
+  Query.prototype.__defineSetter__('page_size',
+      function(page_size) {
         this._page_size = page_size;
         this._dirty = true;
       });
@@ -254,18 +265,18 @@ var ModelFactory = function(type, opt_schema) {
   Query.prototype.filter = function() {
     switch (arguments.length) {
       case 1:
-        this.filter = this.filter.concat(arguments[0])
+        this.filter = this.filter.concat(arguments[0]);
         break;
       case 3:
-        this.filter = this.filter.concat(FILTER.call(arguments))
+        this.filter = this.filter.concat(FILTER.call(arguments));
         break;
       default:
-        throw Error("Undefined FILTER format.");
+        throw Error('Undefined FILTER format.');
     }
   };
 
   Query.prototype.order = function(name) {
-    this.order.push(ORDER(name))
+    this.order.push(ORDER(name));
   };
 
   Query.prototype.to_json = function() {
@@ -273,7 +284,7 @@ var ModelFactory = function(type, opt_schema) {
       filter: this.filter,
       order: this.order,
       page_size: this._page_size
-    }
+    };
   };
 
   Query.prototype.fetch = function(opt_callback) {
@@ -284,12 +295,12 @@ var ModelFactory = function(type, opt_schema) {
         fn(_this);
       }
     }
-    GET("/api/"+type+"?params="+JSON.stringify(this.to_json()), callback);
+    GET('/api/' + type + '?params=' + JSON.stringify(this.to_json()), callback);
   };
 
   function update(model, data) {
-    for(var k in data) {
-      model[k] = data[k]
+    for (var k in data) {
+      model[k] = data[k];
     }
   }
 
@@ -309,7 +320,7 @@ var ModelFactory = function(type, opt_schema) {
         fn(m);
       }
     }
-    GET("/api/"+type+"/"+id, callback);
+    GET('/api/' + type + '/' + id, callback);
     return m;
   };
 
@@ -344,7 +355,7 @@ var ModelFactory = function(type, opt_schema) {
   };
 
   Model.prototype.$delete = function(opt_callback) {
-    del(type, this)
+    del(type, this);
     tailbone.trigger(type);
   };
 
@@ -365,6 +376,6 @@ return {
   trigger: function(name, payload) { if_connected(trigger, name, payload); },
   bind: function(name, fn) { if_connected(bind, name, fn); },
   unbind: function(name, fn) { if_connected(unbind, name, fn); }
-}
+};
 
 })(this, this.document);

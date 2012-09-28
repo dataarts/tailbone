@@ -543,7 +543,7 @@ DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 app = webapp2.WSGIApplication([
   ("/_ah/channel/connected/", ConnectedHandler),
   ("/_ah/channel/disconnected/", DisconnectedHandler),
-  ("{}test.html", JsTestHandler),
+  (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
