@@ -522,14 +522,27 @@ class EventsHandler(webapp2.RequestHandler):
 
 class JsTestHandler(webapp2.RequestHandler):
   def get(self):
+    if not DEBUG:
+      self.error(404)
+      return
     self.response.out.write("""
-<html><head>
-<script src="/_ah/channel/jsapi"></script>
-<script src="/tailbone.js"></script>
-<script>
-window.stuff = "thingy";
-</script>
-</head><body></body><html>""")
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="http://code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
+  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script>
+    {}
+  </script>
+  </body>
+</html>
+""".format(open("test_tailbone.js").read()))
 
 
 APP_YAML = yaml.load(open("app.yaml"))
@@ -541,8 +554,6 @@ VERSION = APP_YAML.get("version")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
 app = webapp2.WSGIApplication([
-  ("/_ah/channel/connected/", ConnectedHandler),
-  ("/_ah/channel/disconnected/", DisconnectedHandler),
   (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
@@ -553,6 +564,9 @@ app = webapp2.WSGIApplication([
   (r"{}([^/]+)/(.*)".format(PREFIX), RestfulHandler),
   ], debug=DEBUG)
 
-
+connected = webapp2.WSGIApplication([
+  ("/_ah/channel/connected/", ConnectedHandler),
+  ("/_ah/channel/disconnected/", DisconnectedHandler),
+  ], debug=DEBUG)
 
 

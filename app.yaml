@@ -19,7 +19,7 @@ handlers:
     upload: tailbone.js
 
   - url: /_ah/channel/(dis)?connected/
-    script: tailbone.app
+    script: tailbone.connected
 
   # this links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
