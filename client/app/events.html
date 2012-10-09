@@ -26,9 +26,11 @@
 
 
         <script>
-          tailbone.bind('test', function() {
-            console.log("test event", arguments);
-          });
+          var Todo = new tailbone.Model("todos");
+          var query = Todo.query();
+          query.onchange = function() {
+            console.log("todos updated", arguments);
+          };
         </script>
     </body>
 </html>

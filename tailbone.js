@@ -1,62 +1,51 @@
 'use strict';
+
 /*
  * Bi-Directional data binding with AppEngine and the channel api
  */
 
 window.tailbone = (function(window, document, undefined) {
 
-function POST(url, data, callback) {
-  if (XMLHttpRequest) {
-    r = new XMLHttpRequest();
-    r.onreadystatechange = function() {
-      if (r.readyState == 4) {
-        callback(JSON.parse(r.responseText));
-      }
-    };
-    r.open('POST', url, true);
-    r.setRequestHeader('Content-Type', 'application/json');
-    r.send(data);
-  } else {
-    throw Error('Browser does not support XMLHttpRequest. ' +
-        'Try adding modernizer to polyfill.');
-  }
+// Do checks for minimum requirements
+if (!XMLHttpRequest || !JSON) {
+  throw Error('Browser does not support the minimum requirements of ' +
+        'XMLHttpRequest, JSON' +
+        '. Try adding modernizer to polyfill.');
 }
 
-function GET(url, callback) {
-  if (XMLHttpRequest) {
-    r = new XMLHttpRequest();
-    r.onreadystatechange = function() {
-      if (r.readyState == 4) {
-        callback(JSON.parse(r.responseText));
+function http(method, url, data, success) {
+  var r = new XMLHttpRequest();
+  r.open(method, url, true);
+  r.onreadystatechange = function() {
+    if (r.readyState == 4) {
+      var resp = JSON.parse(r.responseText);
+      if (resp && resp.error) {
+        throw new Error(resp.error);
+        return;
       }
-    };
-
-    r.open('GET', url, true);
-    r.setRequestHeader('Content-Type', 'application/json');
-    r.send();
-  } else {
-    throw Error('Browser does not support XMLHttpRequest. ' +
-        'Try adding modernizer to polyfill.');
+      if (success) {
+        success(resp);
+      }
+    }
+  };
+  r.setRequestHeader('Content-Type', 'application/json');
+  if (data) {
+    switch (toString.call(data)) {
+      case '[object Object]':
+        data = JSON.stringify(data);
+        break;
+      // case '[object String]':
+      //   break;
+      // case '[object FormData]':
+      //   break;
+    }
   }
+  r.send(data);
 }
 
-function DELETE(url, callback) {
-  if (XMLHttpRequest) {
-    r = new XMLHttpRequest();
-    r.onreadystatechange = function() {
-      if (r.readyState == 4) {
-        callback(JSON.parse(r.responseText));
-      }
-    };
-    r.open('DELETE', url, true);
-    r.setRequestHeader('Content-Type', 'application/json');
-    r.send();
-  } else {
-    throw Error('Browser does not support XMLHttpRequest. ' +
-        'Try adding modernizer to polyfill.');
-  }
-}
-
+http.GET = function(url, success) { http('GET', url, null, success); };
+http.POST = function(url, data, success) { http('POST', url, data, success); };
+http.DELETE = function(url, success) { http('DELETE', url, null, success); };
 
 /////////////////////////
 // Events via Channel API
@@ -89,7 +78,7 @@ function rebind() {
   }
   event_map = {};
   for (var i = 0, l = event_bindings.length; i < l; i++) {
-    if_connected(bind, event_bindings[i][0], event_bindings[i][1]);
+    ifConnected(bind, event_bindings[i][0], event_bindings[i][1]);
   }
 }
 
@@ -114,7 +103,7 @@ function onMessage(msg) {
   var fns = event_map[data.name];
   if (fns && fns.length > 0) {
     for (var i = 0, l = fns.length; i < l; i++) {
-      fns[i].call(this, data.payload);
+      fns[i].call(fns[i], data.payload);
     }
   }
 }
@@ -122,7 +111,7 @@ function onMessage(msg) {
 function connect(callback) {
   if (callback) queue.push(callback);
   if (!CONNECTING) {
-    post('/api/events/',
+    http.POST('/api/events/',
         JSON.stringify({'method': 'token', 'client_id': client_id}),
         function(resp) {
           var channel = new goog.appengine.Channel(resp.token);
@@ -138,7 +127,7 @@ function connect(callback) {
   }
 }
 
-function if_connected(fn, arg1, arg2) {
+function ifConnected(fn, arg1, arg2) {
   var _this = this;
   if (CONNECTED) {
     fn.call(_this, arg1, arg2);
@@ -154,7 +143,7 @@ function errorHandler(msg) {
 }
 
 function trigger(name, payload) {
-  POST('/api/events/',
+  http.POST('/api/events/',
       JSON.stringify({'method': 'trigger',
                       'client_id': client_id,
                       'name': name, 'payload': payload}),
@@ -164,7 +153,7 @@ function trigger(name, payload) {
 function bind(name, fn) {
   event_map[name] = event_map[name] || [];
   event_map[name].push(fn);
-  POST('/api/events/',
+  http.POST('/api/events/',
       JSON.stringify({'method': 'bind',
                       'client_id': client_id, 'name': name}),
       errorHandler);
@@ -173,15 +162,19 @@ function bind(name, fn) {
 function unbind(name, fn) {
   if (name) {
     if (fn) {
-      var index = event_map[name].indexOf[fn];
-      delete event_map[name][index];
+      var index = event_map[name].indexOf(fn);
+      if (index < 0) {
+        throw new Error('No matching function exists.');
+      } else {
+        delete event_map[name][index];
+      }
     } else {
       delete event_map[name];
     }
   } else {
     event_map = {};
   }
-  POST('/api/events/',
+  http.POST('/api/events/',
       JSON.stringify({'method': 'unbind',
                       'client_id': client_id, 'name': name}),
       errorHandler);
@@ -224,7 +217,7 @@ function del(type, model) {
 
 
 var ModelFactory = function(type, opt_schema) {
-  ignored_prefixes = ['_', '$'];
+  var ignored_prefixes = ['_', '$'];
 
   /**
   * Query is an iterable collection of a Model
@@ -279,23 +272,25 @@ var ModelFactory = function(type, opt_schema) {
     this.order.push(ORDER(name));
   };
 
-  Query.prototype.to_json = function() {
-    return {
+  Query.prototype.serialize = function() {
+    return JSON.stringify({
       filter: this.filter,
       order: this.order,
       page_size: this._page_size
-    };
+    });
   };
 
   Query.prototype.fetch = function(opt_callback) {
     var _this = this;
     function callback(data) {
+      _this.length = 0;
+      _this.push.apply(_this, data);
       var fn = opt_callback || _this.onchange;
       if (fn) {
         fn(_this);
       }
     }
-    GET('/api/' + type + '?params=' + JSON.stringify(this.to_json()), callback);
+    http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
   };
 
   function update(model, data) {
@@ -320,7 +315,7 @@ var ModelFactory = function(type, opt_schema) {
         fn(m);
       }
     }
-    GET('/api/' + type + '/' + id, callback);
+    http.GET('/api/' + type + '/' + id, callback);
     return m;
   };
 
@@ -333,12 +328,17 @@ var ModelFactory = function(type, opt_schema) {
     setTimeout(function() {
       query.fetch(opt_callback);
     }, 0);
-    tailbone.bind(type, query.fetch);
+    tailbone.bind(type, function() { query.fetch() });
     return query;
   };
 
-  Model.to_json = function(model) {
+  Model.serialize = function(model) {
     var obj = {};
+    for (var member in model) {
+      if (ignored_prefixes.indexOf(member[0]) < 0) {
+        obj[member] = model[member];
+      }
+    }
     return obj;
   };
 
@@ -351,7 +351,13 @@ var ModelFactory = function(type, opt_schema) {
   */
   Model.prototype.$save = function(opt_callback) {
     save(type, this);
-    tailbone.trigger(type);
+    var _this = this;
+    http.POST('/api/' + type + '/', Model.serialize(this), function() {
+      if (opt_callback) {
+        opt_callback.call(_this, arguments);
+      }
+      tailbone.trigger(type);
+    });
   };
 
   Model.prototype.$delete = function(opt_callback) {
@@ -365,7 +371,6 @@ var ModelFactory = function(type, opt_schema) {
 
 // Add the channel js for appengine and bind the events.
 
-
 // Exports
 return {
   Model: ModelFactory,
@@ -373,9 +378,10 @@ return {
   ORDER: ORDER,
   AND: AND,
   OR: OR,
-  trigger: function(name, payload) { if_connected(trigger, name, payload); },
-  bind: function(name, fn) { if_connected(bind, name, fn); },
-  unbind: function(name, fn) { if_connected(unbind, name, fn); }
+  trigger: function(name, payload) { ifConnected(trigger, name, payload); },
+  bind: function(name, fn) { ifConnected(bind, name, fn); },
+  unbind: function(name, fn) { ifConnected(unbind, name, fn); },
+  http: http
 };
 
 })(this, this.document);

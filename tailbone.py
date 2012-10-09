@@ -558,10 +558,10 @@ app = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
-  (r"{}users/(.*)".format(PREFIX), UsersHandler),
+  (r"{}users/?(.*)".format(PREFIX), UsersHandler),
   (r"{}access/([^/]+)/?(.*)".format(PREFIX), AccessHandler),
   (r"{}events/.*".format(PREFIX), EventsHandler),
-  (r"{}([^/]+)/(.*)".format(PREFIX), RestfulHandler),
+  (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
   ], debug=DEBUG)
 
 connected = webapp2.WSGIApplication([
