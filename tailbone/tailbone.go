@@ -3,9 +3,7 @@ package tailbone
 import (
 	"appengine"
 	"appengine/user"
-	"log"
-	"runtime"
-	// "appengine/datastore"
+	"appengine/datastore"
 	// "appengine/blobstore"
 	"fmt"
 	"encoding/json"
@@ -19,27 +17,70 @@ type requestHandler func(c appengine.Context, r *http.Request) (interface{}, err
 
 type dict map[string]interface{}
 
-func parseRestfulPath(str string) (model, id string, err error) {
+func parseRestfulPath(str string) (kind, id string, err error) {
 	s := strings.Split(str, "/")
 	l := len(s)
+	kind = strings.ToLower(s[2])
 	switch l {
 	case 3:
-		return s[2], "", nil
+		id = ""
 	case 4:
-		return s[2], s[3], nil
+		id = s[3]
+	default:
+		err = errors.New(fmt.Sprintf("Unparsable url: %s", str))
 	}
-	return "", "", errors.New(fmt.Sprintf("Unparsable url: %s", str))
+	return
+}
+
+func parseBody(r *http.Request) (interface{}, error) {
+	contentType := strings.Split(r.Header.Get("Content-Type"),";")[0]
+	switch	contentType {
+	case "application/json":
+		var data dict
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&data)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	case "application/x-www-form-urlencoded":
+		return nil, errors.New("Unsupported Content-Type")
+	}
+	return nil, errors.New("Unsupported Content-Type")
 }
 
 func Restful(c appengine.Context, r *http.Request) (interface{}, error) {
-	model, id, err := parseRestfulPath(r.URL.Path)
+	kind, id, err := parseRestfulPath(r.URL.Path)
 	if (err != nil) { return nil, err }
-	c.Infof("Model: %s, ID: %s", model, id)
 	switch r.Method {
 	case "GET":
-		return dict{"method": "get"}, nil
+		if id == "" {
+			items := []dict{}
+			q := datastore.NewQuery(kind)
+			for t := q.Run(c); ; {
+				var x dict
+				key, err := t.Next(&x)
+				c.Infof("Key %s", key)
+				if err == datastore.Done {
+					break
+				}
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, x)
+			}
+			return items, nil
+		} else {
+			return dict{"method": "get"}, nil
+		}
 	case "POST":
-		return dict{"method": "post"}, nil
+		data, err := parseBody(r)
+		key := datastore.NewIncompleteKey(c, kind, nil)
+		datastore.Put(c, key, data)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
 	case "PUT":
 		return dict{"method": "put"}, nil
 	case "DELETE":
@@ -54,8 +95,8 @@ func Json(h requestHandler) httpHandler {
 		resp, err := h(c, r)
 		if err != nil {
 			// switch err {
-			//   case ErrLoginRequired:
-			//    resp = m{"error": err}
+			//	 case ErrLoginRequired:
+			//		resp = m{"error": err}
 			// }
 			resp = dict{"error": err.Error()}
 		}
@@ -77,12 +118,6 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	url, _ := user.LogoutURL(c, "/")
 	http.Redirect(w, r, url, http.StatusFound)
-}
-
-// Here logs the caller file and line number where it was called from.
-func here() {
-	_, file, line, _ := runtime.Caller(1)
-	log.Printf("%s:%d", file, line)
 }
 
 func init() {
