@@ -360,7 +360,17 @@ class UsersHandler(webapp2.RequestHandler):
   """
   @as_json
   def get(self, id):
-    pass
+    logging.info("attempting to get %s" % str(id))
+    if id == "me":
+      id = current_user(required=True)
+      m = users.get_by_id(id)
+      if not m:
+        m = users()
+        m.put()
+    else:
+      m = users.get_by_id(id)
+    logging.info(m)
+    return m.to_dict()
   @as_json
   def put(self, id):
     u = current_user(required=True)
@@ -368,10 +378,15 @@ class UsersHandler(webapp2.RequestHandler):
       raise AppError("Id must be the current user_id or me.")
     m = users.get_by_id(u)
     update_model(m, self)
-    return m
+    return m.to_dict()
   def delete(self, id):
     """Delete the user"s account and all their associated data."""
-    pass
+    u = current_user(required=True)
+    if id != "me" and id != u:
+      raise AppError("Id must be the current user_id or me.")
+    k = ndb.Key('users', u)
+    k.delete()
+    return {}
 
 class AccessHandler(webapp2.RequestHandler):
   """
