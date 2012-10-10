@@ -1,8 +1,7 @@
-application: m-e-d-i-a
+application: application-name
 version: master
-runtime: python27
-api_version: 1
-threadsafe: true
+runtime: go
+api_version: go1
 
 handlers:
   # add your own custom apps and handlers if you want to extend this
@@ -10,16 +9,13 @@ handlers:
   #   script: custom.app
 
   # This is the main tailbone restful app handler
-  - url: /api/.*
-    script: tailbone.app
+  - url: (/_ah/channel/(dis)?connected/|/api/.*)
+    script: _go_app
 
   # use this javascript file if you want the evented databinding abilities
   - url: /tailbone.js
     static_files: tailbone.js
     upload: tailbone.js
-
-  - url: /_ah/channel/(dis)?connected/
-    script: tailbone.connected
 
   # this links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
