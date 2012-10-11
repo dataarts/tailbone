@@ -307,7 +307,12 @@ class RestfulHandler(webapp2.RequestHandler):
   @as_json
   def get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
-    cls = type(model.lower(), (ScopedExpando,), {}) if model != "users" else users
+    if model == "users":
+      if id == "me":
+        id = current_user(required=True)
+      cls = users
+    else:
+      cls = type(model.lower(), (ScopedExpando,), {})
     if id:
       id = parse_id(id)
       m = cls.get_by_id(id)

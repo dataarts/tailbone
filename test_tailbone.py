@@ -169,17 +169,12 @@ class RestfulTestCase(unittest.TestCase):
     self.assertEqual(items[0], {"text":2, "Id": 3})
     self.assertEqual(len(items), num_items)
 
-  def test_create_user_with_post(self):
-    self.setCurrentUser("test@gmail.com", "8", False)
+  def test_user_create_and_update(self):
+    self.setCurrentUser("test@gmail.com", "8", True)
     data = {"text": "example"}
     response, response_data = self.create(self.user_url, data)
     data["Id"] = 8
     self.assertEqual(json.dumps(data), json.dumps(response_data))
-
-  def test_update_user_with_put(self):
-    self.setCurrentUser("test@gmail.com", "8", True)
-    data = {"text": "example"}
-    response, response_data = self.create(self.user_url, data)
 
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
     data = {"text": "new text"}
@@ -200,6 +195,12 @@ class RestfulTestCase(unittest.TestCase):
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
     data["Id"] = 8
+    self.assertJsonResponseData(response, data)
+    request = webapp2.Request.blank(self.user_url+"me")
+    request.method = "GET"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(tailbone.app)
     self.assertJsonResponseData(response, data)
 
   def test_user_illegal(self):
