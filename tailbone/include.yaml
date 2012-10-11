@@ -1,0 +1,13 @@
+handlers:
+  # This is the main tailbone restful app handler
+  - url: /api/.*
+    script: tailbone.app
+
+  # use this javascript file if you want the evented databinding abilities
+  - url: /tailbone.js
+    static_files: tailbone.js
+    upload: tailbone.js
+
+  - url: /_ah/channel/(dis)?connected/
+    script: tailbone.connected
+

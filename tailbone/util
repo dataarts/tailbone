@@ -22,47 +22,47 @@ sys.path.extend(appcfg.EXTRA_PATHS)
 
 
 """
-./tailbone validator resource_name relative_path_to/validator.py
+./tailbone/util validator resource_name relative_path_to/validator.py
 
 # set the schema for a resource
-./tailbone schema resource_name relative_path_to/schema.json
+./tailbone/util schema resource_name relative_path_to/schema.json
 
 # get the schema for a resource
-./tailbone schema resource_name
+./tailbone/util schema resource_name
 
 # backup the data
-./tailbone backup
+./tailbone/util backup
 
 # backup the data for a resource
-./tailbone backup resource_name
+./tailbone/util backup resource_name
 
 # load backup data to the test server
-./tailbone restore backup.db
+./tailbone/util restore backup.db
 
 # clean and clear a database
-./tailbone clear_database
+./tailbone/util clear_database
 
 # clean and clear memcache
-./tailbone clear_memcache
+./tailbone/util clear_memcache
 
 # set the version name in the app.yaml
-./tailbone version version_name
+./tailbone/util version version_name
 
 # update the server
-./tailbone deploy
+./tailbone/util deploy
 
 # run the local server
-./tailbone run
+./tailbone/util run
 
 # toggle using git versioning and branch name for the app.yaml version
-./tailbone toggle_git
+./tailbone/util toggle_git
 
 # generate the documentation branch for tailbone
-./tailbone generate_docs
+./tailbone/util generate_docs
 """
 
 def test(args):
-  tests = loader.TestLoader().discover('.')
+  tests = loader.TestLoader().discover('tailbone')
   result = runner.TextTestRunner().run(tests)
   sys.exit(result.wasSuccessful())
 

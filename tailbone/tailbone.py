@@ -147,7 +147,7 @@ def as_json(func):
       self.response.headers["Access-Control-Allow-Methods"] = "POST,GET,PUT,PATCH,HEAD,OPTIONS"
       self.response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     else:
-      api.namespace_manager.set_namespace(VERSION)
+      api.namespace_manager.set_namespace(NAMESPACE)
     try:
       resp = func(self, *args, **kwargs)
     except BreakError as e:
@@ -584,12 +584,10 @@ class JsTestHandler(webapp2.RequestHandler):
 """.format(open("test_tailbone.js").read()))
 
 
-APP_YAML = yaml.load(open("app.yaml"))
 # prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
 
-# VERSION is used to set the namespace
-VERSION = APP_YAML.get("version")
+NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
 app = webapp2.WSGIApplication([
