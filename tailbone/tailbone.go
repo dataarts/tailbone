@@ -6,6 +6,7 @@ import (
 	"appengine/datastore"
 	// "appengine/blobstore"
 	"fmt"
+	"log"
 	"encoding/json"
 	"net/http"
 	"errors"
@@ -16,6 +17,48 @@ type httpHandler func(w http.ResponseWriter, r *http.Request)
 type requestHandler func(c appengine.Context, r *http.Request) (interface{}, error)
 
 type dict map[string]interface{}
+
+func (d dict) Load(c <-chan datastore.Property) error {
+	log.Printf("Loading")
+	for p := range c {
+		log.Printf("Property: %s", p)
+		d[p.Name] = p.Value
+	}
+	return nil
+}
+
+func (d dict) saveWithPrefix(prefix string, c chan<- datastore.Property) error {
+}
+
+func (d dict) Save(c chan<- datastore.Property) error {
+	log.Printf("Saving")
+	defer close(c)
+	for k, v := range d {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			log.Printf("type: map")
+			v.saveWithPrefix(k,c)
+		case []interface{}:
+			log.Printf("type: slice")
+		case float64:
+			log.Printf("type: float")
+		case int64:
+			log.Printf("type: int64")
+		case int:
+			log.Printf("type: int")
+		case string:
+			log.Printf("type: string")
+		default:
+			log.Printf("type: %s", t)
+		}
+		log.Printf("Key: %s Value: %s", k, v)
+		c <- datastore.Property {
+			Name: k,
+			Value: v,
+		}
+	}
+	return nil
+}
 
 func parseRestfulPath(str string) (kind, id string, err error) {
 	s := strings.Split(str, "/")
@@ -34,7 +77,7 @@ func parseRestfulPath(str string) (kind, id string, err error) {
 
 func parseBody(r *http.Request) (interface{}, error) {
 	contentType := strings.Split(r.Header.Get("Content-Type"),";")[0]
-	switch	contentType {
+	switch contentType {
 	case "application/json":
 		var data dict
 		decoder := json.NewDecoder(r.Body)
@@ -60,7 +103,7 @@ func Restful(c appengine.Context, r *http.Request) (interface{}, error) {
 			for t := q.Run(c); ; {
 				var x dict
 				key, err := t.Next(&x)
-				c.Infof("Key %s", key)
+				c.Infof("Key: %s", key)
 				if err == datastore.Done {
 					break
 				}
@@ -75,6 +118,7 @@ func Restful(c appengine.Context, r *http.Request) (interface{}, error) {
 		}
 	case "POST":
 		data, err := parseBody(r)
+		log.Printf("POST data: %s", data)
 		key := datastore.NewIncompleteKey(c, kind, nil)
 		datastore.Put(c, key, data)
 		if err != nil {
