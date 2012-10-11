@@ -315,7 +315,12 @@ class RestfulHandler(webapp2.RequestHandler):
       id = parse_id(id)
       m = cls.get_by_id(id)
       if not m:
-        raise AppError("No {} with id {}.".format(model, id))
+        if model == "users":
+          m = users()
+          m.key = ndb.Key("users", id)
+          # m.put()
+        else:
+          raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
     else:
       return query(self, cls)

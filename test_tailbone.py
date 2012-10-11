@@ -186,6 +186,15 @@ class RestfulTestCase(unittest.TestCase):
     data["Id"] = "user-"+self.user_id
     self.assertJsonResponseData(response, data)
 
+  def test_user_get_me(self):
+    self.setCurrentUser("test@gmail.com", self.user_id, True)
+    request = webapp2.Request.blank(self.user_url+"me")
+    request.method = "GET"
+    request.headers["Content-Type"] = "application/json"
+    response = request.get_response(tailbone.app)
+    data = {"Id": "user-"+self.user_id}
+    self.assertJsonResponseData(response, data)
+
   def test_get_user_by_id(self):
     self.setCurrentUser("test@gmail.com", self.user_id, True)
     data = {"text": "example"}
@@ -193,7 +202,6 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
     data["Id"] = "user-"+self.user_id
     self.assertJsonResponseData(response, data)
