@@ -130,7 +130,7 @@ def as_json(func):
       if os.environ.get("APP_ID") != "testbed":
         logging.error(str(e))
     except LoginError as e:
-      url = users.create_login_url(self.request.url)
+      url = api.users.create_login_url(self.request.url)
       resp = {
         "error": str(e),
         "url": url
@@ -275,6 +275,31 @@ def construct_query_from_url_args(cls, filters, orders):
   q = q.order(*[construct_order(cls,o) for o in orders])
   return q
 
+def query(self, cls):
+  params = self.request.get("params")
+  if params:
+    params = json.loads(params)
+    page_size = params.get("page_size", 100)
+    cursor = params.get("cursor")
+    filters = params.get("filter")
+    orders = params.get("order")
+    q = construct_query_from_json(cls, filters, orders)
+  else:
+    page_size = int(self.request.get("page_size", default_value=100))
+    cursor = self.request.get("cursor")
+    projection = self.request.get("projection")
+    filters = self.request.get_all("filter")
+    orders = self.request.get_all("order")
+    q = construct_query_from_url_args(cls, filters, orders)
+  cursor = Cursor.from_websafe_string(cursor) if cursor else None
+
+  results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor)
+  self.response.headers["More"] = "true" if more else "false"
+  if cursor:
+    self.response.headers["Next-Cursor"] = cursor.urlsafe()
+    self.response.headers["Prev-Cursor"] = cursor.reversed().urlsafe()
+  return [m.to_dict() for m in results]
+
 class RestfulHandler(webapp2.RequestHandler):
   @as_json
   def options(self, model, id):
@@ -287,32 +312,10 @@ class RestfulHandler(webapp2.RequestHandler):
       id = parse_id(id)
       m = cls.get_by_id(id)
       if not m:
-        raise AppError("There does not exists a %s with id %s" % (model, id))
+        raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
     else:
-      params = self.request.get("params")
-      if params:
-        params = json.loads(params)
-        page_size = params.get("page_size", 100)
-        cursor = params.get("cursor")
-        filters = params.get("filter")
-        orders = params.get("order")
-        q = construct_query_from_json(cls, filters, orders)
-      else:
-        page_size = int(self.request.get("page_size", default_value=100))
-        cursor = self.request.get("cursor")
-        projection = self.request.get("projection")
-        filters = self.request.get_all("filter")
-        orders = self.request.get_all("order")
-        q = construct_query_from_url_args(cls, filters, orders)
-      cursor = Cursor.from_websafe_string(cursor) if cursor else None
-
-      results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor)
-      self.response.headers["More"] = "true" if more else "false"
-      if cursor:
-        self.response.headers["Next-Cursor"] = cursor.urlsafe()
-        self.response.headers["Prev-Cursor"] = cursor.reversed().urlsafe()
-      return [m.to_dict() for m in results]
+      return query(self, cls)
   def set_or_create(self, model, id):
     cls = type(model.lower(), (ScopedExpando,), {})
     data = parse_body(self)
@@ -364,7 +367,7 @@ class UsersHandler(webapp2.RequestHandler):
   @as_json
   def get(self, id):
     if id == "":
-      return []
+      return query(self, users)
     if id == "me":
       id = current_user(required=True)
       m = users.get_by_id(id)
@@ -374,6 +377,8 @@ class UsersHandler(webapp2.RequestHandler):
         m.put()
     else:
       m = users.get_by_id(id)
+      if not m:
+        raise AppError("No {} with id {}.".format('users', id))
     return m.to_dict()
   def set_or_create(self, id):
     u = current_user(required=True)

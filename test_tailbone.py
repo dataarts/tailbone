@@ -15,6 +15,7 @@ class RestfulTestCase(unittest.TestCase):
   def setUp(self):
     self.testbed = testbed.Testbed()
     self.testbed.activate()
+    self.testbed.setup_env(APP_ID = "testbed")
     self.testbed.init_datastore_v3_stub()
     self.testbed.init_memcache_stub()
     self.testbed.init_user_stub()
@@ -216,7 +217,19 @@ class RestfulTestCase(unittest.TestCase):
         {"error": "Id must be the current user_id or me. " +
           "User 7 tried to modify user 8."})
 
+  def test_user_query_all(self):
+    num_items = 3
+    data = {"text": "example"}
+    for i in xrange(num_items):
+      self.setCurrentUser("test@gmail.com", str(i), True)
+      response, response_data = self.create(self.user_url, data)
 
+    self.setCurrentUser(None, None)
+    request = webapp2.Request.blank(self.user_url)
+    response = request.get_response(tailbone.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), num_items)
+    self.assertEqual(response.headers["Content-Type"], "application/json")
 
   def test_create_with_post(self):
     data = {"text": "example"}
