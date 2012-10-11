@@ -21,6 +21,7 @@ class RestfulTestCase(unittest.TestCase):
     self.testbed.init_user_stub()
     self.model_url = "/api/todos/"
     self.user_url = "/api/users/"
+    self.user_id = "118124022271294486125"
 
   def tearDown(self):
     self.testbed.deactivate()
@@ -170,10 +171,10 @@ class RestfulTestCase(unittest.TestCase):
     self.assertEqual(len(items), num_items)
 
   def test_user_create_and_update(self):
-    self.setCurrentUser("test@gmail.com", "8", True)
+    self.setCurrentUser("test@gmail.com", self.user_id, True)
     data = {"text": "example"}
     response, response_data = self.create(self.user_url, data)
-    data["Id"] = 8
+    data["Id"] = "user-"+self.user_id
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
@@ -182,11 +183,11 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-    data["Id"] = 8
+    data["Id"] = "user-"+self.user_id
     self.assertJsonResponseData(response, data)
 
   def test_get_user_by_id(self):
-    self.setCurrentUser("test@gmail.com", "8", True)
+    self.setCurrentUser("test@gmail.com", self.user_id, True)
     data = {"text": "example"}
     response, response_data = self.create(self.user_url, data)
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
@@ -194,7 +195,7 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-    data["Id"] = 8
+    data["Id"] = "user-"+self.user_id
     self.assertJsonResponseData(response, data)
     request = webapp2.Request.blank(self.user_url+"me")
     request.method = "GET"
@@ -216,13 +217,13 @@ class RestfulTestCase(unittest.TestCase):
     response = request.get_response(tailbone.app)
     self.assertJsonResponseData(response,
         {"error": "Id must be the current user_id or me. " +
-          "User 7 tried to modify user 8."})
+          "User user-7 tried to modify user user-8."})
 
   def test_user_query_all(self):
     num_items = 3
     data = {"text": "example"}
     for i in xrange(num_items):
-      self.setCurrentUser("test@gmail.com", str(i+1), True)
+      self.setCurrentUser("test@gmail.com", str(i), True)
       response, response_data = self.create(self.user_url, data)
 
     self.setCurrentUser(None, None)

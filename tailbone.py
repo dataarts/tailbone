@@ -74,7 +74,7 @@ class LoginError(Exception):
 def current_user(required=False):
   u = api.users.get_current_user()
   if u:
-    return u.user_id()
+    return "user-{}".format(u.user_id())
   if required:
     raise LoginError("User must be logged in.")
   return None
@@ -307,13 +307,11 @@ class RestfulHandler(webapp2.RequestHandler):
   @as_json
   def get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
-    if model == "users":
-      if id == "me":
-        id = current_user(required=True)
-      cls = users
-    else:
-      cls = type(model.lower(), (ScopedExpando,), {})
+    cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
+      if model == "users":
+        if id == "me":
+          id = current_user(required=True)
       id = parse_id(id)
       m = cls.get_by_id(id)
       if not m:
