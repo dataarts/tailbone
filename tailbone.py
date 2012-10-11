@@ -391,9 +391,14 @@ class AccessHandler(webapp2.RequestHandler):
   @as_json
   def get(self, model, id):
     pass
+  def setaccess(self, model, id):
+    return {}
   @as_json
   def put(self, model, id):
-    pass
+    return self.setaccess(model, id)
+  @as_json
+  def post(self, model, id):
+    return self.setaccess(model, id)
 
 class AdminHandler(webapp2.RequestHandler):
   """Admin routes"""
