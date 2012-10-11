@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import random
 import tailbone
 import time
@@ -16,10 +17,21 @@ class RestfulTestCase(unittest.TestCase):
     self.testbed.activate()
     self.testbed.init_datastore_v3_stub()
     self.testbed.init_memcache_stub()
-    self.model_url = "/api/todo/"
+    self.testbed.init_user_stub()
+    self.model_url = "/api/todos/"
+    self.user_url = "/api/users/"
 
   def tearDown(self):
     self.testbed.deactivate()
+
+  def setCurrentUser(self, email, user_id, is_admin=False):
+    self.testbed.setup_env(
+        APP_ID = "testbed",
+        USER_EMAIL = email or '',
+        USER_ID = user_id or '',
+        USER_IS_ADMIN = '1' if is_admin else '0',
+        overwrite = True,
+        )
 
   def create(self, url, data):
     request = webapp2.Request.blank(url)
@@ -155,6 +167,56 @@ class RestfulTestCase(unittest.TestCase):
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":2, "Id": 3})
     self.assertEqual(len(items), num_items)
+
+  def test_create_user_with_post(self):
+    self.setCurrentUser("test@gmail.com", "8", False)
+    data = {"text": "example"}
+    response, response_data = self.create(self.user_url, data)
+    data["Id"] = "8"
+    self.assertEqual(json.dumps(data), json.dumps(response_data))
+
+  def test_update_user_with_put(self):
+    self.setCurrentUser("test@gmail.com", "8", True)
+    data = {"text": "example"}
+    response, response_data = self.create(self.user_url, data)
+
+    request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
+    data = {"text": "new text"}
+    request.method = "PUT"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(tailbone.app)
+    data["Id"] = "8"
+    self.assertJsonResponseData(response, data)
+
+  def test_get_user_by_id(self):
+    self.setCurrentUser("test@gmail.com", "8", True)
+    data = {"text": "example"}
+    response, response_data = self.create(self.user_url, data)
+    request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
+    request.method = "GET"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(tailbone.app)
+    data["Id"] = "8"
+    self.assertJsonResponseData(response, data)
+
+  def test_user_illegal(self):
+    self.setCurrentUser("test@gmail.com", "8", True)
+    data = {"text": "example"}
+    response, response_data = self.create(self.user_url, data)
+    self.setCurrentUser("test@gmail.com", "7", True)
+    request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
+    data = {"text": "new text"}
+    request.method = "PUT"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(tailbone.app)
+    self.assertJsonResponseData(response,
+        {"error": "Id must be the current user_id or me. " +
+          "User 7 tried to modify user 8."})
+
+
 
   def test_create_with_post(self):
     data = {"text": "example"}

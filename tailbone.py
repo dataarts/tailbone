@@ -127,17 +127,20 @@ def as_json(func):
       return
     except AppError as e:
       resp = { "error": str(e) }
-      logging.error(str(e))
+      if os.environ.get("APP_ID") != "testbed":
+        logging.error(str(e))
     except LoginError as e:
       url = users.create_login_url(self.request.url)
       resp = {
         "error": str(e),
         "url": url
       }
-      logging.error(str(e))
+      if os.environ.get("APP_ID") != "testbed":
+        logging.error(str(e))
     except api.datastore_errors.BadArgumentError as e:
       resp = { "error": str(e) }
-      logging.error(str(e))
+      if os.environ.get("APP_ID") != "testbed":
+        logging.error(str(e))
     if not isinstance(resp, str):
       resp = json.dumps(resp, default=json_extras)
     callback = self.request.get("callback")
@@ -360,38 +363,44 @@ class UsersHandler(webapp2.RequestHandler):
   """
   @as_json
   def get(self, id):
-    logging.info("attempting to get %s" % str(id))
+    if id == "":
+      return []
     if id == "me":
       id = current_user(required=True)
       m = users.get_by_id(id)
       if not m:
         m = users()
+        m.key = ndb.Key("users", id)
         m.put()
     else:
       m = users.get_by_id(id)
-    logging.info(m)
+    return m.to_dict()
+  def set_or_create(self, id):
+    u = current_user(required=True)
+    if not (id == "me" or id == "" or id == u):
+      raise AppError("Id must be the current " +
+          "user_id or me. User {} tried to modify user {}.".format(u,id))
+    data = parse_body(self)
+    passed_id = data.get("Id")
+    if passed_id and passed_id != u:
+      raise AppError("Id must be the current user_id.")
+    clean_data(data)
+    m = reflective_create(users, data)
+    m.key = ndb.Key("users", u)
+    m.put()
     return m.to_dict()
   @as_json
   def post(self, id):
-    u = current_user(required=True)
-    if id != "me" and id != u:
-      raise AppError("Id must be the current user_id or me.")
-    m = users.get_by_id(u)
-    update_model(m, self)
-    return m.to_dict()
+    return self.set_or_create(id)
   @as_json
   def put(self, id):
-    u = current_user(required=True)
-    if id != "me" and id != u:
-      raise AppError("Id must be the current user_id or me.")
-    m = users.get_by_id(u)
-    update_model(m, self)
-    return m.to_dict()
+    return self.set_or_create(id)
   def delete(self, id):
     """Delete the user"s account and all their associated data."""
     u = current_user(required=True)
     if id != "me" and id != u:
-      raise AppError("Id must be the current user_id or me.")
+      raise AppError("Id must be the current " +
+          "user_id or me. User {} tried to modify user {}.".format(u,id))
     k = ndb.Key('users', u)
     k.delete()
     return {}
