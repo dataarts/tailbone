@@ -173,7 +173,7 @@ class RestfulTestCase(unittest.TestCase):
     self.setCurrentUser("test@gmail.com", "8", False)
     data = {"text": "example"}
     response, response_data = self.create(self.user_url, data)
-    data["Id"] = "8"
+    data["Id"] = 8
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
   def test_update_user_with_put(self):
@@ -187,7 +187,7 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-    data["Id"] = "8"
+    data["Id"] = 8
     self.assertJsonResponseData(response, data)
 
   def test_get_user_by_id(self):
@@ -199,7 +199,7 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-    data["Id"] = "8"
+    data["Id"] = 8
     self.assertJsonResponseData(response, data)
 
   def test_user_illegal(self):
@@ -221,7 +221,7 @@ class RestfulTestCase(unittest.TestCase):
     num_items = 3
     data = {"text": "example"}
     for i in xrange(num_items):
-      self.setCurrentUser("test@gmail.com", str(i), True)
+      self.setCurrentUser("test@gmail.com", str(i+1), True)
       response, response_data = self.create(self.user_url, data)
 
     self.setCurrentUser(None, None)

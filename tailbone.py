@@ -307,7 +307,7 @@ class RestfulHandler(webapp2.RequestHandler):
   @as_json
   def get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
-    cls = type(model.lower(), (ScopedExpando,), {})
+    cls = type(model.lower(), (ScopedExpando,), {}) if model != "users" else users
     if id:
       id = parse_id(id)
       m = cls.get_by_id(id)
@@ -317,7 +317,15 @@ class RestfulHandler(webapp2.RequestHandler):
     else:
       return query(self, cls)
   def set_or_create(self, model, id):
-    cls = type(model.lower(), (ScopedExpando,), {})
+    if model == "users":
+      u = current_user(required=True)
+      if not (id == "me" or id == "" or id == u):
+        raise AppError("Id must be the current " +
+            "user_id or me. User {} tried to modify user {}.".format(u,id))
+      id = u
+      cls = users
+    else:
+      cls = type(model.lower(), (ScopedExpando,), {})
     data = parse_body(self)
     id = parse_id(id, data.get("Id"))
     clean_data(data)
@@ -340,6 +348,12 @@ class RestfulHandler(webapp2.RequestHandler):
   def delete(self, model, id):
     if not id:
       raise AppError("Must provide an id.")
+    if model == "users":
+      u = current_user(required=True)
+      if id != "me" and id != u:
+        raise AppError("Id must be the current " +
+            "user_id or me. User {} tried to modify user {}.".format(u,id))
+      id = u
     id = parse_id(id)
     key = ndb.Key(model.lower(), id)
     key.delete()
@@ -357,58 +371,6 @@ class LogoutHandler(webapp2.RequestHandler):
         api.users.create_logout_url(
           self.request.get("url", default_value="/")))
 
-class UsersHandler(webapp2.RequestHandler):
-  """
-  GET /api/users/:id
-  returns the user info
-  GET /api/users/me
-  returns the current user
-  """
-  @as_json
-  def get(self, id):
-    if id == "":
-      return query(self, users)
-    if id == "me":
-      id = current_user(required=True)
-      m = users.get_by_id(id)
-      if not m:
-        m = users()
-        m.key = ndb.Key("users", id)
-        m.put()
-    else:
-      m = users.get_by_id(id)
-      if not m:
-        raise AppError("No {} with id {}.".format('users', id))
-    return m.to_dict()
-  def set_or_create(self, id):
-    u = current_user(required=True)
-    if not (id == "me" or id == "" or id == u):
-      raise AppError("Id must be the current " +
-          "user_id or me. User {} tried to modify user {}.".format(u,id))
-    data = parse_body(self)
-    passed_id = data.get("Id")
-    if passed_id and passed_id != u:
-      raise AppError("Id must be the current user_id.")
-    clean_data(data)
-    m = reflective_create(users, data)
-    m.key = ndb.Key("users", u)
-    m.put()
-    return m.to_dict()
-  @as_json
-  def post(self, id):
-    return self.set_or_create(id)
-  @as_json
-  def put(self, id):
-    return self.set_or_create(id)
-  def delete(self, id):
-    """Delete the user"s account and all their associated data."""
-    u = current_user(required=True)
-    if id != "me" and id != u:
-      raise AppError("Id must be the current " +
-          "user_id or me. User {} tried to modify user {}.".format(u,id))
-    k = ndb.Key('users', u)
-    k.delete()
-    return {}
 
 class AccessHandler(webapp2.RequestHandler):
   """
@@ -595,7 +557,6 @@ app = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
-  (r"{}users/?(.*)".format(PREFIX), UsersHandler),
   (r"{}access/([^/]+)/?(.*)".format(PREFIX), AccessHandler),
   (r"{}events/.*".format(PREFIX), EventsHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
