@@ -13,6 +13,7 @@ import random
 import re
 import sys
 import time
+import string
 import webapp2
 import yaml
 
@@ -70,11 +71,37 @@ class BreakError(Exception):
 class LoginError(Exception):
   pass
 
+def convert_num_to_str(num):
+  s = ""
+  num = str(num)
+  i = 0
+  l = len(num)
+  while True:
+    if i == l-1:
+      s += string.ascii_letters[int(num[i])]
+      break
+    if i >= l:
+      break
+    x = num[i]
+    n = int(x+num[i+1])
+    if n < 52:
+      s += string.ascii_letters[n]
+      i += 2
+    else:
+      s += string.ascii_letters[int(x)]
+      i += 1
+  return s
+
+def convert_str_to_num(s):
+  num = ""
+  for x in s:
+    num += str(string.ascii_letters.index(x))
+  return num
 
 def current_user(required=False):
   u = api.users.get_current_user()
   if u:
-    return "user-{}".format(u.user_id())
+    return convert_num_to_str(u.user_id())
   if required:
     raise LoginError("User must be logged in.")
   return None

@@ -174,7 +174,7 @@ class RestfulTestCase(unittest.TestCase):
     self.setCurrentUser("test@gmail.com", self.user_id, True)
     data = {"text": "example"}
     response, response_data = self.create(self.user_url, data)
-    data["Id"] = "user-"+self.user_id
+    data["Id"] = "limOwBmjSigmf"
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
@@ -183,7 +183,7 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-    data["Id"] = "user-"+self.user_id
+    data["Id"] = "limOwBmjSigmf"
     self.assertJsonResponseData(response, data)
 
   def test_user_get_me(self):
@@ -225,7 +225,7 @@ class RestfulTestCase(unittest.TestCase):
     response = request.get_response(tailbone.app)
     self.assertJsonResponseData(response,
         {"error": "Id must be the current user_id or me. " +
-          "User user-7 tried to modify user user-8."})
+          "User h tried to modify user i."})
 
   def test_user_query_all(self):
     num_items = 3
