@@ -372,6 +372,14 @@ class UsersHandler(webapp2.RequestHandler):
     logging.info(m)
     return m.to_dict()
   @as_json
+  def post(self, id):
+    u = current_user(required=True)
+    if id != "me" and id != u:
+      raise AppError("Id must be the current user_id or me.")
+    m = users.get_by_id(u)
+    update_model(m, self)
+    return m.to_dict()
+  @as_json
   def put(self, id):
     u = current_user(required=True)
     if id != "me" and id != u:
