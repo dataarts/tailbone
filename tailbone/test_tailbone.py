@@ -9,15 +9,101 @@ import webapp2
 from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.ext import testbed
+from google.appengine.api.blobstore import file_blob_storage
+from google.appengine.api.blobstore import blobstore_stub
+from google.appengine.api.files import file_service_stub
+import itertools
+import mimetools
+import mimetypes
+from cStringIO import StringIO
+import urllib
+import urllib2
+
+
+class MultiPartForm(object):
+  """Accumulate the data to be used when posting a form."""
+
+  def __init__(self):
+    self.form_fields = []
+    self.files = []
+    self.boundary = mimetools.choose_boundary()
+    return
+
+  def get_content_type(self):
+    return 'multipart/form-data; boundary=%s' % self.boundary
+
+  def add_field(self, name, value):
+    """Add a simple field to the form data."""
+    self.form_fields.append((name, value))
+    return
+
+  def add_file(self, fieldname, filename, fileHandle, mimetype=None):
+    """Add a file to be uploaded."""
+    body = fileHandle.read()
+    if mimetype is None:
+      mimetype = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+    self.files.append((fieldname, filename, mimetype, body))
+    return
+
+  def __str__(self):
+    """Return a string representing the form data, including attached files."""
+    # Build a list of lists, each containing "lines" of the
+    # request.  Each part is separated by a boundary string.
+    # Once the list is built, return a string where each
+    # line is separated by '\r\n'.
+    parts = []
+    part_boundary = '--' + self.boundary
+
+    # Add the form fields
+    parts.extend(
+      [ part_boundary,
+        'Content-Disposition: form-data; name="%s"' % name,
+        '',
+        value,
+      ]
+      for name, value in self.form_fields
+      )
+
+    # Add the files to upload
+    parts.extend(
+      [ part_boundary,
+        'Content-Disposition: file; name="%s"; filename="%s"' % \
+         (field_name, filename),
+        'Content-Type: %s' % content_type,
+        '',
+        body,
+      ]
+      for field_name, filename, content_type, body in self.files
+      )
+
+    # Flatten the list and add closing boundary marker,
+    # then return CR+LF separated data
+    flattened = list(itertools.chain(*parts))
+    flattened.append('--' + self.boundary + '--')
+    flattened.append('')
+    return '\r\n'.join(flattened)
+
+class TestbedWithFiles(testbed.Testbed):
+
+  def init_blobstore_stub(self):
+    blob_storage = file_blob_storage.FileBlobStorage('/tmp/testbed.blobstore',
+                        testbed.DEFAULT_APP_ID)
+    blob_stub = blobstore_stub.BlobstoreServiceStub(blob_storage)
+    file_stub = file_service_stub.FileServiceStub(blob_storage)
+    self._register_stub('blobstore', blob_stub)
+    self._register_stub('file', file_stub)
+
 
 class RestfulTestCase(unittest.TestCase):
 
   def setUp(self):
-    self.testbed = testbed.Testbed()
+    self.testbed = TestbedWithFiles()
     self.testbed.activate()
-    self.testbed.setup_env(APP_ID = "testbed")
+    # self.testbed.setup_env(APP_ID = testbed.DEFAULT_APP_ID)
     self.testbed.init_datastore_v3_stub()
+    self.testbed.init_blobstore_stub()
     self.testbed.init_memcache_stub()
+    self.testbed.init_taskqueue_stub()
     self.testbed.init_user_stub()
     self.model_url = "/api/todos/"
     self.user_url = "/api/users/"
@@ -240,6 +326,37 @@ class RestfulTestCase(unittest.TestCase):
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
+
+  def test_create_with_url_encode(self):
+    request = webapp2.Request.blank(self.model_url)
+    data = {"text": "new text"}
+    request.method = "POST"
+    request.headers["Content-Type"] = "application/x-www-form-urlencoded"
+    request.body = urllib.urlencode(data)
+    response = request.get_response(tailbone.app)
+    response_data = json.loads(response.body)
+    data["Id"] = 1
+    self.assertEqual(json.dumps(data), json.dumps(response_data))
+
+    form = MultiPartForm()
+    form.add_field("test", "example")
+
+    # Add a fake file
+    form.add_file("file", "file.txt",
+                  fileHandle=StringIO("Some big file object."))
+
+    # Build the request
+    request = webapp2.Request.blank(self.model_url)
+    body = str(form)
+    request.method = "POST"
+    request.headers["Content-Type"] = form.get_content_type()
+    request.headers["Content-Length"] = len(body)
+    request.body = body
+    response = request.get_response(tailbone.app)
+    response_data = json.loads(response.body)
+    self.assertEqual(json.dumps(data), json.dumps(response_data))
+
+
 
   def test_create_with_post(self):
     data = {"text": "example"}

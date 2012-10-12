@@ -4,6 +4,7 @@ tailbone
 Appengine abstract restful backend
 """
 
+import cgi
 import datetime
 import functools
 import json
@@ -21,6 +22,7 @@ from google.appengine import api
 from google.appengine.api import channel
 from google.appengine.ext import ndb
 from google.appengine.ext import deferred
+from google.appengine.ext import testbed
 
 
 """
@@ -154,7 +156,7 @@ def as_json(func):
       return
     except AppError as e:
       resp = { "error": str(e) }
-      if os.environ.get("APP_ID") != "testbed":
+      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except LoginError as e:
       url = api.users.create_login_url(self.request.url)
@@ -162,11 +164,11 @@ def as_json(func):
         "error": str(e),
         "url": url
       }
-      if os.environ.get("APP_ID") != "testbed":
+      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except api.datastore_errors.BadArgumentError as e:
       resp = { "error": str(e) }
-      if os.environ.get("APP_ID") != "testbed":
+      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     if not isinstance(resp, str):
       resp = json.dumps(resp, default=json_extras)
@@ -193,12 +195,28 @@ def reflective_create(cls, data):
   return m
 
 def parse_body(self):
-  if "application/json" in self.request.content_type:
+  if "application/json" in self.request.content_type.lower():
     data = json.loads(self.request.body)
   else:
-    # TODO: must do further processing this into an dict
-    # TODO: must upload any FieldStorage objects to blobstore
-    data = self.request.params
+    data = {}
+    for k,v in self.request.POST.items():
+      if isinstance(v, cgi.FieldStorage):
+        raise AppError("Files should be uploaded seperately as their own form to /api/files/.")
+        # TODO: writing to blobstore in this way will have an upper limit on size of upload
+        # try doing this maybe with the async deferred handler or with creating an /upload redirct
+        filename = api.files.blobstore.create(mime_type="application/octet-stream")
+        with api.files.open(filename, 'a') as f:
+          f.write(v.file.read())
+        api.files.finalize(filename)
+        v = str(api.files.blobstore.get_blob_key(filename))
+      if data.has_key(k):
+        current = data[k]
+        if isinstance(current, list):
+          current.append(v)
+        else:
+          data[k] = [current,v]
+      else:
+        data[k] = v
   return data or {}
 
 def clean_data(data):
