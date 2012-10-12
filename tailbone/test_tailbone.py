@@ -99,7 +99,6 @@ class RestfulTestCase(unittest.TestCase):
   def setUp(self):
     self.testbed = TestbedWithFiles()
     self.testbed.activate()
-    # self.testbed.setup_env(APP_ID = testbed.DEFAULT_APP_ID)
     self.testbed.init_datastore_v3_stub()
     self.testbed.init_blobstore_stub()
     self.testbed.init_memcache_stub()
