@@ -15,7 +15,7 @@ from google.appengine.api.files import file_service_stub
 import itertools
 import mimetools
 import mimetypes
-from cStringIO import StringIO
+from StringIO import StringIO
 import urllib
 import urllib2
 
