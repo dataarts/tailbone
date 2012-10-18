@@ -19,11 +19,12 @@ import webapp2
 import yaml
 
 from google.appengine import api
+from google.appengine.ext import blobstore
 from google.appengine.api import channel
-from google.appengine.ext import ndb
 from google.appengine.ext import deferred
+from google.appengine.ext import ndb
 from google.appengine.ext import testbed
-
+from google.appengine.ext.webapp import blobstore_handlers
 
 """
 Intention:
@@ -460,6 +461,23 @@ class AdminHandler(webapp2.RequestHandler):
     if not api.users.is_current_user_admin():
       raise LoginError("You must be an admin.")
 
+class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
+  @as_json
+  def get(self, key):
+    if not blobstore.get(key):
+      self.error(404)
+    else:
+      self.send_blob(key)
+
+  def post(self, _):
+    self.redirect(blobstore.create_upload_url("/api/files/upload"))
+
+class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
+  @as_json
+  def post(self):
+    for f in self.get_uploads():
+      logging.info("\n\nUpload: {}\n\n".format(f))
+    return {}
 
 #-----------------
 # START Event code
@@ -601,6 +619,26 @@ class JsTestHandler(webapp2.RequestHandler):
 </html>
 """.format(open("test_tailbone.js").read()))
 
+class UploadTestHandler(webapp2.RequestHandler):
+  def get(self):
+    if not DEBUG:
+      self.error(404)
+      return
+    self.response.out.write("""
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
+  </head>
+  <body>
+  <form action="{}" method="POST" enctype="multipart/form">
+  <input type="file" name="file" />
+  <input type="submit" name="submit" value="Submit" />
+  </form>
+  </body>
+</html>
+""".format("/api/files/upload")) # blobstore.create_upload_url("/api/files/upload")))
 
 # prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
@@ -609,10 +647,13 @@ NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
 app = webapp2.WSGIApplication([
+  (r"{}upload_test.html".format(PREFIX), UploadTestHandler),
   (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
+  (r"{}files/upload".format(PREFIX), FilesUploadHandler),
+  (r"{}files/?(.*)".format(PREFIX), FilesHandler),
   (r"{}access/([^/]+)/?(.*)".format(PREFIX), AccessHandler),
   (r"{}events/.*".format(PREFIX), EventsHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),

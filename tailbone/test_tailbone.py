@@ -345,13 +345,14 @@ class RestfulTestCase(unittest.TestCase):
                   fileHandle=StringIO("Some big file object."))
 
     # Build the request
-    request = webapp2.Request.blank(self.model_url)
+    request = webapp2.Request.blank("/api/files/")
     body = str(form)
     request.method = "POST"
     request.headers["Content-Type"] = form.get_content_type()
     request.headers["Content-Length"] = len(body)
     request.body = body
     response = request.get_response(tailbone.app)
+    print("response %s" % response)
     response_data = json.loads(response.body)
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
