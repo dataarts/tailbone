@@ -22,6 +22,8 @@ sys.path.extend(appcfg.EXTRA_PATHS)
 
 
 """
+Some Ideas for what this util could be useful for besides testing
+
 ./tailbone/util validator resource_name relative_path_to/validator.py
 
 # set the schema for a resource
