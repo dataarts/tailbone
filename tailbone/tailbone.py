@@ -12,9 +12,10 @@ import logging
 import os
 import random
 import re
+import string
 import sys
 import time
-import string
+import urllib
 import webapp2
 import yaml
 
@@ -152,7 +153,7 @@ def as_json(func):
     else:
       api.namespace_manager.set_namespace(NAMESPACE)
     try:
-      resp = func(self, *args, **kwargs)
+      resp = func(self, *args, **kwargs) or {}
     except BreakError as e:
       return
     except AppError as e:
@@ -171,7 +172,7 @@ def as_json(func):
       resp = { "error": str(e) }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
-    if not isinstance(resp, str):
+    if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
     callback = self.request.get("callback")
     if callback:
@@ -461,23 +462,49 @@ class AdminHandler(webapp2.RequestHandler):
     if not api.users.is_current_user_admin():
       raise LoginError("You must be an admin.")
 
-class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
+def blob_info_to_dict(blob_info):
+  d = {}
+  for prop in ["content_type", "creation", "filename", "size"]:
+    d[prop] = getattr(blob_info, prop)
+  d["Id"] = blob_info.key()
+  return d
+
+class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
+    blobstore_handlers.BlobstoreUploadHandler):
   @as_json
   def get(self, key):
-    if not blobstore.get(key):
+    if key == "":
+      return blobstore.create_upload_url("/api/files/upload")
+    key = str(urllib.unquote(key))
+    blob_info = blobstore.BlobInfo.get(key)
+    if not blob_info:
       self.error(404)
     else:
-      self.send_blob(key)
+      self.send_blob(blob_info)
+    raise BreakError
 
+  @as_json
   def post(self, _):
-    self.redirect(blobstore.create_upload_url("/api/files/upload"))
+    raise AppError("You must make a GET call to /api/files to get a POST url.")
+
+  @as_json
+  def put(self, _):
+    raise AppError("PUT is not supported for the files api.")
+
+  @as_json
+  def delete(self, key):
+    key = str(urllib.unquote(key))
+    blob_info = blobstore.BlobInfo.get(key)
+    if not blob_info:
+      self.error(404)
+    else:
+      blob_info.delete()
+    return {}
 
 class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
   @as_json
   def post(self):
-    for f in self.get_uploads():
-      logging.info("\n\nUpload: {}\n\n".format(f))
-    return {}
+    return [blob_info_to_dict(b) for b in self.get_uploads()]
 
 #-----------------
 # START Event code
@@ -638,7 +665,7 @@ class UploadTestHandler(webapp2.RequestHandler):
   </form>
   </body>
 </html>
-""".format("/api/files/upload")) # blobstore.create_upload_url("/api/files/upload")))
+""".format(blobstore.create_upload_url("/api/files/upload")))
 
 # prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
