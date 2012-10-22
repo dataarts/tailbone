@@ -20,8 +20,10 @@ import webapp2
 import yaml
 
 from google.appengine import api
-from google.appengine.ext import blobstore
 from google.appengine.api import channel
+from google.appengine.api.images import get_serving_url_async
+from google.appengine.api.images import delete_serving_url
+from google.appengine.ext import blobstore
 from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 from google.appengine.ext import testbed
@@ -110,10 +112,12 @@ def current_user(required=False):
     raise LoginError("User must be logged in.")
   return None
 
+re_public = re.compile(r"^[A-Z].*")
+
 # Explicit Models
 class ScopedExpando(ndb.Expando):
-  owners__ = ndb.IntegerProperty(repeated=True)
-  editors__ = ndb.IntegerProperty(repeated=True)
+  owners__ = ndb.StringProperty(repeated=True)
+  editors__ = ndb.StringProperty(repeated=True)
   def to_dict(self, *args, **kwargs):
     excluded = ["owners__","editors__"]
     if len(args) == 2:
@@ -123,7 +127,15 @@ class ScopedExpando(ndb.Expando):
     else:
       kwargs["exclude"] = excluded
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
-    # if the current user is owner return private attibutes too
+    u = current_user()
+    if u and (u in self.owners__ or u in self.editors__):
+      # private and public properties
+      pass
+    else:
+      # public properties only
+      for k,v in result.iteritems():
+        if not re_public.match(k):
+          del result[k]
     result["Id"] = self.key.id()
     return result
 
@@ -135,7 +147,9 @@ class users(ndb.Expando):
 
 def json_extras(obj):
   """Extended json processing of types."""
-  if hasattr(obj, "utctimetuple"):
+  if hasattr(obj, "get_result"): # RPC
+    return obj.get_result()
+  if hasattr(obj, "utctimetuple"): # datetime
     ms = time.mktime(obj.utctimetuple()) * 1000
     ms += getattr(obj, "microseconds", 0) / 1000
     return int(ms)
@@ -196,8 +210,10 @@ def reflective_create(cls, data):
     setattr(m, k, v)
   return m
 
+re_json = re.compile(r"^application/json", re.IGNORECASE)
+
 def parse_body(self):
-  if "application/json" in self.request.content_type.lower():
+  if re_json.match(self.request.content_type):
     data = json.loads(self.request.body)
   else:
     data = {}
@@ -372,8 +388,8 @@ class RestfulHandler(webapp2.RequestHandler):
     else:
       return query(self, cls)
   def set_or_create(self, model, id):
+    u = current_user(required=True)
     if model == "users":
-      u = current_user(required=True)
       if not (id == "me" or id == "" or id == u):
         raise AppError("Id must be the current " +
             "user_id or me. User {} tried to modify user {}.".format(u,id))
@@ -387,6 +403,8 @@ class RestfulHandler(webapp2.RequestHandler):
     m = reflective_create(cls, data)
     if id:
       m.key = ndb.Key(model, id)
+    if model != "users":
+      m.owners__.append(u)
     m.put()
     return m.to_dict()
   @as_json
@@ -426,7 +444,6 @@ class LogoutHandler(webapp2.RequestHandler):
         api.users.create_logout_url(
           self.request.get("url", default_value="/")))
 
-
 class AccessHandler(webapp2.RequestHandler):
   """
   GET /api/access/model/:id
@@ -462,11 +479,16 @@ class AdminHandler(webapp2.RequestHandler):
     if not api.users.is_current_user_admin():
       raise LoginError("You must be an admin.")
 
+re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
+
 def blob_info_to_dict(blob_info):
   d = {}
   for prop in ["content_type", "creation", "filename", "size"]:
     d[prop] = getattr(blob_info, prop)
-  d["Id"] = blob_info.key()
+  key = blob_info.key()
+  if re_image.match(blob_info.content_type):
+    d["image_url"] = get_serving_url_async(key)
+  d["Id"] = str(key)
   return d
 
 class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
@@ -474,7 +496,9 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
   @as_json
   def get(self, key):
     if key == "":
-      return blobstore.create_upload_url("/api/files/upload")
+      return {
+          "upload_url": blobstore.create_upload_url("/api/files/upload")
+          }
     key = str(urllib.unquote(key))
     blob_info = blobstore.BlobInfo.get(key)
     if not blob_info:
@@ -493,12 +517,14 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
 
   @as_json
   def delete(self, key):
-    key = str(urllib.unquote(key))
+    key = blobstore.BlobKey(str(urllib.unquote(key)))
     blob_info = blobstore.BlobInfo.get(key)
     if not blob_info:
       self.error(404)
     else:
       blob_info.delete()
+      if re_image.match(blob_info.content_type):
+        delete_serving_url(key)
     return {}
 
 class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
@@ -656,10 +682,9 @@ class UploadTestHandler(webapp2.RequestHandler):
 <html>
   <head>
     <title></title>
-    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
   </head>
   <body>
-  <form action="{}" method="POST" enctype="multipart/form">
+  <form action="{}" method="POST" enctype="multipart/form-data">
   <input type="file" name="file" />
   <input type="submit" name="submit" value="Submit" />
   </form>

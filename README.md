@@ -44,10 +44,16 @@ structure etc etc.
       Must be called first to get the special upload url that files can be posted to for storage.
     GET /api/files/{id}
       returns the actual uploaded file
+      if the file was an image it the POST call will return a special url called "image_url" which
+      should be used as the url for any images, it will not only serve faster, but it can take
+      additional parameters to automatically crop and produce thumbnail images. Do so by appending
+      =sXX to the end of the url. For example =s200 will return a 200 sized image with the original
+      aspect ratio. =s200-c will return a cropped 200 sized image.
     POST {special url returned from GET /api/files/}
       uploads the form data to blobstore
       All files are public but obscured
-      returns the files names and their ids
+      returns the files names, info and their ids
+      also and image_url if the uploaded file was an image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)
     DELETE /api/files/{id}
       deletes a file from blobstore
       note there is no put to update an id you must always create a new one and delete the old

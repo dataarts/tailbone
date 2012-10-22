@@ -107,6 +107,7 @@ class RestfulTestCase(unittest.TestCase):
     self.model_url = "/api/todos/"
     self.user_url = "/api/users/"
     self.user_id = "118124022271294486125"
+    self.setCurrentUser("test@gmail.com", self.user_id, True)
 
   def tearDown(self):
     self.testbed.deactivate()
@@ -326,9 +327,42 @@ class RestfulTestCase(unittest.TestCase):
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
 
+  def test_file_upload(self):
+    request = webapp2.Request.blank("/api/files/")
+    request.method = "GET"
+    response = request.get_response(tailbone.app)
+    self.assertJsonResponseData(response, {
+        "upload_url": "http://testbed.example.com/_ah/upload/agx0ZXN0YmVkLXRlc3RyGwsSFV9fQmxvYlVwbG9hZFNlc3Npb25fXxgBDA"
+      })
+    upload_url = json.loads(response.body).get("url")
+    upload_url = upload_url[26:]
+
+    # TODO: does not seem to work yet in stub though live test works at /api/upload_test.html
+#
+#     form = MultiPartForm()
+#
+#     # Add a fake file
+#     form.add_file("file", "file.txt",
+#                   fileHandle=StringIO("Some big file object."))
+#
+#     # Build the request
+#     request = webapp2.Request.blank(upload_url)
+#     body = str(form)
+#     request.method = "POST"
+#     request.headers["Content-Length"] = len(body)
+#     request.headers["Content-Type"] = "multipart/form-data"
+#     # request.headers["Content-Type"] = form.get_content_type()
+#     request.body = body
+#     response = request.get_response(tailbone.app)
+#     print("response %s" % response)
+#     self.assertJsonResponseData(response, [
+#       {
+#         "filename": "file"
+#       }])
+
   def test_create_with_url_encode(self):
-    request = webapp2.Request.blank(self.model_url)
     data = {"text": "new text"}
+    request = webapp2.Request.blank(self.model_url)
     request.method = "POST"
     request.headers["Content-Type"] = "application/x-www-form-urlencoded"
     request.body = urllib.urlencode(data)
@@ -337,26 +371,14 @@ class RestfulTestCase(unittest.TestCase):
     data["Id"] = 1
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
-    form = MultiPartForm()
-    form.add_field("test", "example")
 
-    # Add a fake file
-    form.add_file("file", "file.txt",
-                  fileHandle=StringIO("Some big file object."))
-
-    # Build the request
-    request = webapp2.Request.blank("/api/files/")
-    body = str(form)
-    request.method = "POST"
-    request.headers["Content-Type"] = form.get_content_type()
-    request.headers["Content-Length"] = len(body)
-    request.body = body
-    response = request.get_response(tailbone.app)
-    print("response %s" % response)
-    response_data = json.loads(response.body)
-    self.assertEqual(json.dumps(data), json.dumps(response_data))
-
-
+  def test_create_without_login(self):
+    data = {"test": "info"}
+    self.setCurrentUser(None, None)
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, {
+      "error": "User must be logged in.",
+      "url": "https://www.google.com/accounts/Login?continue=http%3A//localhost/api/todos/"})
 
   def test_create_with_post(self):
     data = {"text": "example"}
