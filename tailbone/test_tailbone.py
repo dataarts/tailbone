@@ -137,6 +137,8 @@ class RestfulTestCase(unittest.TestCase):
     ignored_list = []
     if not data.has_key("Id"):
       ignored_list.append("Id")
+    if not data.has_key("owners"):
+      ignored_list.append("owners")
     for ignored in ignored_list:
       if response_data.has_key(ignored):
         del response_data[ignored]
@@ -244,7 +246,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank("{}?order=text".format(self.model_url))
     response = request.get_response(tailbone.app)
     items = json.loads(response.body)
-    self.assertEqual(items[0], {"text":0, "Id": 1})
+    self.assertEqual(items[0], {"text":0, "Id": 1, "owners": ["limOwBmjSigmf"]})
     self.assertEqual(len(items), num_items)
 
   def test_order_desc(self):
@@ -256,7 +258,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank("{}?order=-text".format(self.model_url))
     response = request.get_response(tailbone.app)
     items = json.loads(response.body)
-    self.assertEqual(items[0], {"text":2, "Id": 3})
+    self.assertEqual(items[0], {"text":2, "Id": 3, "owners": ["limOwBmjSigmf"]})
     self.assertEqual(len(items), num_items)
 
   def test_user_create_and_update(self):
@@ -403,7 +405,7 @@ class RestfulTestCase(unittest.TestCase):
     response = request.get_response(tailbone.app)
     response_data = json.loads(response.body)
     data["Id"] = 1
-    self.assertEqual(json.dumps(data), json.dumps(response_data))
+    self.assertJsonResponseData(response, data)
 
 
   def test_create_without_login(self):
@@ -418,12 +420,12 @@ class RestfulTestCase(unittest.TestCase):
     data = {"text": "example"}
     response, response_data = self.create(self.model_url, data)
     data["Id"] = 1
-    self.assertEqual(json.dumps(data), json.dumps(response_data))
+    self.assertJsonResponseData(response, data)
 
   def test_create_with_post_and_id(self):
     data = {"private": "test", "Public": "example", "Id": 4}
     response, response_data = self.create(self.model_url, data)
-    self.assertEqual(json.dumps(data), json.dumps(response_data))
+    self.assertJsonResponseData(response, data)
 
   def test_update_with_put(self):
     data = {"private": "test", "Public": "example"}

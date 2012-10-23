@@ -26,6 +26,9 @@ structure etc etc.
     Note: non indexed properties (such as large text or binary fields cannot be given as a
     projected property).
 
+    All restful models have two special properties:
+    "Id" which is a public id for the model
+    "owners" which is a private list of the user ids of owners for this model
 
 ### User models:
 
@@ -59,9 +62,18 @@ structure etc etc.
       note there is no put to update an id you must always create a new one and delete the old
       yourself
 
-### Access Control:
+### Events:
 
-    /api/access/{modelname}
-      {OWNERS:[], EDITORS:[], VIEWERS:[]}
-      This does not apply to files or users.
+    /api/events/
+      Is a special api used for sending and recieving events across clients.
+      This can be used by the /tailbone.js which defines functions like:
+        tailbone.bind("name", function() { console.log("callback"); });
+        tailbone.trigger("name");
+        tailbone.unbind("name");
+
+### Tailbone.js
+
+    to use tailbone.js please include the following in your <head>
+    <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+    <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 

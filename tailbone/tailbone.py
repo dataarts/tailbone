@@ -451,34 +451,6 @@ class LogoutHandler(webapp2.RequestHandler):
         api.users.create_logout_url(
           self.request.get("url", default_value="/")))
 
-class AccessHandler(webapp2.RequestHandler):
-  """
-  GET /api/access/model/:id
-    See if you have access to this model.
-  {
-    owners:[user_id],
-    editors:[],
-  }
-
-  PUT /api/access/model/:id
-    Give user with id user_id access
-  {
-    owners:[user_id],
-    editors:[],
-  }
-  """
-  @as_json
-  def get(self, model, id):
-    pass
-  def setaccess(self, model, id):
-    return {}
-  @as_json
-  def put(self, model, id):
-    return self.setaccess(model, id)
-  @as_json
-  def post(self, model, id):
-    return self.setaccess(model, id)
-
 class AdminHandler(webapp2.RequestHandler):
   """Admin routes"""
   @as_json
@@ -713,7 +685,6 @@ app = webapp2.WSGIApplication([
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
   (r"{}files/?(.*)".format(PREFIX), FilesHandler),
-  (r"{}access/([^/]+)/?(.*)".format(PREFIX), AccessHandler),
   (r"{}events/.*".format(PREFIX), EventsHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
   ], debug=DEBUG)
