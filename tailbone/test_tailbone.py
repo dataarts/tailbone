@@ -334,7 +334,7 @@ class RestfulTestCase(unittest.TestCase):
     self.assertJsonResponseData(response, {
         "upload_url": "http://testbed.example.com/_ah/upload/agx0ZXN0YmVkLXRlc3RyGwsSFV9fQmxvYlVwbG9hZFNlc3Npb25fXxgBDA"
       })
-    upload_url = json.loads(response.body).get("url")
+    upload_url = json.loads(response.body).get("upload_url")
     upload_url = upload_url[26:]
 
     # TODO: does not seem to work yet in stub though live test works at /api/upload_test.html
