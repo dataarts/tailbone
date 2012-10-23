@@ -28,11 +28,12 @@ structure etc etc.
 
     All restful models have two special properties:
     "Id" which is a public id for the model
-    "owners" which is a private list of the user ids of owners for this model
+    "owners" which is a private list of the user ids of owners for this model, which by default just
+    includes the user who creates it.
 
 ### User models:
 
-    /api/users
+    /api/users/
       special restful model that can only be edited by the user, authentication via Google Account
     /api/users/me
       Returns the current users information
