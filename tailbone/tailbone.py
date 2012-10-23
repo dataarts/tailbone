@@ -117,10 +117,15 @@ re_public = re.compile(r"^[A-Z].*")
 
 # Explicit Models
 class ScopedExpando(ndb.Expando):
-  owners__ = ndb.StringProperty(repeated=True)
-  editors__ = ndb.StringProperty(repeated=True)
+  owners = ndb.StringProperty(repeated=True)
+
+  def is_owner(self, u):
+    if u and u in self.owners:
+      return True
+    return False
+
   def to_dict(self, *args, **kwargs):
-    excluded = ["owners__","editors__"]
+    excluded = ["owners"]
     if len(args) == 2:
       args[1] += exluded
     if kwargs.has_key("exclude"):
@@ -128,8 +133,7 @@ class ScopedExpando(ndb.Expando):
     else:
       kwargs["exclude"] = excluded
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
-    u = current_user()
-    if u and (u in self.owners__ or u in self.editors__):
+    if self.is_owner(current_user()):
       # private and public properties
       pass
     else:
@@ -400,14 +404,14 @@ class RestfulHandler(webapp2.RequestHandler):
     clean_data(data)
     if id and model != "users":
       old_model = cls.get_by_id(id)
-      if old_model and u not in old_model.owners__ and u not in old_model.editors__:
+      if old_model and not old_model.is_owner(u):
         raise AppError("You do not have sufficient privileges.")
     m = reflective_create(cls, data)
     if id:
       m.key = ndb.Key(model, id)
     if model != "users":
-      if u not in m.owners__ and u not in m.editors__:
-        m.owners__.append(u)
+      if len(m.owners) == 0:
+        m.owners.append(u)
     m.put()
     return m.to_dict()
   @as_json

@@ -390,7 +390,9 @@ class RestfulTestCase(unittest.TestCase):
     self.assertJsonResponseData(response, data)
     # edit from other account
     response, response_data = self.create(self.model_url, data)
-    self.assertJsonResponseData(response, data)
+    self.assertJsonResponseData(response, {
+      "error": "You do not have sufficient privileges."
+      })
 
   def test_create_with_url_encode(self):
     data = {"text": "new text"}
