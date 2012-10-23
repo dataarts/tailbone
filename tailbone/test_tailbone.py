@@ -134,7 +134,10 @@ class RestfulTestCase(unittest.TestCase):
   def assertJsonResponseData(self, response, data):
     self.assertEqual(response.headers["Content-Type"], "application/json")
     response_data = json.loads(response.body)
-    for ignored in ["Id"]:
+    ignored_list = []
+    if not data.has_key("Id"):
+      ignored_list.append("Id")
+    for ignored in ignored_list:
       if response_data.has_key(ignored):
         del response_data[ignored]
       if data.has_key(ignored):
@@ -278,8 +281,9 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     response = request.get_response(tailbone.app)
-    # TODO: is this right?
-    data = {"Id": "user-"+self.user_id}
+    data = {}
+    from tailbone import convert_num_to_str
+    data["Id"] = convert_num_to_str(self.user_id)
     self.assertJsonResponseData(response, data)
 
   def test_get_user_by_id(self):
@@ -290,7 +294,8 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     response = request.get_response(tailbone.app)
-    data["Id"] = "user-"+self.user_id
+    from tailbone import convert_num_to_str
+    data["Id"] = convert_num_to_str(self.user_id)
     self.assertJsonResponseData(response, data)
     request = webapp2.Request.blank(self.user_url+"me")
     request.method = "GET"
@@ -429,9 +434,6 @@ class RestfulTestCase(unittest.TestCase):
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
-
-    body = json.loads(response.body)
-    print(body)
     self.assertJsonResponseData(response, data)
 
   def test_delete(self):
