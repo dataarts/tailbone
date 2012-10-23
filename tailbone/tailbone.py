@@ -82,19 +82,20 @@ def convert_num_to_str(num):
   num = str(num)
   i = 0
   l = len(num)
+  letters = string.ascii_letters
   while True:
     if i == l-1:
-      s += string.ascii_letters[int(num[i])]
+      s += letters[int(num[i])]
       break
     if i >= l:
       break
     x = num[i]
     n = int(x+num[i+1])
     if n < 52:
-      s += string.ascii_letters[n]
+      s += letters[n]
       i += 2
     else:
-      s += string.ascii_letters[int(x)]
+      s += letters[int(x)]
       i += 1
   return s
 
