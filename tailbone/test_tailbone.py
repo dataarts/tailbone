@@ -278,6 +278,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     response = request.get_response(tailbone.app)
+    # TODO: is this right?
     data = {"Id": "user-"+self.user_id}
     self.assertJsonResponseData(response, data)
 
@@ -360,6 +361,32 @@ class RestfulTestCase(unittest.TestCase):
 #         "filename": "file"
 #       }])
 
+  def test_ownership(self):
+    # create model
+    data = {
+        "private_stuff": "thing",
+        "PublicStuff": "otherthing"
+        }
+    self.setCurrentUser("test@gmail.com", self.user_id, True)
+    response, response_data = self.create(self.model_url, data)
+    data["Id"] = 1
+    self.assertJsonResponseData(response, data)
+    # edit model
+    data["private_stuff"] = "newthing"
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, data)
+    # get public params
+    self.setCurrentUser("test2@gmail.com", "2342343242", False)
+    request = webapp2.Request.blank(self.model_url + "1")
+    request.method = "GET"
+    request.headers["Content-Type"] = "application/json"
+    response = request.get_response(tailbone.app)
+    del data["private_stuff"]
+    self.assertJsonResponseData(response, data)
+    # edit from other account
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, data)
+
   def test_create_with_url_encode(self):
     data = {"text": "new text"}
     request = webapp2.Request.blank(self.model_url)
@@ -387,23 +414,24 @@ class RestfulTestCase(unittest.TestCase):
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
   def test_create_with_post_and_id(self):
-    data = {"text": "example", "Id": 1}
+    data = {"private": "test", "Public": "example", "Id": 4}
     response, response_data = self.create(self.model_url, data)
     self.assertEqual(json.dumps(data), json.dumps(response_data))
 
   def test_update_with_put(self):
-    data = {"text": "example"}
+    data = {"private": "test", "Public": "example"}
     response, response_data = self.create(self.model_url, data)
+    data["Id"] = 1
 
     request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
-    data = {"text": "new text"}
+    data["private"] = "new text"
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
 
-    self.assertEqual(json.loads(response.body).get("Id"), 1)
-
+    body = json.loads(response.body)
+    print(body)
     self.assertJsonResponseData(response, data)
 
   def test_delete(self):

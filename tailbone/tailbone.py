@@ -133,7 +133,7 @@ class ScopedExpando(ndb.Expando):
       pass
     else:
       # public properties only
-      for k,v in result.iteritems():
+      for k in result.keys():
         if not re_public.match(k):
           del result[k]
     result["Id"] = self.key.id()
@@ -365,9 +365,6 @@ def query(self, cls):
 
 class RestfulHandler(webapp2.RequestHandler):
   @as_json
-  def options(self, model, id):
-    pass
-  @as_json
   def get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
@@ -400,11 +397,16 @@ class RestfulHandler(webapp2.RequestHandler):
     data = parse_body(self)
     id = parse_id(id, data.get("Id"))
     clean_data(data)
+    if id and model != "users":
+      old_model = cls.get_by_id(id)
+      if old_model and u not in old_model.owners__ and u not in old_model.editors__:
+        raise AppError("You do not have sufficient privileges.")
     m = reflective_create(cls, data)
     if id:
       m.key = ndb.Key(model, id)
     if model != "users":
-      m.owners__.append(u)
+      if u not in m.owners__ and u not in m.editors__:
+        m.owners__.append(u)
     m.put()
     return m.to_dict()
   @as_json
