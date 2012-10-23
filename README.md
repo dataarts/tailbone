@@ -18,13 +18,16 @@ structure etc etc.
       updates an object, does a complete overwrite of the properites not a partial patch
     GET /api/{modelname}/{id}
       Get a specific object
-    GET /api/{modelname}/?filter={propertyname==somevalue}&order={propertyname}
+    GET /api/{modelname}/?filter={propertyname==somevalue}&order={propertyname}&projection={propertyname1,propertyname2}
       Query a type
-    Any GET request can take an optional projection map which will only return those properties
-    from the model. The format of the projection map is a comma seperated list of properties.
-    properties=propertyname1,propertyname2,propertyname3
+    Any GET request can take an optional list of properties to return, the query will use those
+    to make a projection query which will only return those properties from the model.
+    The format of the projection is a comma seperated list of properties.
+    projection=propertyname1,propertyname2,propertyname3
     Note: non indexed properties (such as large text or binary fields cannot be given as a
     projected property).
+    Note: if owners is not listed as one of the projected properties then only public properties
+    will be returned, because owners is needed to check ownership.
 
     All restful models have two special properties:
     "Id" which is a public id for the model

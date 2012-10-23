@@ -120,7 +120,11 @@ class ScopedExpando(ndb.Expando):
   owners = ndb.StringProperty(repeated=True)
 
   def is_owner(self, u):
-    if u and u in self.owners:
+    try:
+      owners = self.owners
+    except:
+      return False
+    if u and u in owners:
       return True
     return False
 
@@ -351,17 +355,19 @@ def query(self, cls):
     cursor = params.get("cursor")
     filters = params.get("filter")
     orders = params.get("order")
+    projection = params.get("projection")
     q = construct_query_from_json(cls, filters, orders)
   else:
     page_size = int(self.request.get("page_size", default_value=100))
     cursor = self.request.get("cursor")
     projection = self.request.get("projection")
+    projection = projection.split(",") if projection else None
     filters = self.request.get_all("filter")
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
   cursor = Cursor.from_websafe_string(cursor) if cursor else None
 
-  results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor)
+  results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
     self.response.headers["Next-Cursor"] = cursor.urlsafe()

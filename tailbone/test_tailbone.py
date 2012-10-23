@@ -237,6 +237,18 @@ class RestfulTestCase(unittest.TestCase):
     items = json.loads(response.body)
     self.assertEqual(len(items), 2)
 
+  def test_query_projection(self):
+    num_items = 3
+    for i in xrange(num_items):
+      data = {"Text": i, "other": i}
+      response, response_data = self.create(self.model_url, data)
+
+    request = webapp2.Request.blank("{}?filter=Text>0&projection=Text".format(self.model_url))
+    response = request.get_response(tailbone.app)
+    items = json.loads(response.body)
+    self.assertEqual(items[0], {"Text":1, "Id": 2})
+    self.assertEqual(len(items), 2)
+
   def test_order_asc(self):
     num_items = 3
     for i in xrange(num_items):
