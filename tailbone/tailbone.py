@@ -135,7 +135,7 @@ class ScopedExpando(ndb.Expando):
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
     if self.is_owner(current_user()):
       # private and public properties
-      pass
+      result["owners"] = self.owners
     else:
       # public properties only
       for k in result.keys():
