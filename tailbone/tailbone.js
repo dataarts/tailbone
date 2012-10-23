@@ -225,6 +225,7 @@ var ModelFactory = function(type, opt_schema) {
   var Query = function() {
     this.filter = [];
     this.order = [];
+    this.projection = [];
     this._page_size = 100;
     this._more = false;
     this._dirty = false;
@@ -276,6 +277,7 @@ var ModelFactory = function(type, opt_schema) {
     return JSON.stringify({
       filter: this.filter,
       order: this.order,
+      projection: this.projection,
       page_size: this._page_size
     });
   };

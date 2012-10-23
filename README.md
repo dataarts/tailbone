@@ -1,12 +1,12 @@
 # Automatic RESTful backend for AppEngine
 
 A simple restful backend setup for app engine so you can write your apps in javascript via
-frameworks like AngularJS or Backbone etc etc and not have to touch any app engine code. Or just
+frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
 using plain javascript and your own xhr calls.
 
 Also, for added capabilities, there is a javascript library auto served at /tailbone.js which does
 additional niceties like bi-directional binding of your model and your backend to a javascript
-structure etc etc.
+structure or simplified queries.
 
 ## Special URLS
 
@@ -80,4 +80,22 @@ structure etc etc.
     to use tailbone.js please include the following in your <head>
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+
+    Here is an example script using the js
+
+    var Todo = new tailbone.Model("todos");
+    var todos = Todo.query().filter("text", "==", "Go to store").order("-date");
+
+    var todo = new Todo();
+    todo.text = "Go to store";
+    todo.date = Date.now()
+    todo.$save();
+
+    todos.onchange = function() {
+      todos.forEach(function(item, idx) {
+        console.log(idx, item);
+      });
+    };
+
+
 

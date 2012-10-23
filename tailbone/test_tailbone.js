@@ -38,8 +38,13 @@ test('Bind query', function() {
         ' items, expected ' + itemCount);
       start();
     };
-    var todo = new Todo();
-    todo.text = 'stuff';
-    todo.$save();
   };
+  var todo = new Todo();
+  todo.text = 'stuff';
+  todo.$save();
 });
+
+test('Complex query', function() {
+
+});
+

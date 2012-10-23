@@ -355,7 +355,7 @@ def query(self, cls):
     cursor = params.get("cursor")
     filters = params.get("filter")
     orders = params.get("order")
-    projection = params.get("projection")
+    projection = params.get("projection") or None
     q = construct_query_from_json(cls, filters, orders)
   else:
     page_size = int(self.request.get("page_size", default_value=100))
