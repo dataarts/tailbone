@@ -7,45 +7,71 @@
 window.tailbone = (function(window, document, undefined) {
 
 // Do checks for minimum requirements
-if (!XMLHttpRequest || !JSON) {
+if (!XMLHttpRequest || !JSON || !Array.prototype.indexOf || !Array.prototype.forEach) {
   throw Error('Browser does not support the minimum requirements of ' +
-        'XMLHttpRequest, JSON' +
-        '. Try adding modernizer to polyfill.');
+        'XMLHttpRequest, JSON, Ecmascript 5 array functions' +
+        '. Try adding a polyfill to provide shims to the functions you need.');
 }
 
-function http(method, url, data, success) {
+function http(o) {
+  // method, url, data, success, error, progress) {
   var r = new XMLHttpRequest();
-  r.open(method, url, true);
-  r.onreadystatechange = function() {
-    if (r.readyState == 4) {
-      var resp = JSON.parse(r.responseText);
-      if (resp && resp.error) {
-        throw new Error(resp.error);
-        return;
+  var async = o.async == undefined ? true : o.async;
+  r.open(o.method || 'GET', o.url, async);
+  if (o.progress) {
+    r.onprogress = function(e) {
+      if (e.lengthComputable) {
+        var percentComplete = (e.loaded / e.total);
+        o.progress(percentComplete, e, r);
       }
-      if (success) {
-        success(resp);
-      }
+    };
+  }
+  function response() {
+    switch (r.getResponseHeader('Content-Type')) {
+      case 'application/json':
+        return JSON.parse(r.responseText);
+      default:
+        return r.responseText;
     }
-  };
-  r.setRequestHeader('Content-Type', 'application/json');
+  }
+  if (o.load) {
+    r.onload = function(e) {
+      o.load(response(), e, r);
+    };
+  }
+  if (o.error) {
+    r.onerror = function(e) {
+      o.error(response(), e, r);
+    };
+  }
+  var data = o.data || null;
   if (data) {
     switch (toString.call(data)) {
-      case '[object Object]':
+      case '[object String]':
+        // r.setRequestHeader('Content-Type',
+        // 'application/x-www-form-urlencoded');
+        // This is already assumed.
+        break;
+      case '[object FormData]':
+        // r.setRequestHeader('Content-Type', 'multipart/form-data');
+        // Don't set this because a FormData sets this correctly for you and
+        // must set the boundry.
+        break;
+      default:
+        r.setRequestHeader('Content-Type', 'application/json');
         data = JSON.stringify(data);
         break;
-      // case '[object String]':
-      //   break;
-      // case '[object FormData]':
-      //   break;
     }
   }
   r.send(data);
 }
 
-http.GET = function(url, success) { http('GET', url, null, success); };
-http.POST = function(url, data, success) { http('POST', url, data, success); };
-http.DELETE = function(url, success) { http('DELETE', url, null, success); };
+http.GET = function(url, load, error) {
+  http({method: 'GET', url: url, load: load, error: error}); };
+http.POST = function(url, data, load, error) {
+  http({method: 'POST', url: url, data: data, load: load, error: error}); };
+http.DELETE = function(url, load, error) {
+  http({method: 'DELETE', url: url, load: load, error: error}); };
 
 /////////////////////////
 // Events via Channel API
@@ -90,7 +116,9 @@ function onClose() {
 
 function onError() {
   // TODO: try reconnecting with backoff or alert system of lack of capability.
-  throw new Error('Channel not connectable.');
+  if (console) {
+    console.warn('Channel not connectable.');
+  }
 }
 
 function onMessage(msg) {
@@ -112,7 +140,7 @@ function connect(callback) {
   if (callback) queue.push(callback);
   if (!CONNECTING) {
     http.POST('/api/events/',
-        JSON.stringify({'method': 'token', 'client_id': client_id}),
+        {'method': 'token', 'client_id': client_id},
         function(resp) {
           var channel = new goog.appengine.Channel(resp.token);
           socket = channel.open();
@@ -137,26 +165,29 @@ function ifConnected(fn, arg1, arg2) {
 }
 
 function errorHandler(msg) {
-  if (msg && msg.error) {
-    throw new Error(msg.error);
+  if (msg && msg.error && console) {
+    console.warn(msg.error);
   }
 }
 
 function trigger(name, payload) {
   http.POST('/api/events/',
-      JSON.stringify({'method': 'trigger',
-                      'client_id': client_id,
-                      'name': name, 'payload': payload}),
-      errorHandler);
+      {'method': 'trigger',
+       'client_id': client_id,
+       'name': name, 'payload': payload},
+       null,
+       errorHandler);
 }
 
 function bind(name, fn) {
   event_map[name] = event_map[name] || [];
   event_map[name].push(fn);
   http.POST('/api/events/',
-      JSON.stringify({'method': 'bind',
-                      'client_id': client_id, 'name': name}),
-      errorHandler);
+      {'method': 'bind',
+       'client_id': client_id,
+       'name': name},
+       null,
+       errorHandler);
 }
 
 function unbind(name, fn) {
@@ -175,8 +206,9 @@ function unbind(name, fn) {
     event_map = {};
   }
   http.POST('/api/events/',
-      JSON.stringify({'method': 'unbind',
-                      'client_id': client_id, 'name': name}),
+      {'method': 'unbind',
+       'client_id': client_id, 'name': name},
+      null,
       errorHandler);
 }
 
@@ -216,8 +248,8 @@ var ModelFactory = function(type, opt_schema) {
   * Query is an iterable collection of a Model
   */
   var Query = function() {
-    this.filter = [];
-    this.order = [];
+    this._filter = ["AND"];
+    this._order = [];
     this.projection = [];
     this._page_size = 100;
     this._more = false;
@@ -250,26 +282,37 @@ var ModelFactory = function(type, opt_schema) {
       });
 
   Query.prototype.filter = function() {
+    var filter;
     switch (arguments.length) {
       case 1:
-        this.filter = this.filter.concat(arguments[0]);
+        filter = arguments[0];
+        break;
+      case 2:
+        filter = FILTER.apply(this,
+            arguments[0].split(' ').concat(arguments[1]));
         break;
       case 3:
-        this.filter = this.filter.concat(FILTER.call(arguments));
+        filter = FILTER.apply(this, arguments);
         break;
       default:
         throw Error('Undefined FILTER format.');
     }
+    console.log(filter);
+    this._filter.push(filter);
+    // this._filter = this._filter.concat(filter);
+    console.log(this._filter);
+    return this;
   };
 
   Query.prototype.order = function(name) {
-    this.order.push(ORDER(name));
+    this._order.push(ORDER(name));
+    return this;
   };
 
   Query.prototype.serialize = function() {
     return JSON.stringify({
-      filter: this.filter,
-      order: this.order,
+      filter: this._filter,
+      order: this._order,
       projection: this.projection,
       page_size: this._page_size
     });

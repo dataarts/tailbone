@@ -99,6 +99,10 @@ structure or simplified queries.
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 
+    to support older browsers also include this before the other two scripts
+    <script src="https://raw.github.com/kriskowal/es5-shim/master/es5-shim.min.js" type="text/javascript" charset="utf-8"></script>
+
+
 ### Exported methods:
 
     Model: ModelFactory that creates a new model type,

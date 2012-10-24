@@ -364,7 +364,7 @@ def construct_query_from_json(cls, filters, orders):
 def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
-  # TODO(doug) correctly auto append orders when necessary like on a multiselect
+  # TODO(doug) correctly auto append orders when necessary like on a multiselect/OR
   q = q.order(*[construct_order(cls,o) for o in orders])
   return q
 

@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import subprocess
 import sys
 from unittest import loader
 from unittest import runner
@@ -68,6 +69,10 @@ def test(args):
   result = runner.TextTestRunner().run(tests)
   sys.exit(result.wasSuccessful())
 
+
+def testjs(args):
+  subprocess.call("phantomjs tailbone/run-qunit.js http://localhost:8080/api/js_test.html", shell=True)
+
 parser = argparse.ArgumentParser(description="Tailbone helper utility.")
 subparsers = parser.add_subparsers()
 
@@ -78,6 +83,15 @@ Test tailbone
 """
 parser_test = subparsers.add_parser("test")
 parser_test.set_defaults(func=test)
+
+"""
+Test tailbone
+  Will do a javascript test of all the backend functionality using tailbone.js.
+  Users must have phantomjs installed.
+./tailbone testjs
+"""
+parser_testjs = subparsers.add_parser("testjs")
+parser_testjs.set_defaults(func=testjs)
 
 if __name__ == '__main__':
   args = parser.parse_args()
