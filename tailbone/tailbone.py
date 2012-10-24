@@ -106,6 +106,8 @@ def convert_str_to_num(s):
   return num
 
 def current_user(required=False):
+  if DEBUG:
+    return convert_num_to_str("232423423")
   u = api.users.get_current_user()
   if u:
     return convert_num_to_str(u.user_id())
@@ -505,11 +507,12 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
           }
     key = str(urllib.unquote(key))
     blob_info = blobstore.BlobInfo.get(key)
-    if not blob_info:
-      self.error(404)
-    else:
+    if blob_info:
       self.send_blob(blob_info)
-    raise BreakError
+      raise BreakError
+    else:
+      self.error(404)
+      return {"error": "File not found with key " + key}
 
   @as_json
   def post(self, _):
@@ -524,13 +527,14 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
     current_user(required=True)
     key = blobstore.BlobKey(str(urllib.unquote(key)))
     blob_info = blobstore.BlobInfo.get(key)
-    if not blob_info:
-      self.error(404)
-    else:
+    if blob_info:
       blob_info.delete()
       if re_image.match(blob_info.content_type):
         delete_serving_url(key)
-    return {}
+      return {}
+    else:
+      self.error(404)
+      return {"error": "File not found with key " + key}
 
 class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
   @as_json

@@ -49,7 +49,6 @@ asyncTest('Bind query', function() {
     var todos = Todo.query();
     ok(todos.length == 0, 'Should return immediately with 0.');
     todos.onchange = function() {
-      console.log('todos', todos.length);
     };
     var todo = new Todo();
     todo.text = 'stuff';
