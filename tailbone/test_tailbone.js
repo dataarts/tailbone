@@ -2,6 +2,22 @@
 
 var Todo = new tailbone.Model('todos');
 
+// function wait(count, callback) {
+//   this.count = count;
+//   this.callback = callback;
+//   var _this = this;
+//   function check() {
+//     if (_this.count <= 0) {
+//       clearInterval(poller);
+//       _this.callback();
+//     } else {
+//       console.log('not yet');
+//     }
+//   }
+//   var poller = setInterval(check, 1000);
+//   return this;
+// }
+
 asyncTest('List items', function() {
   var itemCount = 0;
   tailbone.http.GET('/api/todos/', function(d) {
