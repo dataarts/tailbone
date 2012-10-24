@@ -484,6 +484,11 @@ class AdminHandler(BaseHandler):
   def get(self, action):
     if not api.users.is_current_user_admin():
       raise LoginError("You must be an admin.")
+    def notFound(self):
+      self.error(404)
+      return {"error": "Not Found")
+    return {
+    }.get(action, notFound)(self)
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
 
