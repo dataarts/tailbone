@@ -90,13 +90,28 @@ structure or simplified queries.
         tailbone.trigger("name");
         tailbone.unbind("name");
 
-### Tailbone.js
+
+## Tailbone.js
+
+### How to include:
 
     to use tailbone.js please include the following in your <head>
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 
-    Here is an example script using the js
+### Exported methods:
+
+    Model: ModelFactory that creates a new model type,
+    FILTER: create a filter FILTER,
+    ORDER: create an order ORDER,
+    AND: AND of two or more filters,
+    OR: OR of two or more filters,
+    trigger: trigger an event,
+    bind: bind a js function by name ,
+    unbind: unbind a js function by name,
+    http: http includes simple XHR for json http.GET, http.POST, http.DELETE, used internally
+
+### Example:
 
     var Todo = new tailbone.Model("todos");
     var todos = Todo.query().filter("text", "==", "Go to store").order("-date");
@@ -111,6 +126,5 @@ structure or simplified queries.
         console.log(idx, item);
       });
     };
-
 
 
