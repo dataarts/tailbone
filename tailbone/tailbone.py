@@ -486,7 +486,7 @@ class AdminHandler(BaseHandler):
       raise LoginError("You must be an admin.")
     def notFound(self):
       self.error(404)
-      return {"error": "Not Found")
+      return {"error": "Not Found"}
     return {
     }.get(action, notFound)(self)
 
