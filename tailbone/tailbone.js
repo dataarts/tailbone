@@ -209,13 +209,6 @@ function OR() {
   return f;
 }
 
-function save(type, model) {
-}
-
-function del(type, model) {
-}
-
-
 var ModelFactory = function(type, opt_schema) {
   var ignored_prefixes = ['_', '$'];
 
@@ -310,14 +303,7 @@ var ModelFactory = function(type, opt_schema) {
   Model.get = function(id, opt_callback) {
     var m = new Model();
     m.Id = id;
-    function callback(data) {
-      update(m, data);
-      var fn = opt_callback || m.onchange;
-      if (fn) {
-        fn(m);
-      }
-    }
-    http.GET('/api/' + type + '/' + id, callback);
+    m.$update(opt_callback);
     return m;
   };
 
@@ -352,19 +338,37 @@ var ModelFactory = function(type, opt_schema) {
   * are not included in the jsonifying of an object
   */
   Model.prototype.$save = function(opt_callback) {
-    save(type, this);
     var _this = this;
     http.POST('/api/' + type + '/', Model.serialize(this), function() {
-      if (opt_callback) {
-        opt_callback.call(_this, arguments);
+      update(_this, data);
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(_this);
       }
       tailbone.trigger(type);
     });
   };
 
   Model.prototype.$delete = function(opt_callback) {
-    del(type, this);
-    tailbone.trigger(type);
+    var _this = this;
+    http.DELETE('/api/' + type + '/' + this.Id, function() {
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(_this);
+      }
+      tailbone.trigger(type);
+    });
+  };
+
+  Model.prototype.$update = function(opt_callback) {
+    var _this = this;
+    http.GET('/api/' + type + '/' + this.Id, function(data) {
+      update(_this, data);
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(_this);
+      }
+    });
   };
 
   return Model;
