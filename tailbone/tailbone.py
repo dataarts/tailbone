@@ -176,14 +176,18 @@ def as_json(func):
     else:
       api.namespace_manager.set_namespace(NAMESPACE)
     try:
-      resp = func(self, *args, **kwargs) or {}
+      resp = func(self, *args, **kwargs)
+      if resp == None:
+        resp = {}
     except BreakError as e:
       return
     except AppError as e:
+      self.response.set_status(400)
       resp = { "error": str(e) }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except LoginError as e:
+      self.response.set_status(401)
       url = api.users.create_login_url(self.request.url)
       resp = {
         "error": str(e),
@@ -192,6 +196,7 @@ def as_json(func):
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except api.datastore_errors.BadArgumentError as e:
+      self.response.set_status(400)
       resp = { "error": str(e) }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
@@ -203,6 +208,20 @@ def as_json(func):
       resp = "%s(%s);" % (_callback, resp)
     self.response.out.write(resp)
   return wrapper
+
+class BaseHandler(webapp2.RequestHandler):
+  def handle_exception(self, exception, debug):
+    # Log the error.
+    logging.exception(exception)
+
+    # If the exception is a HTTPException, use its error code.
+    # Otherwise use a generic 500 error code.
+    if isinstance(exception, webapp2.HTTPException):
+      self.response.set_status(exception.code)
+    else:
+      self.response.set_status(500)
+
+    return {"error": str(exception)}
 
 def reflective_create(cls, data):
   m = cls()
@@ -374,7 +393,7 @@ def query(self, cls):
     self.response.headers["Prev-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
-class RestfulHandler(webapp2.RequestHandler):
+class RestfulHandler(BaseHandler):
   @as_json
   def get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
@@ -457,7 +476,7 @@ class LogoutHandler(webapp2.RequestHandler):
         api.users.create_logout_url(
           self.request.get("url", default_value="/")))
 
-class AdminHandler(webapp2.RequestHandler):
+class AdminHandler(BaseHandler):
   """Admin routes"""
   @as_json
   def get(self, action):
@@ -476,11 +495,11 @@ def blob_info_to_dict(blob_info):
   d["Id"] = str(key)
   return d
 
-class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
-    blobstore_handlers.BlobstoreUploadHandler):
+class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
   @as_json
   def get(self, key):
     if key == "":
+      current_user(required=True)
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
           }
@@ -502,6 +521,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler,
 
   @as_json
   def delete(self, key):
+    current_user(required=True)
     key = blobstore.BlobKey(str(urllib.unquote(key)))
     blob_info = blobstore.BlobInfo.get(key)
     if not blob_info:
@@ -570,7 +590,7 @@ def trigger(name, payload):
   return sent_to
 
 
-class ConnectedHandler(webapp2.RequestHandler):
+class ConnectedHandler(BaseHandler):
   @as_json
   def post(self):
     client_id = self.request.get('from')
@@ -581,7 +601,7 @@ class ConnectedHandler(webapp2.RequestHandler):
     logging.info("Connecting client id {}".format(client_id))
 
 
-class DisconnectedHandler(webapp2.RequestHandler):
+class DisconnectedHandler(BaseHandler):
   @as_json
   def post(self):
     client_id = self.request.get('from')
@@ -593,7 +613,7 @@ class DisconnectedHandler(webapp2.RequestHandler):
     unbind(client_id)
 
 
-class RebootHandler(webapp2.RequestHandler):
+class RebootHandler(BaseHandler):
   @as_json
   def get(self):
     # remove all event bindings and
@@ -614,7 +634,7 @@ class RebootHandler(webapp2.RequestHandler):
       deferred.defer(channel.send_message, str(l), msg)
 
 
-class EventsHandler(webapp2.RequestHandler):
+class EventsHandler(BaseHandler):
   @as_json
   def post(self):
     data = parse_body(self)
@@ -655,7 +675,7 @@ class JsTestHandler(webapp2.RequestHandler):
   </script>
   </body>
 </html>
-""".format(open("test_tailbone.js").read()))
+""".format(open("tailbone/test_tailbone.js").read()))
 
 class UploadTestHandler(webapp2.RequestHandler):
   def get(self):

@@ -5,8 +5,8 @@ handlers:
 
   # use this javascript file if you want the evented databinding abilities
   - url: /tailbone.js
-    static_files: tailbone.js
-    upload: tailbone.js
+    static_files: tailbone/tailbone.js
+    upload: tailbone/tailbone.js
 
   - url: /_ah/channel/(dis)?connected/
     script: tailbone.connected

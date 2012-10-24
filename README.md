@@ -102,6 +102,7 @@ structure or simplified queries.
 ### Exported methods:
 
     Model: ModelFactory that creates a new model type,
+    User: Automatically created special model for users info
     FILTER: create a filter FILTER,
     ORDER: create an order ORDER,
     AND: AND of two or more filters,

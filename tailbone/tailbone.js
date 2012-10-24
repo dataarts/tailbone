@@ -339,7 +339,7 @@ var ModelFactory = function(type, opt_schema) {
   */
   Model.prototype.$save = function(opt_callback) {
     var _this = this;
-    http.POST('/api/' + type + '/', Model.serialize(this), function() {
+    http.POST('/api/' + type + '/', Model.serialize(this), function(data) {
       update(_this, data);
       var fn = opt_callback || _this.onchange;
       if (fn) {
@@ -354,7 +354,7 @@ var ModelFactory = function(type, opt_schema) {
     http.DELETE('/api/' + type + '/' + this.Id, function() {
       var fn = opt_callback || _this.onchange;
       if (fn) {
-        fn(_this);
+        fn();
       }
       tailbone.trigger(type);
     });
@@ -374,12 +374,14 @@ var ModelFactory = function(type, opt_schema) {
   return Model;
 };
 
+var User = new ModelFactory('users');
 
 // Add the channel js for appengine and bind the events.
 
 // Exports
 return {
   Model: ModelFactory,
+  User: User,
   FILTER: FILTER,
   ORDER: ORDER,
   AND: AND,
