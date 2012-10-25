@@ -103,12 +103,18 @@ code by just going to http://localhost:8080/api/js_test.html
 
 ### How to include:
 
-    to use tailbone.js please include the following in your <head>
+    to use tailbone.js please include the following in your html
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 
     to support older browsers also include this before the other two scripts
-    <script src="https://raw.github.com/kriskowal/es5-shim/master/es5-shim.min.js" type="text/javascript" charset="utf-8"></script>
+    <!--[if lt IE 7]>
+        <p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
+    <![endif]-->
+    <!--[if lt IE 9]>
+        <script src="http://cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
+        <script src="http://cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
+    <![endif]-->
 
 
 ### Exported methods:

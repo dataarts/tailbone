@@ -558,46 +558,46 @@ class events(ndb.Model):
 
 def bind(user_key, name):
   event = events.query(events.listeners == user_key, events.name == name).get()
-  if not event:
-    def txn():
-      shard_id = random.randint(0, events.NUM_SHARDS - 1)
-      event_key = ndb.Key(events, "{}_{}".format(name, shard_id))
-      event = event_key.get()
-      if not event:
-        event = events(name=name, shard_id=shard_id, key=event_key)
-      event.listeners.append(user_key)
-      event.put()
-      return event
-    event = ndb.transaction(txn)
-  return event
+  if event:
+    return event
+  @ndb.transactional
+  def create():
+    shard_id = random.randint(0, events.NUM_SHARDS - 1)
+    event_key = ndb.Key(events, "{}_{}".format(name, shard_id))
+    event = event_key.get()
+    if not event:
+      event = events(name=name, shard_id=shard_id, key=event_key)
+    event.listeners.append(user_key)
+    event.put()
+    return event
+  return create()
 
 def unbind(user_key, name=None):
   eventlist = events.query(events.listeners == user_key)
   if name:
     eventlist = eventlist.filter(events.name == name)
   modified = []
-  for event in eventlist:
-    def txn():
-      event.listeners = [l for l in event.listeners if l != user_key]
-      if event.listeners:
-        event.put()
-      else:
-        event.key.delete()
-    ndb.transaction(txn)
-    modified.append(event.to_dict())
-  return modified
+  @ndb.tasklet
+  @ndb.transactional
+  def remove_from(event):
+    event.listeners = [l for l in event.listeners if l != user_key]
+    if event.listeners:
+      yield event.put_async()
+    else:
+      yield event.key.delete_async()
+    raise ndb.Return(event.to_dict())
+  return eventlist.map(remove_from)
 
 def trigger(name, payload):
+  #TODO: bin the send to actions rather than deferring each one or async
   msg = json.dumps({ "name": name,
                      "payload": payload })
-  sent_to = set()
-  for e in events.query(events.name == name):
-    for l in e.listeners:
-      if l not in sent_to:
-        sent_to.add(l)
-        deferred.defer(channel.send_message, str(l), msg)
-  return sent_to
-
+  def send(event):
+    for l in event.listeners:
+      channel.send_message(str(l), msg)
+    return event.listeners
+  q = events.query(events.name == name)
+  return reduce(lambda x,y: x+y, q.map(send), [])
 
 class ConnectedHandler(BaseHandler):
   @as_json
