@@ -6,7 +6,15 @@ using plain javascript and your own xhr calls.
 
 Also, for added capabilities, there is a javascript library auto served at /tailbone.js which does
 additional niceties like bi-directional binding of your model and your backend to a javascript
-structure or simplified queries.
+structure with simplified queries.
+
+## Status
+
+Just started. Most things are complete and working a few rough edges. Also working on a go branch
+with the same api. If you want to contribute please add a test for any fix or feature. Test can be
+run by calling ./tailbone/util test or ./tailbone/util testjs. For the testing of js code you need
+to have phantomjs installed and the dev_appserver.py running. If you do not, you can also test the
+code by just going to http://localhost:8080/api/js_test.html
 
 ## Special URLS
 

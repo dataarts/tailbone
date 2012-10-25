@@ -61,28 +61,28 @@ asyncTest('Bind query', function() {
   });
 });
 
-// asyncTest('Complex query', function() {
-//   tailbone.http.GET('/api/todos/?filter=count<3&filter=text==hi&order=count', function(d) {
-//     var itemCount = d.length;
-//     var counter = new Counter(6, function() {
-//       ok(todos.length == itemCount + 3, 'Got ' + todos.length +
-//         ' items, expected ' + (itemCount + 3));
-//       start();
-//     });
-//     for (var i = 0; i < 5; i++) {
-//       var todo = new Todo();
-//       todo.count = i;
-//       todo.text = 'hi';
-//       todo.$save();
-//     }
-//     var todos = Todo.query().filter('count <', 3).
-//       order('count').filter('text', '==', 'hi');
-//     var todos = Todo.query().filter(filter).order('count').order('__key__');
-//     todos.onchange = function() {
-//       counter.count -= 1;
-//     };
-//   });
-// });
+asyncTest('Complex query', function() {
+  tailbone.http.GET('/api/todos/?filter=count<3&filter=text==hi&order=count',
+    function(d) {
+    var itemCount = d.length;
+    var counter = new Counter(6, function() {
+      ok(todos.length == itemCount + 3, 'Got ' + todos.length +
+        ' items, expected ' + (itemCount + 3));
+      start();
+    });
+    for (var i = 0; i < 5; i++) {
+      var todo = new Todo();
+      todo.count = i;
+      todo.text = 'hi';
+      todo.$save();
+    }
+    var todos = Todo.query().filter('count <', 3).
+      order('count').filter('text', '==', 'hi');
+    todos.onchange = function() {
+      counter.count -= 1;
+    };
+  });
+});
 
 function toBlob(data_url) {
   var d = atob(data_url.split(',')[1]);
