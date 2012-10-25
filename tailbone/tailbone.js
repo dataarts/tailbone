@@ -248,7 +248,7 @@ var ModelFactory = function(type, opt_schema) {
   * Query is an iterable collection of a Model
   */
   var Query = function() {
-    this._filter = ["AND"];
+    this._filter = [];
     this._order = [];
     this.projection = [];
     this._page_size = 100;
@@ -297,10 +297,10 @@ var ModelFactory = function(type, opt_schema) {
       default:
         throw Error('Undefined FILTER format.');
     }
-    console.log(filter);
+    if (this._filter.length == 0) {
+      this._filter = ['AND'];
+    }
     this._filter.push(filter);
-    // this._filter = this._filter.concat(filter);
-    console.log(this._filter);
     return this;
   };
 
@@ -420,15 +420,11 @@ var ModelFactory = function(type, opt_schema) {
 var User = new ModelFactory('users');
 
 User.login = function(opt_callback) {
-
+  // window.open("/api/login?url=/api/popup", "popup", "location=1,status=1,scrollbars=1, width=100,height=100");
 };
 
 User.logout = function(opt_callback) {
   http.GET('/api/logout', opt_callback);
-};
-
-User.logout = function(opt_callback) {
-
 };
 
 //

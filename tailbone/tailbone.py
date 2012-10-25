@@ -672,7 +672,7 @@ class LoginPopupHandler(webapp2.RequestHandler):
         m = users(key=ndb.Key('users',u))
       msg = json.dumps(m.to_dict())
     else:
-      msg = json.dumps({})
+      msg = json.dumps(None)
     self.response.out.write("""
 <!doctype html>
 <html>
@@ -748,7 +748,7 @@ app = webapp2.WSGIApplication([
   (r"{}upload_test.html".format(PREFIX), UploadTestHandler),
   (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}_popup".format(PREFIX), LoginPopupHandler),
+  (r"{}popup".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
