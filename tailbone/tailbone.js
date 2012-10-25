@@ -420,7 +420,7 @@ var ModelFactory = function(type, opt_schema) {
 var User = new ModelFactory('users');
 
 User.login = function(opt_callback) {
-  // window.open("/api/login?url=/api/popup", "popup", "location=1,status=1,scrollbars=1, width=100,height=100");
+  // window.open("/api/login?url=/api/login.html", "popup", "location=1,status=1,scrollbars=1, width=100,height=100");
 };
 
 User.logout = function(opt_callback) {

@@ -748,7 +748,7 @@ app = webapp2.WSGIApplication([
   (r"{}upload_test.html".format(PREFIX), UploadTestHandler),
   (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}popup".format(PREFIX), LoginPopupHandler),
+  (r"{}login.html".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
