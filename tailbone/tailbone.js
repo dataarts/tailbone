@@ -419,6 +419,29 @@ var ModelFactory = function(type, opt_schema) {
 
 var User = new ModelFactory('users');
 
+User.login = function(opt_callback) {
+
+};
+
+User.logout = function(opt_callback) {
+  http.GET('/api/logout', opt_callback);
+};
+
+User.logout = function(opt_callback) {
+
+};
+
+//
+// User.get('me', function(me) {
+//  if(!me) {
+//    User.login(function(me) {
+//      doSomething(me);
+//    });
+//  } else {
+//    doSomething(me);
+//  }
+// });
+
 // Add the channel js for appengine and bind the events.
 
 // Exports

@@ -662,6 +662,38 @@ class EventsHandler(BaseHandler):
 # END Event Code
 # ---------------
 
+
+class LoginPopupHandler(webapp2.RequestHandler):
+  def get(self):
+    u = current_user()
+    if u:
+      m = users.get_by_id(u)
+      if not u:
+        m = users(key=ndb.Key('users',u))
+      msg = json.dumps(m.to_dict())
+    else:
+      msg = json.dumps({})
+    self.response.out.write("""
+<!doctype html>
+<html>
+<head>
+  <title></title>
+  <style type="text/css">
+    * { margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+If this window does not close, please click <a id="origin">here</a> to refresh.
+<script type="text/javascript">
+  var targetOrigin = window.location.origin || ( window.location.protocol + "//" + window.location.host );
+  document.querySelector("#origin").href = targetOrigin;
+  window.opener.postMessage({}, targetOrigin);
+  window.close();
+</script>
+</body>
+</html>
+""".format(msg))
+
 class JsTestHandler(webapp2.RequestHandler):
   def get(self):
     if not DEBUG:
@@ -716,6 +748,7 @@ app = webapp2.WSGIApplication([
   (r"{}upload_test.html".format(PREFIX), UploadTestHandler),
   (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
+  (r"{}_popup".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
