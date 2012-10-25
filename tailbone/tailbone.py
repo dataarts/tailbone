@@ -644,6 +644,7 @@ class RebootHandler(BaseHandler):
 
 
 class EventsHandler(BaseHandler):
+  # TODO(doug): add better client_id generation
   @as_json
   def post(self):
     data = parse_body(self)
