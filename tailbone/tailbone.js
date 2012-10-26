@@ -7,12 +7,23 @@
 window.tailbone = (function(window, document, undefined) {
 
 var http = {};
+function errorWrapper(fn) {
+  if (fn) {
+    return function(jqXHR, textStatus, errorThrown) {
+      var data;
+      try {
+        data = JSON.parse(jqXHR.responseText);
+      } catch (e) { }
+      fn(data, textStatus, jqXHR, errorThrown);
+    }
+  }
+}
 http.GET = function(url, load, error) {
   $.ajax({
     type: 'GET',
     url: url,
     success: load,
-    error: error,
+    error: errorWrapper(error),
     dataType: 'json'
   });
 };
@@ -22,7 +33,7 @@ http.POST = function(url, data, load, error) {
     url: url,
     data: JSON.stringify(data),
     success: load,
-    error: error,
+    error: errorWrapper(error),
     dataType: 'json',
     contentType: 'application/json'
   });
@@ -32,7 +43,7 @@ http.DELETE = function(url, load, error) {
     type: 'DELETE',
     url: url,
     success: load,
-    error: error,
+    error: errorWrapper(error),
     dataType: 'json'
   });
 };
@@ -397,13 +408,16 @@ function authorizeCallback(opt_callback) {
       if (!localhost && message.origin !== window.location.origin) {
         throw new Error('Origin does not match.');
       } else {
+        removeEventListener('message', process, false);
         if (callback) {
           callback(message.data.payload);
         }
       }
     };
   }
-  addEventListener('message', processToken(opt_callback), false);
+
+  var process = processToken(opt_callback);
+  addEventListener('message', process, false);
 
 }
 

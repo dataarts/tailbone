@@ -18,23 +18,23 @@ asyncTest('Login', function() {
 
   var User = tailbone.User;
 
-  var button = document.createElement('button');
-  button.appendChild(document.createTextNode('Login Test'));
-  button.onclick = function() {
-    User.logout(function(resp) {
-      User.get('me', null, function(d) {
-        // ok(d.error == 'LoginError', d.error);
-        User.login(function() {
-          User.get('me', function(d) {
-            ok(d.Id !== undefined, d.Id);
-            document.body.removeChild(button);
-            start();
-          });
+  var a = document.createElement('a');
+  a.appendChild(document.createTextNode('Login Test'));
+  User.logout(function() {
+    User.get('me', null, function(d) {
+      ok(d.error == 'LoginError', d);
+      var link = User.login_popup_url(function() {
+        User.get('me', function(d) {
+          ok(d.Id !== undefined, d.Id);
+          document.body.removeChild(a);
+          start();
         });
       });
+      a.href = link;
+      a.target = '_blank';
     });
-  };
-  document.body.appendChild(button);
+  });
+  document.body.appendChild(a);
 });
 
 asyncTest('List items', function() {
