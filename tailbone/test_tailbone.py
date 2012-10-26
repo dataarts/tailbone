@@ -330,7 +330,8 @@ class RestfulTestCase(unittest.TestCase):
     request.body = json.dumps(data)
     response = request.get_response(tailbone.app)
     self.assertJsonResponseData(response,
-        {"error": "Id must be the current user_id or me. " +
+        { "error": "AppError",
+          "message": "Id must be the current user_id or me. " +
           "User h tried to modify user i."})
 
   def test_user_query_all(self):
@@ -405,7 +406,8 @@ class RestfulTestCase(unittest.TestCase):
     # edit from other account
     response, response_data = self.create(self.model_url, data)
     self.assertJsonResponseData(response, {
-      "error": "You do not have sufficient privileges."
+      "error": "AppError",
+      "message": "You do not have sufficient privileges."
       })
 
   def test_create_with_url_encode(self):
@@ -425,7 +427,8 @@ class RestfulTestCase(unittest.TestCase):
     self.setCurrentUser(None, None)
     response, response_data = self.create(self.model_url, data)
     self.assertJsonResponseData(response, {
-      "error": "User must be logged in.",
+      "error": "LoginError",
+      "message": "User must be logged in.",
       "url": "https://www.google.com/accounts/Login?continue=http%3A//localhost/api/todos/"})
 
   def test_create_with_post(self):

@@ -106,8 +106,6 @@ def convert_str_to_num(s):
   return num
 
 def current_user(required=False):
-  if DEBUG:
-    return convert_num_to_str("232423423")
   u = api.users.get_current_user()
   if u:
     return convert_num_to_str(u.user_id())
@@ -185,21 +183,22 @@ def as_json(func):
       return
     except AppError as e:
       self.response.set_status(400)
-      resp = { "error": str(e) }
+      resp = { "error": e.__class__.__name__, "message": e.message }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except LoginError as e:
       self.response.set_status(401)
       url = api.users.create_login_url(self.request.url)
       resp = {
-        "error": str(e),
+        "error": e.__class__.__name__,
+        "message": e.message,
         "url": url
       }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     except api.datastore_errors.BadArgumentError as e:
       self.response.set_status(400)
-      resp = { "error": str(e) }
+      resp = { "error": e.__class__.__name__, "message": e.message }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
     if not isinstance(resp, str) and not isinstance(resp, unicode):
@@ -669,19 +668,16 @@ class LoginPopupHandler(webapp2.RequestHandler):
     u = current_user()
     if u:
       m = users.get_by_id(u)
-      if not u:
-        m = users(key=ndb.Key('users',u))
-      msg = json.dumps(m.to_dict())
+      if not m:
+        m = users(key=ndb.Key('users', u))
+      msg = m.to_dict()
     else:
-      msg = json.dumps(None)
+      msg = None
     self.response.out.write("""
 <!doctype html>
 <html>
 <head>
   <title></title>
-  <style type="text/css">
-    * { margin: 0; padding: 0; }
-  </style>
 </head>
 <body>
 If this window does not close, please click <a id="origin">here</a> to refresh.
@@ -693,7 +689,7 @@ If this window does not close, please click <a id="origin">here</a> to refresh.
 </script>
 </body>
 </html>
-""".format(msg))
+""".format({"type":"Login", "payload": msg}))
 
 class JsTestHandler(webapp2.RequestHandler):
   def get(self):
@@ -709,7 +705,8 @@ class JsTestHandler(webapp2.RequestHandler):
   </head>
   <body>
   <div id="qunit"></div>
-  <script src="http://code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
+  <script src="//code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
   <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
   <script>

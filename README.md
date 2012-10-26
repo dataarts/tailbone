@@ -104,6 +104,8 @@ code by just going to http://localhost:8080/api/js_test.html
 ### How to include:
 
     to use tailbone.js please include the following in your html
+    if you don't want to use jquery just define $.ajax yourself somehow somewhere
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 
@@ -112,8 +114,8 @@ code by just going to http://localhost:8080/api/js_test.html
         <p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
     <![endif]-->
     <!--[if lt IE 9]>
-        <script src="http://cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
-        <script src="http://cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
     <![endif]-->
 
 
@@ -128,7 +130,6 @@ code by just going to http://localhost:8080/api/js_test.html
     trigger: trigger an event,
     bind: bind a js function by name ,
     unbind: unbind a js function by name,
-    http: http includes simple XHR for json http.GET, http.POST, http.DELETE, used internally
 
 ### Example:
 

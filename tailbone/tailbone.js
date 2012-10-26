@@ -6,72 +6,36 @@
 
 window.tailbone = (function(window, document, undefined) {
 
-// Do checks for minimum requirements
-if (!XMLHttpRequest || !JSON || !Array.prototype.indexOf || !Array.prototype.forEach) {
-  throw Error('Browser does not support the minimum requirements of ' +
-        'XMLHttpRequest, JSON, Ecmascript 5 array functions' +
-        '. Try adding a polyfill to provide shims to the functions you need.');
-}
-
-function http(o) {
-  // method, url, data, success, error, progress) {
-  var r = new XMLHttpRequest();
-  var async = o.async == undefined ? true : o.async;
-  r.open(o.method || 'GET', o.url, async);
-  if (o.progress) {
-    r.onprogress = function(e) {
-      if (e.lengthComputable) {
-        var percentComplete = (e.loaded / e.total);
-        o.progress(percentComplete, e, r);
-      }
-    };
-  }
-  function response() {
-    switch (r.getResponseHeader('Content-Type')) {
-      case 'application/json':
-        return JSON.parse(r.responseText);
-      default:
-        return r.responseText;
-    }
-  }
-  if (o.load) {
-    r.onload = function(e) {
-      o.load(response(), e, r);
-    };
-  }
-  if (o.error) {
-    r.onerror = function(e) {
-      o.error(response(), e, r);
-    };
-  }
-  var data = o.data || null;
-  if (data) {
-    switch (toString.call(data)) {
-      case '[object String]':
-        // r.setRequestHeader('Content-Type',
-        // 'application/x-www-form-urlencoded');
-        // This is already assumed.
-        break;
-      case '[object FormData]':
-        // r.setRequestHeader('Content-Type', 'multipart/form-data');
-        // Don't set this because a FormData sets this correctly for you and
-        // must set the boundry.
-        break;
-      default:
-        r.setRequestHeader('Content-Type', 'application/json');
-        data = JSON.stringify(data);
-        break;
-    }
-  }
-  r.send(data);
-}
-
+var http = {};
 http.GET = function(url, load, error) {
-  http({method: 'GET', url: url, load: load, error: error}); };
+  $.ajax({
+    type: 'GET',
+    url: url,
+    success: load,
+    error: error,
+    dataType: 'json'
+  });
+};
 http.POST = function(url, data, load, error) {
-  http({method: 'POST', url: url, data: data, load: load, error: error}); };
+  $.ajax({
+    type: 'POST',
+    url: url,
+    data: JSON.stringify(data),
+    success: load,
+    error: error,
+    dataType: 'json',
+    contentType: 'application/json'
+  });
+};
 http.DELETE = function(url, load, error) {
-  http({method: 'DELETE', url: url, load: load, error: error}); };
+  $.ajax({
+    type: 'DELETE',
+    url: url,
+    success: load,
+    error: error,
+    dataType: 'json'
+  });
+};
 
 /////////////////////////
 // Events via Channel API
@@ -343,10 +307,10 @@ var ModelFactory = function(type, opt_schema) {
   /*
    * Get a model by its id.
    */
-  Model.get = function(id, opt_callback) {
+  Model.get = function(id, opt_callback, opt_error) {
     var m = new Model();
     m.Id = id;
-    m.$update(opt_callback);
+    m.$update(opt_callback, opt_error);
     return m;
   };
 
@@ -380,7 +344,7 @@ var ModelFactory = function(type, opt_schema) {
   * $name
   * are not included in the jsonifying of an object
   */
-  Model.prototype.$save = function(opt_callback) {
+  Model.prototype.$save = function(opt_callback, opt_error) {
     var _this = this;
     http.POST('/api/' + type + '/', Model.serialize(this), function(data) {
       update(_this, data);
@@ -389,10 +353,10 @@ var ModelFactory = function(type, opt_schema) {
         fn(_this);
       }
       tailbone.trigger(type);
-    });
+    }, opt_error);
   };
 
-  Model.prototype.$delete = function(opt_callback) {
+  Model.prototype.$delete = function(opt_callback, opt_error) {
     var _this = this;
     http.DELETE('/api/' + type + '/' + this.Id, function() {
       var fn = opt_callback || _this.onchange;
@@ -400,10 +364,10 @@ var ModelFactory = function(type, opt_schema) {
         fn();
       }
       tailbone.trigger(type);
-    });
+    }, opt_error);
   };
 
-  Model.prototype.$update = function(opt_callback) {
+  Model.prototype.$update = function(opt_callback, opt_error) {
     var _this = this;
     http.GET('/api/' + type + '/' + this.Id, function(data) {
       update(_this, data);
@@ -411,7 +375,7 @@ var ModelFactory = function(type, opt_schema) {
       if (fn) {
         fn(_this);
       }
-    });
+    }, opt_error);
   };
 
   return Model;
@@ -419,12 +383,65 @@ var ModelFactory = function(type, opt_schema) {
 
 var User = new ModelFactory('users');
 
+function authorizeCallback(opt_callback) {
+
+  function processToken(callback) {
+    return function(message) {
+      if (message.data.type != 'Login') {
+        return;
+      }
+      var localhost = false;
+      if (message.origin.substr(0, 17) == 'http://localhost:') {
+        localhost = true;
+      }
+      if (!localhost && message.origin !== window.location.origin) {
+        throw new Error('Origin does not match.');
+      } else {
+        if (callback) {
+          callback(message.data.payload);
+        }
+      }
+    };
+  }
+  addEventListener('message', processToken(opt_callback), false);
+
+}
+
+// have a constructor for login url
+User.login_url = function(redirect_url) {
+  return '/api/login?url=' + (redirect_url || '/');
+};
+
+User.login_popup_url = function(opt_callback) {
+  authorizeCallback(opt_callback);
+  return User.login_url('/api/login.html');
+};
+
 User.login = function(opt_callback) {
-  // window.open("/api/login?url=/api/login.html", "popup", "location=1,status=1,scrollbars=1, width=100,height=100");
+  var x, y;
+  if (window.screen.width) {
+    x = window.screenX + window.screen.width / 2.0;
+    y = window.screenY + window.screen.height / 2.0;
+  }
+
+  var pos = {
+    x: x,
+    y: y,
+    width: 1100,
+    height: 600
+  };
+
+  var prop = 'menubar=0, resizable=0, location=0, toolbar=0, ' +
+    'status=0, scrollbars=1, titlebar=0, left=' +
+    (pos.x - (pos.width / 2.0)) + ', top=' +
+    (pos.y - (pos.height / 2.0)) + ', width=' +
+    pos.width + ', height=' + pos.height;
+
+  window.open(User.login_popup_url(opt_callback), 'Auth', prop);
 };
 
 User.logout = function(opt_callback) {
-  http.GET('/api/logout', opt_callback);
+  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
 };
 
 //
@@ -450,8 +467,7 @@ return {
   OR: OR,
   trigger: function(name, payload) { ifConnected(trigger, name, payload); },
   bind: function(name, fn) { ifConnected(bind, name, fn); },
-  unbind: function(name, fn) { ifConnected(unbind, name, fn); },
-  http: http
+  unbind: function(name, fn) { ifConnected(unbind, name, fn); }
 };
 
 })(this, this.document);
