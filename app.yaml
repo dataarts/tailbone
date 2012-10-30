@@ -1,22 +1,13 @@
-application: application-name
+application: your-app-id
 version: master
 runtime: go
 api_version: go1
 
+# this includes the tailbone api links and /tailbone.js
+includes:
+  - tailbone
+
 handlers:
-  # add your own custom apps and handlers if you want to extend this
-  # - url: /custom/.*
-  #   script: custom.app
-
-  # This is the main tailbone restful app handler
-  - url: (/_ah/channel/(dis)?connected/|/api/.*)
-    script: _go_app
-
-  # use this javascript file if you want the evented databinding abilities
-  - url: /tailbone.js
-    static_files: tailbone/tailbone.js
-    upload: tailbone/tailbone.js
-
   # this links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
   - url: (/?.*)/
@@ -30,13 +21,8 @@ builtins:
   - deferred: on
   - admin_redirect: on
   - remote_api: on
+  # - datastore_admin: on
 
 inbound_services:
   - warmup
   - channel_presence
-
-pagespeed:
-  disabled_rewriters:
-    - LazyloadImages
-
-
