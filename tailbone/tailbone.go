@@ -45,7 +45,7 @@ func (d Dict) Save(c chan<- datastore.Property) error {
 			log.Printf("type: slice")
 		case float64, float32:
 			log.Printf("type: float64")
-		case int64, int, int32:
+		case int, int32, int64:
 			log.Printf("type: int")
       v = v.(float64)
 		case string:
