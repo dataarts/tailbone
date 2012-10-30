@@ -270,8 +270,8 @@ def clean_data(data):
   # strips any disallowed names {id, _*, etc}
   disallowed = ["Id", "id", "key"]
   exceptions = ["Id"]
-  for key in disallowed:
-    if data.has_key(key):
+  for key in data.keys():
+    if key[0] == "_" or key in disallowed:
       if key not in exceptions:
         logging.warn("Disallowed key {%s} passed in object creation." % key)
       del data[key]

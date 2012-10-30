@@ -123,10 +123,9 @@ asyncTest('Upload file', function() {
   var ctx = canvas.getContext('2d');
   ctx.fillRect(0, 0, 100, 100);
   var img = canvas.toDataURL();
-  data.append('blob', toBlob(img), 'image');
+  data.append('blob', toBlob(img), 'image_filename');
   document.body.removeChild(canvas);
   $.get('/api/files', function(d) {
-    console.log(d);
     $.ajax({
       type: 'POST',
       url: d.upload_url,
@@ -137,6 +136,7 @@ asyncTest('Upload file', function() {
       success: function(items) {
         var d = items[0];
         ok(d.Id != undefined, 'Id is ' + d.Id);
+        ok(d.filename == 'image_filename', 'filename is ' + d.filename);
         ok(d.size == 1616, 'size is ' + d.size);
         ok(d.content_type == 'image/png', 'content type is ' + d.content_type);
         start();
@@ -151,3 +151,12 @@ asyncTest('User account', function() {
     start();
   });
 });
+
+asyncTest('User ownership', function() {
+  var t = new Todo();
+  t.$save(function(t) {
+    ok(t.owners.length == 1, 'Owner ' + t.owners[0]);
+    start();
+  });
+});
+
