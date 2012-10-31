@@ -268,15 +268,15 @@ def parse_body(self):
 
 def clean_data(data):
   # strips any disallowed names {id, _*, etc}
-  disallowed = ["Id", "id", "key"]
+  disallowed_names = ["Id", "id", "key"]
+  disallowed_prefixes = ["_", "$"]
   exceptions = ["Id"]
   for key in data.keys():
-    if key[0] == "_" or key in disallowed:
+    if key[0] in disallowed_prefixes or key in disallowed_names:
       if key not in exceptions:
         logging.warn("Disallowed key {%s} passed in object creation." % key)
       del data[key]
   return data
-
 
 def parse_id(id, data_id=None):
   try:
@@ -661,7 +661,6 @@ class EventsHandler(BaseHandler):
 # ---------------
 # END Event Code
 # ---------------
-
 
 class LoginPopupHandler(webapp2.RequestHandler):
   def get(self):
