@@ -181,11 +181,6 @@ def as_json(func):
         resp = {}
     except BreakError as e:
       return
-    except AppError as e:
-      self.response.set_status(400)
-      resp = { "error": e.__class__.__name__, "message": e.message }
-      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
-        logging.error(str(e))
     except LoginError as e:
       self.response.set_status(401)
       url = api.users.create_login_url(self.request.url)
@@ -196,7 +191,8 @@ def as_json(func):
       }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
         logging.error(str(e))
-    except api.datastore_errors.BadArgumentError as e:
+    except (AppError, api.datastore_errors.BadArgumentError,
+        api.datastore_errors.BadRequestError) as e:
       self.response.set_status(400)
       resp = { "error": e.__class__.__name__, "message": e.message }
       if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
@@ -690,51 +686,6 @@ If this window does not close, please click <a id="origin">here</a> to refresh.
 </html>
 """.format({"type":"Login", "payload": msg}))
 
-class JsTestHandler(webapp2.RequestHandler):
-  def get(self):
-    if not DEBUG:
-      self.error(404)
-      return
-    self.response.out.write("""
-<!doctype html>
-<html>
-  <head>
-    <title></title>
-    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
-  </head>
-  <body>
-  <div id="qunit"></div>
-  <script src="//code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
-  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
-  <script>
-    {}
-  </script>
-  </body>
-</html>
-""".format(open("tailbone/test_tailbone.js").read()))
-
-class UploadTestHandler(webapp2.RequestHandler):
-  def get(self):
-    if not DEBUG:
-      self.error(404)
-      return
-    self.response.out.write("""
-<!doctype html>
-<html>
-  <head>
-    <title></title>
-  </head>
-  <body>
-  <form action="{}" method="POST" enctype="multipart/form-data">
-  <input type="file" name="file" />
-  <input type="submit" name="submit" value="Submit" />
-  </form>
-  </body>
-</html>
-""".format(blobstore.create_upload_url("/api/files/upload")))
-
 # prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
 
@@ -742,8 +693,6 @@ NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
 app = webapp2.WSGIApplication([
-  (r"{}upload_test.html".format(PREFIX), UploadTestHandler),
-  (r"{}js_test.html".format(PREFIX), JsTestHandler),
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}login.html".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),

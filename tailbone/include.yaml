@@ -3,6 +3,10 @@ handlers:
   - url: /api/.*
     script: tailbone.app
 
+  - url: /_test
+    static_files: tailbone/test_tailbone.html
+    upload: tailbone/test_tailbone.html
+
   # use this javascript file if you want the evented databinding abilities
   - url: /tailbone.js
     static_files: tailbone/tailbone.js

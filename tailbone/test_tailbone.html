@@ -1,3 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="//code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+
 var Todo = new tailbone.Model('todos');
 
 function Counter(count, callback) {
@@ -60,6 +75,50 @@ asyncTest('Create model', function() {
         start();
       });
     });
+  });
+});
+
+asyncTest('Query and filtering', function() {
+  var query = '/api/todos/?filter=text==stuff&filter=size>1&order=-size';
+  $.get(query, function(d) {
+    var itemCount = d.length;
+    var counter = new Counter(5, function() {
+      $.get(query, function(d) {
+        ok(d[0].size == 4, 'Largest size is ' + d[0].size)
+        ok(d.length == itemCount + 3, 'Returned ' + d.length + 'items')
+        start();
+      });
+    });
+    for(var i=0; i<5; i++) {
+      var todo = new Todo();
+      todo.size = i;
+      todo.text = 'stuff';
+      todo.$save(function() {
+        counter.count -= 1;
+      });
+    }
+  });
+});
+
+asyncTest('Query with params', function() {
+  $.get('/api/todos/?filter=text==stuff&filter=count>1', function(d) {
+    var itemCount = d.length;
+    var params = {
+      filters: ['AND',['text','==','stuff'],['count','>',1]]
+    }
+    var counter = new Counter(5, function() {
+      $.get('/api/todos/?params='+JSON.stringify(params), function(d) {
+        start();
+      });
+    });
+    for(var i=0; i<5; i++) {
+      var todo = new Todo();
+      todo.num = i;
+      todo.text == 'stuff';
+      todo.$save(function() {
+        counter.count -= 1;
+      });
+    }
   });
 });
 
@@ -159,4 +218,19 @@ asyncTest('User ownership', function() {
     start();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+  </script>
+  </body>
+</html>
 
