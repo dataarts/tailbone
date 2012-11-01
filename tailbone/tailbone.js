@@ -6,6 +6,10 @@
 
 window.tailbone = (function(window, document, undefined) {
 
+var config = {
+  databinding: true
+};
+
 var http = {};
 function errorWrapper(fn) {
   if (fn) {
@@ -334,7 +338,9 @@ var ModelFactory = function(type, opt_schema) {
     setTimeout(function() {
       query.fetch(opt_callback);
     }, 0);
-    tailbone.bind(type, function() { query.fetch() });
+    if (config.databinding) {
+      tailbone.bind(type, function() { query.fetch() });
+    }
     return query;
   };
 
@@ -363,7 +369,9 @@ var ModelFactory = function(type, opt_schema) {
       if (fn) {
         fn(_this);
       }
-      tailbone.trigger(type);
+      if (config.databinding) {
+        tailbone.trigger(type);
+      }
     }, opt_error);
   };
 
@@ -374,7 +382,9 @@ var ModelFactory = function(type, opt_schema) {
       if (fn) {
         fn();
       }
-      tailbone.trigger(type);
+      if (config.databinding) {
+        tailbone.trigger(type);
+      }
     }, opt_error);
   };
 
@@ -481,7 +491,8 @@ return {
   OR: OR,
   trigger: function(name, payload) { ifConnected(trigger, name, payload); },
   bind: function(name, fn) { ifConnected(bind, name, fn); },
-  unbind: function(name, fn) { ifConnected(unbind, name, fn); }
+  unbind: function(name, fn) { ifConnected(unbind, name, fn); },
+  config: config
 };
 
 })(this, this.document);
