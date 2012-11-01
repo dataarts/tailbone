@@ -351,6 +351,7 @@ def construct_filter_json(f):
 def construct_query_from_json(cls, filters, orders):
   q = cls.query()
   if filters:
+    logging.info(construct_filter_json(filters))
     q = q.filter(construct_filter_json(filters))
   if orders:
     q = q.order(*[construct_order(cls,o) for o in orders])
