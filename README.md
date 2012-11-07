@@ -93,7 +93,7 @@ code by just going to http://localhost:8080/api/js_test.html
 
     /api/events/
       Is a special api used for sending and recieving events across clients.
-      This can be used by the /tailbone.js which defines functions like:
+      This can be used by /tailbone.js which defines functions like:
         tailbone.bind("name", function() { console.log("callback"); });
         tailbone.trigger("name");
         tailbone.unbind("name");
@@ -134,7 +134,7 @@ code by just going to http://localhost:8080/api/js_test.html
 ### Example:
 
     var Todo = new tailbone.Model("todos");
-    var todos = Todo.query().filter("text", "==", "Go to store").order("-date");
+    var todos = Todo.query().filter("text =", "Go to store").order("-date");
 
     var todo = new Todo();
     todo.text = "Go to store";
