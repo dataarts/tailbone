@@ -12,9 +12,9 @@ structure with simplified queries.
 
 Just started. Most things are complete and working a few rough edges. Also working on a go branch
 with the same api. If you want to contribute please add a test for any fix or feature. Test can be
-run by calling ./tailbone/util test or ./tailbone/util testjs. For the testing of js code you need
-to have phantomjs installed and the dev_appserver.py running. If you do not, you can also test the
-code by just going to http://localhost:8080/api/js_test.html
+run by calling ./tailbone/util test to run with the python stubby calls.
+For the testing of js code you need to start the dev server by running 'dev_appserver.py .' and
+browsing to http://localhost:8080/_test
 
 ## Special URLS
 
