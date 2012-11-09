@@ -1,0 +1,450 @@
+<!DOCTYPE html>  <html> <head>   <title>tailbone.js</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="docco.css" /> </head> <body>   <div id="container">     <div id="background"></div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               tailbone.js             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>                            </td>             <td class="code">               <div class="highlight"><pre><span class="s1">&#39;use strict&#39;</span><span class="p">;</span></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <p>This is a simple javascript wrapper to make using the restful api provided
+by tailbone easier.  It also includes bi-directional data binding with
+AppEngine and the channel api so that your javascript models upload in
+real time.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nb">window</span><span class="p">.</span><span class="nx">tailbone</span> <span class="o">=</span> <span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nb">window</span><span class="p">,</span> <span class="nb">document</span><span class="p">,</span> <span class="kc">undefined</span><span class="p">)</span> <span class="p">{</span></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <p>We expose a global config object the only use at this point is to
+enable the databinding feature which triggers and fetches updates
+when other people modify one of the models you are querying.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">var</span> <span class="nx">config</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="nx">databinding</span><span class="o">:</span> <span class="kc">true</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <p>Since all of this is ajax there is a simple wrapper around $.ajax.
+If you don't have jQuery already on your site you will need to install
+it or provide your own global function that has the same api and bind
+it to $.ajax (for example you could use zepto.js but since
+jQuery is cached in most browsers I would just point
+to the google jQuery CDN)</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">var</span> <span class="nx">http</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="kd">function</span> <span class="nx">errorWrapper</span><span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kd">function</span><span class="p">(</span><span class="nx">jqXHR</span><span class="p">,</span> <span class="nx">textStatus</span><span class="p">,</span> <span class="nx">errorThrown</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nx">data</span><span class="p">;</span>
+      <span class="k">try</span> <span class="p">{</span>
+        <span class="nx">data</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">jqXHR</span><span class="p">.</span><span class="nx">responseText</span><span class="p">);</span>
+      <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span> <span class="p">}</span>
+      <span class="nx">fn</span><span class="p">(</span><span class="nx">data</span><span class="p">,</span> <span class="nx">textStatus</span><span class="p">,</span> <span class="nx">jqXHR</span><span class="p">,</span> <span class="nx">errorThrown</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+<span class="nx">http</span><span class="p">.</span><span class="nx">GET</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">load</span><span class="p">,</span> <span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">({</span>
+    <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;GET&#39;</span><span class="p">,</span>
+    <span class="nx">url</span><span class="o">:</span> <span class="nx">url</span><span class="p">,</span>
+    <span class="nx">success</span><span class="o">:</span> <span class="nx">load</span><span class="p">,</span>
+    <span class="nx">error</span><span class="o">:</span> <span class="nx">errorWrapper</span><span class="p">(</span><span class="nx">error</span><span class="p">),</span>
+    <span class="nx">dataType</span><span class="o">:</span> <span class="s1">&#39;json&#39;</span>
+  <span class="p">});</span>
+<span class="p">};</span>
+<span class="nx">http</span><span class="p">.</span><span class="nx">POST</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">load</span><span class="p">,</span> <span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">({</span>
+    <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;POST&#39;</span><span class="p">,</span>
+    <span class="nx">url</span><span class="o">:</span> <span class="nx">url</span><span class="p">,</span>
+    <span class="nx">data</span><span class="o">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">data</span><span class="p">),</span>
+    <span class="nx">success</span><span class="o">:</span> <span class="nx">load</span><span class="p">,</span>
+    <span class="nx">error</span><span class="o">:</span> <span class="nx">errorWrapper</span><span class="p">(</span><span class="nx">error</span><span class="p">),</span>
+    <span class="nx">dataType</span><span class="o">:</span> <span class="s1">&#39;json&#39;</span><span class="p">,</span>
+    <span class="nx">contentType</span><span class="o">:</span> <span class="s1">&#39;application/json&#39;</span>
+  <span class="p">});</span>
+<span class="p">};</span>
+<span class="nx">http</span><span class="p">.</span><span class="nx">DELETE</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">load</span><span class="p">,</span> <span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">({</span>
+    <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;DELETE&#39;</span><span class="p">,</span>
+    <span class="nx">url</span><span class="o">:</span> <span class="nx">url</span><span class="p">,</span>
+    <span class="nx">success</span><span class="o">:</span> <span class="nx">load</span><span class="p">,</span>
+    <span class="nx">error</span><span class="o">:</span> <span class="nx">errorWrapper</span><span class="p">(</span><span class="nx">error</span><span class="p">),</span>
+    <span class="nx">dataType</span><span class="o">:</span> <span class="s1">&#39;json&#39;</span>
+  <span class="p">});</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <h2>Quering and Filtering</h2>
+
+<p>These are some useful helper functions for constructing queries, although you
+probably won't have to use these directly, see the query section below.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">function</span> <span class="nx">FILTER</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">opsymbol</span><span class="p">,</span> <span class="nx">value</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="p">[</span><span class="nx">name</span><span class="p">,</span> <span class="nx">opsymbol</span><span class="p">,</span> <span class="nx">value</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">ORDER</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">name</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">AND</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">f</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;AND&#39;</span><span class="p">];</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">arguments</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">f</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">arguments</span><span class="p">[</span><span class="nx">i</span><span class="p">]);</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="nx">f</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">OR</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">f</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;OR&#39;</span><span class="p">];</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">arguments</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">f</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">arguments</span><span class="p">[</span><span class="nx">i</span><span class="p">]);</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="nx">f</span><span class="p">;</span>
+<span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-6">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-6">&#182;</a>               </div>               <p>This helps construct a model type which can be queried and created.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">var</span> <span class="nx">ModelFactory</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">type</span><span class="p">,</span> <span class="nx">opt_schema</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">ignored_prefixes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="s1">&#39;$&#39;</span><span class="p">];</span></pre></div>             </td>           </tr>                               <tr id="section-7">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-7">&#182;</a>               </div>               <h2>Model</h2>
+
+<p>This is a model class for the particular type. This allows you to work with
+your models directly in javascript and has several built in functions to
+save them back to the server.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="kd">var</span> <span class="nx">Model</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-8">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-8">&#182;</a>               </div>               <p>Get a model by its id.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Model</span><span class="p">.</span><span class="nx">get</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span> <span class="nx">opt_callback</span><span class="p">,</span> <span class="nx">opt_error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">m</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Model</span><span class="p">();</span>
+    <span class="nx">m</span><span class="p">.</span><span class="nx">Id</span> <span class="o">=</span> <span class="nx">id</span><span class="p">;</span>
+    <span class="nx">m</span><span class="p">.</span><span class="nx">$update</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">,</span> <span class="nx">opt_error</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nx">m</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <p>Query generates a iterator for a query object. Queries inherit from the
+native array type so all the ES5 iterators work on query objects, for
+example:</p>
+
+<pre><code>var Todo = new tailbone.Model("todos");
+Todo.query(function(todos) {
+  todos.forEach(function(v,i) {
+    console.log(v,i);
+  });
+});
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Model</span><span class="p">.</span><span class="nx">query</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">query</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Query</span><span class="p">();</span></pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <p>xhr query for collection with timeout to allow for chaining.</p>
+
+<pre><code>var results = Todo.query().filter("text =", "sample")
+</code></pre>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">query</span><span class="p">.</span><span class="nx">fetch</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">);</span>
+    <span class="p">},</span> <span class="mi">0</span><span class="p">);</span></pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <p>Bind to watch for changes to this model by others on the server.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="k">if</span> <span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">databinding</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">tailbone</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">type</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="nx">query</span><span class="p">.</span><span class="nx">fetch</span><span class="p">()</span> <span class="p">});</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nx">query</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-12">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-12">&#182;</a>               </div>               <p>Helper function to serialize a model and strip any properties that match
+the set of ignored prefixes or are of an unsupported type such as a
+function.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">serializeModel</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">model</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">member</span> <span class="k">in</span> <span class="nx">model</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">ignored_prefixes</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="nx">member</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">obj</span><span class="p">[</span><span class="nx">member</span><span class="p">]</span> <span class="o">=</span> <span class="nx">model</span><span class="p">[</span><span class="nx">member</span><span class="p">];</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nx">obj</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-13">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-13">&#182;</a>               </div>               <p>Save the model to the server.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Model</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">$save</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">,</span> <span class="nx">opt_error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">model</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+    <span class="nx">http</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s1">&#39;/api/&#39;</span> <span class="o">+</span> <span class="nx">type</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="nx">serializeModel</span><span class="p">(</span><span class="k">this</span><span class="p">),</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">k</span> <span class="k">in</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">model</span><span class="p">[</span><span class="nx">k</span><span class="p">]</span> <span class="o">=</span> <span class="nx">data</span><span class="p">[</span><span class="nx">k</span><span class="p">];</span>
+      <span class="p">}</span>
+      <span class="kd">var</span> <span class="nx">fn</span> <span class="o">=</span> <span class="nx">opt_callback</span> <span class="o">||</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">onchange</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">fn</span><span class="p">(</span><span class="nx">model</span><span class="p">);</span>
+      <span class="p">}</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">databinding</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">tailbone</span><span class="p">.</span><span class="nx">trigger</span><span class="p">(</span><span class="nx">type</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">},</span> <span class="nx">opt_error</span><span class="p">);</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-14">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-14">&#182;</a>               </div>               <p>Delete the model.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Model</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">$delete</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">,</span> <span class="nx">opt_error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+    <span class="nx">http</span><span class="p">.</span><span class="nx">DELETE</span><span class="p">(</span><span class="s1">&#39;/api/&#39;</span> <span class="o">+</span> <span class="nx">type</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">Id</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nx">fn</span> <span class="o">=</span> <span class="nx">opt_callback</span> <span class="o">||</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">onchange</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">fn</span><span class="p">();</span>
+      <span class="p">}</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">databinding</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">tailbone</span><span class="p">.</span><span class="nx">trigger</span><span class="p">(</span><span class="nx">type</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">},</span> <span class="nx">opt_error</span><span class="p">);</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-15">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-15">&#182;</a>               </div>               <p>Update the model by fetching its latest value and overwriting the current
+object.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Model</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">$update</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">,</span> <span class="nx">opt_error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">model</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+    <span class="nx">http</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s1">&#39;/api/&#39;</span> <span class="o">+</span> <span class="nx">type</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">Id</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">k</span> <span class="k">in</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">model</span><span class="p">[</span><span class="nx">k</span><span class="p">]</span> <span class="o">=</span> <span class="nx">data</span><span class="p">[</span><span class="nx">k</span><span class="p">];</span>
+      <span class="p">}</span>
+      <span class="kd">var</span> <span class="nx">fn</span> <span class="o">=</span> <span class="nx">opt_callback</span> <span class="o">||</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">onchange</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">fn</span><span class="p">(</span><span class="nx">model</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">},</span> <span class="nx">opt_error</span><span class="p">);</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-16">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-16">&#182;</a>               </div>               <h2>Query</h2>
+
+<p>Query is an iterable collection of a Model.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="kd">var</span> <span class="nx">Query</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_filter</span> <span class="o">=</span> <span class="p">[];</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_order</span> <span class="o">=</span> <span class="p">[];</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">projection</span> <span class="o">=</span> <span class="p">[];</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_page_size</span> <span class="o">=</span> <span class="mi">100</span><span class="p">;</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_more</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_dirty</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-17">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-17">&#182;</a>               </div>               <p>The prototype inherits from the native Array</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Array</span><span class="p">();</span></pre></div>             </td>           </tr>                               <tr id="section-18">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-18">&#182;</a>               </div>               <p>the onchange callback</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onchange</span> <span class="o">=</span> <span class="kc">undefined</span><span class="p">;</span>
+
+  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">next</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="p">};</span>
+
+  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">previous</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="p">};</span>
+
+  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">__defineGetter__</span><span class="p">(</span><span class="s1">&#39;more&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">_more</span><span class="p">;</span> <span class="p">});</span>
+
+  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">__defineGetter__</span><span class="p">(</span><span class="s1">&#39;page_size&#39;</span><span class="p">,</span>
+      <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">_page_size</span><span class="p">;</span> <span class="p">});</span>
+  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">__defineSetter__</span><span class="p">(</span><span class="s1">&#39;page_size&#39;</span><span class="p">,</span>
+      <span class="kd">function</span><span class="p">(</span><span class="nx">page_size</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">_page_size</span> <span class="o">=</span> <span class="nx">page_size</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">_dirty</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+      <span class="p">});</span></pre></div>             </td>           </tr>                               <tr id="section-19">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-19">&#182;</a>               </div>               <p>Filter the query results. This can either be a constructed filter using one
+of the provided functions like
+AND(FILTER("name","=","value"), FILTER("other","=","value")). Or you can
+construct a filter in place with the shorthand. filter("name","=","value")
+or filter("name =", "value")</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">filter</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">filter</span><span class="p">;</span>
+    <span class="k">switch</span> <span class="p">(</span><span class="nx">arguments</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="mi">1</span><span class="o">:</span>
+        <span class="nx">filter</span> <span class="o">=</span> <span class="nx">arguments</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="k">case</span> <span class="mi">2</span><span class="o">:</span>
+        <span class="nx">filter</span> <span class="o">=</span> <span class="nx">FILTER</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="k">this</span><span class="p">,</span>
+            <span class="nx">arguments</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">).</span><span class="nx">concat</span><span class="p">(</span><span class="nx">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">]));</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="k">case</span> <span class="mi">3</span><span class="o">:</span>
+        <span class="nx">filter</span> <span class="o">=</span> <span class="nx">FILTER</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">arguments</span><span class="p">);</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="k">default</span><span class="o">:</span>
+        <span class="k">throw</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Undefined FILTER format.&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_filter</span><span class="p">.</span><span class="nx">length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">_filter</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;AND&#39;</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_filter</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">filter</span><span class="p">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-20">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-20">&#182;</a>               </div>               <p>Order the query results. add a - in front of the name to make it sort
+descending.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">order</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_order</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">ORDER</span><span class="p">(</span><span class="nx">name</span><span class="p">));</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">;</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-21">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-21">&#182;</a>               </div>               <p>Simple serialization and jsonification of the query so it can be passed to
+the server.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">serialize</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span>
+      <span class="nx">filter</span><span class="o">:</span> <span class="k">this</span><span class="p">.</span><span class="nx">_filter</span><span class="p">,</span>
+      <span class="nx">order</span><span class="o">:</span> <span class="k">this</span><span class="p">.</span><span class="nx">_order</span><span class="p">,</span>
+      <span class="nx">projection</span><span class="o">:</span> <span class="k">this</span><span class="p">.</span><span class="nx">projection</span><span class="p">,</span>
+      <span class="nx">page_size</span><span class="o">:</span> <span class="k">this</span><span class="p">.</span><span class="nx">_page_size</span>
+    <span class="p">});</span>
+  <span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-22">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-22">&#182;</a>               </div>               <p>Actually fetches and updates the results in the query. This happens
+automatically on a query so you shouldn't need this unless you want to
+update the results this will fetch and update the current results.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">Query</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">fetch</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+    <span class="kd">function</span> <span class="nx">callback</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">_this</span><span class="p">.</span><span class="nx">length</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+      <span class="nx">_this</span><span class="p">.</span><span class="nx">push</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">_this</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
+      <span class="kd">var</span> <span class="nx">fn</span> <span class="o">=</span> <span class="nx">opt_callback</span> <span class="o">||</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">onchange</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">fn</span><span class="p">(</span><span class="nx">_this</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="nx">http</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s1">&#39;/api/&#39;</span> <span class="o">+</span> <span class="nx">type</span> <span class="o">+</span> <span class="s1">&#39;/?params=&#39;</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">serialize</span><span class="p">(),</span> <span class="nx">callback</span><span class="p">);</span>
+  <span class="p">};</span>
+
+
+  <span class="k">return</span> <span class="nx">Model</span><span class="p">;</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <p>User is a built in model that is constructed like a normal model but has some
+additional functionality built in.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">var</span> <span class="nx">User</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ModelFactory</span><span class="p">(</span><span class="s1">&#39;users&#39;</span><span class="p">);</span>
+
+<span class="kd">function</span> <span class="nx">authorizeCallback</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+
+  <span class="kd">function</span> <span class="nx">processToken</span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kd">function</span><span class="p">(</span><span class="nx">message</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">message</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">type</span> <span class="o">!=</span> <span class="s1">&#39;Login&#39;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+      <span class="p">}</span>
+      <span class="kd">var</span> <span class="nx">localhost</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">message</span><span class="p">.</span><span class="nx">origin</span><span class="p">.</span><span class="nx">substr</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">17</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;http://localhost:&#39;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">localhost</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+      <span class="p">}</span>
+      <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">localhost</span> <span class="o">&amp;&amp;</span> <span class="nx">message</span><span class="p">.</span><span class="nx">origin</span> <span class="o">!==</span> <span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">origin</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Origin does not match.&#39;</span><span class="p">);</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nx">removeEventListener</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="nx">process</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="p">{</span>
+          <span class="nx">callback</span><span class="p">(</span><span class="nx">message</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">payload</span><span class="p">);</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">};</span>
+  <span class="p">}</span>
+
+  <span class="kd">var</span> <span class="nx">process</span> <span class="o">=</span> <span class="nx">processToken</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">);</span>
+  <span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="nx">process</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
+
+<span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <p>Constructs a login url.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">User</span><span class="p">.</span><span class="nx">logout</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">http</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s1">&#39;/api/logout?url=/api/users/me&#39;</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">opt_callback</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="nx">User</span><span class="p">.</span><span class="nx">login_url</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">redirect_url</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="s1">&#39;/api/login?url=&#39;</span> <span class="o">+</span> <span class="p">(</span><span class="nx">redirect_url</span> <span class="o">||</span> <span class="s1">&#39;/&#39;</span><span class="p">);</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-25">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-25">&#182;</a>               </div>               <p>Constructs a login url use this with target _blank and setting a link on your
+site for the best experience on most devices.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">User</span><span class="p">.</span><span class="nx">login_popup_url</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">authorizeCallback</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">);</span>
+  <span class="k">return</span> <span class="nx">User</span><span class="p">.</span><span class="nx">login_url</span><span class="p">(</span><span class="s1">&#39;/api/login.html&#39;</span><span class="p">);</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-26">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-26">&#182;</a>               </div>               <p>Construct a logout url.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">User</span><span class="p">.</span><span class="nx">logout</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">http</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s1">&#39;/api/logout?url=/api/users/me&#39;</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">opt_callback</span><span class="p">);</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-27">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-27">&#182;</a>               </div>               <p>Does the login with a popup in javascript. There is a potential problem with
+this on browsers that don't support popups like some latest chrome builds and
+most mobile devices.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">User</span><span class="p">.</span><span class="nx">login</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">;</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">screen</span><span class="p">.</span><span class="nx">width</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">x</span> <span class="o">=</span> <span class="nb">window</span><span class="p">.</span><span class="nx">screenX</span> <span class="o">+</span> <span class="nb">window</span><span class="p">.</span><span class="nx">screen</span><span class="p">.</span><span class="nx">width</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">;</span>
+    <span class="nx">y</span> <span class="o">=</span> <span class="nb">window</span><span class="p">.</span><span class="nx">screenY</span> <span class="o">+</span> <span class="nb">window</span><span class="p">.</span><span class="nx">screen</span><span class="p">.</span><span class="nx">height</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="kd">var</span> <span class="nx">pos</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">x</span><span class="o">:</span> <span class="nx">x</span><span class="p">,</span>
+    <span class="nx">y</span><span class="o">:</span> <span class="nx">y</span><span class="p">,</span>
+    <span class="nx">width</span><span class="o">:</span> <span class="mi">1100</span><span class="p">,</span>
+    <span class="nx">height</span><span class="o">:</span> <span class="mi">600</span>
+  <span class="p">};</span>
+
+  <span class="kd">var</span> <span class="nx">prop</span> <span class="o">=</span> <span class="s1">&#39;menubar=0, resizable=0, location=0, toolbar=0, &#39;</span> <span class="o">+</span>
+    <span class="s1">&#39;status=0, scrollbars=1, titlebar=0, left=&#39;</span> <span class="o">+</span>
+    <span class="p">(</span><span class="nx">pos</span><span class="p">.</span><span class="nx">x</span> <span class="o">-</span> <span class="p">(</span><span class="nx">pos</span><span class="p">.</span><span class="nx">width</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;, top=&#39;</span> <span class="o">+</span>
+    <span class="p">(</span><span class="nx">pos</span><span class="p">.</span><span class="nx">y</span> <span class="o">-</span> <span class="p">(</span><span class="nx">pos</span><span class="p">.</span><span class="nx">height</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;, width=&#39;</span> <span class="o">+</span>
+    <span class="nx">pos</span><span class="p">.</span><span class="nx">width</span> <span class="o">+</span> <span class="s1">&#39;, height=&#39;</span> <span class="o">+</span> <span class="nx">pos</span><span class="p">.</span><span class="nx">height</span><span class="p">;</span>
+
+  <span class="nb">window</span><span class="p">.</span><span class="nx">open</span><span class="p">(</span><span class="nx">User</span><span class="p">.</span><span class="nx">login_popup_url</span><span class="p">(</span><span class="nx">opt_callback</span><span class="p">),</span> <span class="s1">&#39;Auth&#39;</span><span class="p">,</span> <span class="nx">prop</span><span class="p">);</span>
+<span class="p">};</span></pre></div>             </td>           </tr>                               <tr id="section-28">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-28">&#182;</a>               </div>               <h2>Event API</h2>
+
+<p>This is some code you should have to care about that does the event binding.
+This exposes simple functions like bind, unbind, and trigger that will send
+messages to all subscribed other users currently on the site. This is what
+does the bidirectional databinding. I exposes it so you can use it for other
+purposes as well.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">var</span> <span class="nx">CONNECTED</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">CONNECTING</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">BACKOFF</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">event_map</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="kd">var</span> <span class="nx">queue</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="kd">var</span> <span class="nx">socket</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">client_id</span> <span class="o">=</span> <span class="nb">parseInt</span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">/</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">());</span>
+
+<span class="kd">function</span> <span class="nx">onOpen</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">CONNECTED</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="nx">BACKOFF</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">l</span> <span class="o">=</span> <span class="nx">queue</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">l</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">queue</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">call</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="nx">queue</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">rebind</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">event_bindings</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">name</span> <span class="k">in</span> <span class="nx">event_map</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">fn</span> <span class="k">in</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">])</span> <span class="p">{</span>
+      <span class="nx">event_bindings</span><span class="p">.</span><span class="nx">push</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">]);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="nx">event_map</span> <span class="o">=</span> <span class="p">{};</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">l</span> <span class="o">=</span> <span class="nx">event_bindings</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">l</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">ifConnected</span><span class="p">(</span><span class="nx">bind</span><span class="p">,</span> <span class="nx">event_bindings</span><span class="p">[</span><span class="nx">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="nx">event_bindings</span><span class="p">[</span><span class="nx">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">onClose</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">CONNECTED</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="nx">CONNECTING</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="nx">rebind</span><span class="p">();</span>
+<span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-29">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-29">&#182;</a>               </div>               <p>TODO: try reconnecting with backoff or alert system of lack of capability.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="kd">function</span> <span class="nx">onError</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">console</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Channel not connectable.&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">onMessage</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">data</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">reboot</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">socket</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="kd">var</span> <span class="nx">fns</span> <span class="o">=</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">data</span><span class="p">.</span><span class="nx">name</span><span class="p">];</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">fns</span> <span class="o">&amp;&amp;</span> <span class="nx">fns</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">l</span> <span class="o">=</span> <span class="nx">fns</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">l</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">fns</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">call</span><span class="p">(</span><span class="nx">fns</span><span class="p">[</span><span class="nx">i</span><span class="p">],</span> <span class="nx">data</span><span class="p">.</span><span class="nx">payload</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">connect</span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="nx">queue</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">CONNECTING</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">http</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s1">&#39;/api/events/&#39;</span><span class="p">,</span>
+        <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="o">:</span> <span class="s1">&#39;token&#39;</span><span class="p">,</span> <span class="s1">&#39;client_id&#39;</span><span class="o">:</span> <span class="nx">client_id</span><span class="p">},</span>
+        <span class="kd">function</span><span class="p">(</span><span class="nx">resp</span><span class="p">)</span> <span class="p">{</span>
+          <span class="kd">var</span> <span class="nx">channel</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">goog</span><span class="p">.</span><span class="nx">appengine</span><span class="p">.</span><span class="nx">Channel</span><span class="p">(</span><span class="nx">resp</span><span class="p">.</span><span class="nx">token</span><span class="p">);</span>
+          <span class="nx">socket</span> <span class="o">=</span> <span class="nx">channel</span><span class="p">.</span><span class="nx">open</span><span class="p">();</span>
+          <span class="nx">socket</span><span class="p">.</span><span class="nx">onopen</span> <span class="o">=</span> <span class="nx">onOpen</span><span class="p">;</span>
+          <span class="nx">socket</span><span class="p">.</span><span class="nx">onmessage</span> <span class="o">=</span> <span class="nx">onMessage</span><span class="p">;</span>
+          <span class="nx">socket</span><span class="p">.</span><span class="nx">onclose</span> <span class="o">=</span> <span class="nx">onClose</span><span class="p">;</span>
+          <span class="nx">socket</span><span class="p">.</span><span class="nx">onerror</span> <span class="o">=</span> <span class="nx">onError</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nx">CONNECTING</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">ifConnected</span><span class="p">(</span><span class="nx">fn</span><span class="p">,</span> <span class="nx">arg1</span><span class="p">,</span> <span class="nx">arg2</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">CONNECTED</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">fn</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">_this</span><span class="p">,</span> <span class="nx">arg1</span><span class="p">,</span> <span class="nx">arg2</span><span class="p">);</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nx">connect</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span><span class="nx">fn</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">_this</span><span class="p">,</span> <span class="nx">arg1</span><span class="p">,</span> <span class="nx">arg2</span><span class="p">);});</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">errorHandler</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">msg</span> <span class="o">&amp;&amp;</span> <span class="nx">msg</span><span class="p">.</span><span class="nx">error</span> <span class="o">&amp;&amp;</span> <span class="nx">console</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">error</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">trigger</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">payload</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">http</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s1">&#39;/api/events/&#39;</span><span class="p">,</span>
+      <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="o">:</span> <span class="s1">&#39;trigger&#39;</span><span class="p">,</span>
+       <span class="s1">&#39;client_id&#39;</span><span class="o">:</span> <span class="nx">client_id</span><span class="p">,</span>
+       <span class="s1">&#39;name&#39;</span><span class="o">:</span> <span class="nx">name</span><span class="p">,</span> <span class="s1">&#39;payload&#39;</span><span class="o">:</span> <span class="nx">payload</span><span class="p">},</span>
+       <span class="kc">null</span><span class="p">,</span>
+       <span class="nx">errorHandler</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">bind</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">=</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">||</span> <span class="p">[];</span>
+  <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">].</span><span class="nx">push</span><span class="p">(</span><span class="nx">fn</span><span class="p">);</span>
+  <span class="nx">http</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s1">&#39;/api/events/&#39;</span><span class="p">,</span>
+      <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="o">:</span> <span class="s1">&#39;bind&#39;</span><span class="p">,</span>
+       <span class="s1">&#39;client_id&#39;</span><span class="o">:</span> <span class="nx">client_id</span><span class="p">,</span>
+       <span class="s1">&#39;name&#39;</span><span class="o">:</span> <span class="nx">name</span><span class="p">},</span>
+       <span class="kc">null</span><span class="p">,</span>
+       <span class="nx">errorHandler</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">unbind</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">name</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">fn</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nx">index</span> <span class="o">=</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">].</span><span class="nx">indexOf</span><span class="p">(</span><span class="nx">fn</span><span class="p">);</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;No matching function exists.&#39;</span><span class="p">);</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">delete</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">][</span><span class="nx">index</span><span class="p">];</span>
+      <span class="p">}</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="k">delete</span> <span class="nx">event_map</span><span class="p">[</span><span class="nx">name</span><span class="p">];</span>
+    <span class="p">}</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nx">event_map</span> <span class="o">=</span> <span class="p">{};</span>
+  <span class="p">}</span>
+  <span class="nx">http</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s1">&#39;/api/events/&#39;</span><span class="p">,</span>
+      <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="o">:</span> <span class="s1">&#39;unbind&#39;</span><span class="p">,</span>
+       <span class="s1">&#39;client_id&#39;</span><span class="o">:</span> <span class="nx">client_id</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="o">:</span> <span class="nx">name</span><span class="p">},</span>
+      <span class="kc">null</span><span class="p">,</span>
+      <span class="nx">errorHandler</span><span class="p">);</span>
+<span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-30">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-30">&#182;</a>               </div>               <h2>Exports</h2>             </td>             <td class="code">               <div class="highlight"><pre><span class="k">return</span> <span class="p">{</span>
+  <span class="nx">Model</span><span class="o">:</span> <span class="nx">ModelFactory</span><span class="p">,</span>
+  <span class="nx">User</span><span class="o">:</span> <span class="nx">User</span><span class="p">,</span>
+  <span class="nx">FILTER</span><span class="o">:</span> <span class="nx">FILTER</span><span class="p">,</span>
+  <span class="nx">ORDER</span><span class="o">:</span> <span class="nx">ORDER</span><span class="p">,</span>
+  <span class="nx">AND</span><span class="o">:</span> <span class="nx">AND</span><span class="p">,</span>
+  <span class="nx">OR</span><span class="o">:</span> <span class="nx">OR</span><span class="p">,</span>
+  <span class="nx">trigger</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">payload</span><span class="p">)</span> <span class="p">{</span> <span class="nx">ifConnected</span><span class="p">(</span><span class="nx">trigger</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">payload</span><span class="p">);</span> <span class="p">},</span>
+  <span class="nx">bind</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">)</span> <span class="p">{</span> <span class="nx">ifConnected</span><span class="p">(</span><span class="nx">bind</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">);</span> <span class="p">},</span>
+  <span class="nx">unbind</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">)</span> <span class="p">{</span> <span class="nx">ifConnected</span><span class="p">(</span><span class="nx">unbind</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">fn</span><span class="p">);</span> <span class="p">},</span>
+  <span class="nx">config</span><span class="o">:</span> <span class="nx">config</span>
+<span class="p">};</span>
+
+<span class="p">})(</span><span class="k">this</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nb">document</span><span class="p">);</span>
+
+</pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 
