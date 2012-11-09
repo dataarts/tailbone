@@ -1,7 +1,8 @@
 # Automatic RESTful backend for AppEngine
 
-A simple restful backend setup for app engine so you can write your apps in javascript via
-frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
+Dirty hacking on the cheap with with no server side code and App Engines infrastructure.
+It provides a simple restful backend setup for app engine so you can write your apps in javascript
+via frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
 using plain javascript and your own xhr calls.
 
 Also, for added capabilities, there is a javascript library auto served at /tailbone.js which does
@@ -25,12 +26,15 @@ structure with simplified queries.
 <a id="status" />
 ## Status
 
-Just started. Most things are complete and working with a few rough edges. Also working on a
-go branch with the same api. If you want to contribute please add a test for any fix or feature.
+Just started this is a personal pet project just made out of past experiences and a desire for my
+own use though I hope others will find it useful too. Most things are complete and
+working with a few rough edges. Also working on a go branch with the same api.
+If you want to contribute please add a test for any fix or feature.
 Tests can be run by calling ./tailbone/util test to run with the python stubby calls.
 For the testing of js code you need to start the dev server by running 'dev_appserver.py .' and
-browsing to http://localhost:8080/\_test. These are QUnit javacript tests and should be the same in
-either go, python or any future language to support consistency of any implementation of the api.
+browsing to http://localhost:8080/\_test. These are QUnit javascript tests and should be the
+same in either go, python or any future language to support consistency of
+any implementation of the api.
 
 
 <a id="starting" />
@@ -47,7 +51,10 @@ So how I get started with tailbone is.
 
         git clone https://github.com/doug/tailbone.git myproject
 
-- Third, create your app in any js framework or static html you want
+- Third, create your app in any js framework or static html you want. Tailbone gitignores the client
+  folder so anything you put there will be ignored making updating to the latests tailbone as simple
+  as git pull and allowing you to have a disconnected git repo of your own to store you application
+  code.
 
         cd myproject
         mkdir -p client/app
