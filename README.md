@@ -8,16 +8,66 @@ Also, for added capabilities, there is a javascript library auto served at /tail
 additional niceties like bi-directional binding of your model and your backend to a javascript
 structure with simplified queries.
 
+- [Status](#status)
+- [Special URLS](#special)
+  - [/api/models](#models)
+  - [/api/users](#users)
+  - [/api/files](#files)
+  - [/api/events](#events)
+- [Taibone.js](#tailbonejs)
+  - [Including](#include)
+  - [Exported Methods](#exported)
+  - [Examples](#example)
+- Annotated Source Code
+  - [tailbone.py](docs/tailbonepy.html)
+  - [tailbone.js](docs/tailbonejs.html)
+
+<a id="status" />
 ## Status
 
-Just started. Most things are complete and working a few rough edges. Also working on a go branch
-with the same api. If you want to contribute please add a test for any fix or feature. Test can be
-run by calling ./tailbone/util test to run with the python stubby calls.
+Just started. Most things are complete and working with a few rough edges. Also working on a
+go branch with the same api. If you want to contribute please add a test for any fix or feature.
+Tests can be run by calling ./tailbone/util test to run with the python stubby calls.
 For the testing of js code you need to start the dev server by running 'dev_appserver.py .' and
-browsing to http://localhost:8080/_test
+browsing to http://localhost:8080/\_test. These are QUnit javacript tests and should be the same in
+either go, python or any future language to support consistency of any implementation of the api.
 
+
+<a id="starting" />
+## Getting Started
+
+So how I get started with tailbone is.
+
+- First, make sure you have the
+  [app engine dev tools](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Python)
+  installed for Python. Note, tailbone uses
+  the Python 2.7 version so make sure your default python is at least 2.7.
+
+- Second, clone the repo to the name of your target project
+
+        git clone https://github.com/doug/tailbone.git myproject
+
+- Third, create your app in any js framework or static html you want
+
+        cd myproject
+        mkdir -p client/app
+        cd client/app
+        echo "<html><body>hello world</body></html>" > index.html
+
+- Lastly, start the server like a normal app engine app
+
+        cd ../../..
+        dev_appserver.py .
+        open http://localhost:8080
+
+For you javascript development I recommend two things [yeoman](http://yeoman.io) for
+bootstrapping and installing js libraries and [angularjs](http://angularjs.org) for your MVC
+javascript application framework.
+
+<a id="special" />
 ## Special URLS
 
+<a id="models" />
 ### RESTful models:
 
     POST /api/{modelname}/
@@ -42,6 +92,7 @@ browsing to http://localhost:8080/_test
     "owners" which is a private list of the user ids of owners for this model, which by default just
     includes the user who creates it.
 
+<a id="users" />
 ### User models:
 
     /api/users/
@@ -53,6 +104,7 @@ browsing to http://localhost:8080/_test
     /api/logout
       logs you out
 
+<a id="files" />
 ### Large files:
 
     GET /api/files/
@@ -89,6 +141,7 @@ browsing to http://localhost:8080/_test
       note there is no put to update an id you must always create a new one and delete the old
       yourself
 
+<a id="events" />
 ### Events:
 
     /api/events/
@@ -99,8 +152,10 @@ browsing to http://localhost:8080/_test
         tailbone.unbind("name");
 
 
+<a id="tailbonejs" />
 ## Tailbone.js
 
+<a id="include" />
 ### How to include:
 
     to use tailbone.js please include the following in your html
@@ -119,6 +174,7 @@ browsing to http://localhost:8080/_test
     <![endif]-->
 
 
+<a id="exported" />
 ### Exported methods:
 
     Model: ModelFactory that creates a new model type,
@@ -131,7 +187,8 @@ browsing to http://localhost:8080/_test
     bind: bind a js function by name ,
     unbind: unbind a js function by name,
 
-### Example:
+<a id="example" />
+### Examples:
 
     var Todo = new tailbone.Model("todos");
     var todos = Todo.query().filter("text =", "Go to store").order("-date");
