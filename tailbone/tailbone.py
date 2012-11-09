@@ -1,8 +1,39 @@
-"""
-tailbone
-
-Appengine abstract restful backend
-"""
+# Appengine abstract restful backend
+# Intention:
+#   Try to stay as direct to the appengine api where applicable so it is an easy transition if you
+#   need to extend this.
+#   Make the api abstract enough so that any javascript framework will do and so that the same
+#   frontend could be used with another backend that implements the same api calls.
+#
+# Ideas:
+#   Scoping private/public
+#     Capital is public
+#     lowercase is private
+#
+#   Open Questions:
+#     cron job to look for data inconsistencies to notify you if they come up
+#     so you can ban a user if they are being a problem by storing things in the data set incorrectly.
+#
+#     Send a weekly summary email about statistical outliers and information in your database.
+#
+#     Special names
+#       CreatedAt or created_at -> auto sets the created at property and can only be modified by the
+#       server.
+#       ModifiedAt or modified_at -> where the server sets when it was last modified.
+#
+#     How do you do full text search?
+#       Searchable{Text} -> if name is searchable it adds this to the full text search api
+#       /api/search/model?q=text
+#
+#     Realtime binding
+#       Todo = new tailbone.Model("todos");
+#       todos = Todo.query({name: "doug"});
+#       t = new Todo({name: "doug");
+#       t.$save()
+#       t.$delete()
+#
+#       channel listeners bound to queries
+#       save checks all listened queries for a matching one
 
 import cgi
 import datetime
@@ -29,44 +60,6 @@ from google.appengine.ext import ndb
 from google.appengine.ext import testbed
 from google.appengine.ext.webapp import blobstore_handlers
 
-"""
-Intention:
-  Try to stay as direct to the appengine api where applicable so it is an easy transition if you
-  need to extend this.
-  Make the api abstract enough so that any javascript framework will do and so that the same
-  frontend could be used with another backend that implements the same api calls.
-
-Ideas:
-  Scoping private/public
-    Capital is public
-    lowercase is private
-
-  Open Questions:
-    cron job to look for data inconsistencies to notify you if they come up
-    so you can ban a user if they are being a problem by storing things in the data set incorrectly.
-
-    Send a weekly summary email about statistical outliers and information in your database.
-
-    Special names
-      CreatedAt or created_at -> auto sets the created at property and can only be modified by the
-      server.
-      ModifiedAt or modified_at -> where the server sets when it was last modified.
-
-    How do you do full text search?
-      Searchable{Text} -> if name is searchable it adds this to the full text search api
-      /api/search/model?q=text
-
-    Realtime binding
-      Todo = new tailbone.Model("todos");
-      todos = Todo.query({name: "doug"});
-      t = new Todo({name: "doug");
-      t.$save()
-      t.$delete()
-
-      channel listeners bound to queries
-      save checks all listened queries for a matching one
-"""
-
 # Custom Exceptions
 class AppError(Exception):
   pass
@@ -77,45 +70,14 @@ class BreakError(Exception):
 class LoginError(Exception):
   pass
 
-def convert_num_to_str(num):
-  s = ""
-  num = str(num)
-  i = 0
-  l = len(num)
-  letters = string.ascii_letters
-  while True:
-    if i == l-1:
-      s += letters[int(num[i])]
-      break
-    if i >= l:
-      break
-    x = num[i]
-    n = int(x+num[i+1])
-    if n < 52:
-      s += letters[n]
-      i += 2
-    else:
-      s += letters[int(x)]
-      i += 1
-  return s
-
-def convert_str_to_num(s):
-  num = ""
-  for x in s:
-    num += str(string.ascii_letters.index(x))
-  return num
-
-def current_user(required=False):
-  u = api.users.get_current_user()
-  if u:
-    return convert_num_to_str(u.user_id())
-  if required:
-    raise LoginError("User must be logged in.")
-  return None
 
 re_public = re.compile(r"^[A-Z].*")
 
-# Explicit Models
+# Model
+# -----
+# A modifed Expando class that all models derive from, this allows app engine to work as an
+# arbitrary document store for your json objects as well as scope the public private nature of
+# objects based on the capitolization of the property.
 class ScopedExpando(ndb.Expando):
   owners = ndb.StringProperty(repeated=True)
 
@@ -148,12 +110,23 @@ class ScopedExpando(ndb.Expando):
     result["Id"] = self.key.id()
     return result
 
+# User
+# ----
+# User is an special model that can only be written to by the google account owner.
 class users(ndb.Expando):
   def to_dict(self, *args, **kwargs):
     result = super(users, self).to_dict(*args, **kwargs)
+    u = current_user()
+    if u and u == self.key.id():
+      pass
+    else:
+      for k in result.keys():
+        if not re_public.match(k)
+          del result[k]
     result["Id"] = self.key.id()
     return result
 
+# Extensions to the jsonifying of python results
 def json_extras(obj):
   """Extended json processing of types."""
   if hasattr(obj, "get_result"): # RPC
@@ -164,6 +137,7 @@ def json_extras(obj):
     return int(ms)
   return None
 
+# Decorator to return the result of a function as json. It supports jsonp by default.
 def as_json(func):
   """Returns json when callback in url"""
   @functools.wraps(func)
@@ -206,6 +180,7 @@ def as_json(func):
     self.response.out.write(resp)
   return wrapper
 
+# BaseHandler for error handling
 class BaseHandler(webapp2.RequestHandler):
   def handle_exception(self, exception, debug):
     # Log the error.
@@ -220,6 +195,9 @@ class BaseHandler(webapp2.RequestHandler):
 
     return {"error": str(exception)}
 
+# Reflectively instantiate a class given some data parsed by the restful json POST. If the size of
+# an object is larger than 500 characters it cannot be indexed. Otherwise everything else is. In the
+# future there may be a way to express what should be indexed or searchable, but not yet.
 def reflective_create(cls, data):
   m = cls()
   for k,v in data.iteritems():
@@ -237,6 +215,8 @@ def reflective_create(cls, data):
 
 re_json = re.compile(r"^application/json", re.IGNORECASE)
 
+# Parse the body of an upload based on the type if you are trying to post a cgi.FieldStorage object
+# you should instead upload those blob seperately via the special /api/files url.
 def parse_body(self):
   if re_json.match(self.request.content_type):
     data = json.loads(self.request.body)
@@ -244,14 +224,8 @@ def parse_body(self):
     data = {}
     for k,v in self.request.POST.items():
       if isinstance(v, cgi.FieldStorage):
-        raise AppError("Files should be uploaded seperately as their own form to /api/files/.")
-        # TODO: writing to blobstore in this way will have an upper limit on size of upload
-        # try doing this maybe with the async deferred handler or with creating an /upload redirct
-        filename = api.files.blobstore.create(mime_type="application/octet-stream")
-        with api.files.open(filename, 'a') as f:
-          f.write(v.file.read())
-        api.files.finalize(filename)
-        v = str(api.files.blobstore.get_blob_key(filename))
+        raise AppError("Files should be uploaded seperately as their own form to /api/files/ and \
+            then their ids should be uploaded and stored with the object.")
       if data.has_key(k):
         current = data[k]
         if isinstance(current, list):
@@ -262,8 +236,8 @@ def parse_body(self):
         data[k] = v
   return data or {}
 
+# Strips any disallowed names {id, _*, etc}.
 def clean_data(data):
-  # strips any disallowed names {id, _*, etc}
   disallowed_names = ["Id", "id", "key"]
   disallowed_prefixes = ["_", "$"]
   exceptions = ["Id"]
@@ -274,6 +248,7 @@ def clean_data(data):
       del data[key]
   return data
 
+# Parse the id either given or extracted from the data.
 def parse_id(id, data_id=None):
   try:
     id = int(id)
@@ -291,6 +266,8 @@ re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
+# Convert a value to its inferred python type. Note all numbers are stored as floats which by cause
+# percision issues in odd cases.
 def convert_value(value):
   if value == "true":
     value = True
@@ -308,6 +285,9 @@ def convert_opsymbol(opsymbol):
     opsymbol = "="
   return opsymbol
 
+# Construct an ndb filter from the query args. Example:
+#
+#    www.myurl.com?filter=name==other&filter=size<=5
 def construct_filter(filter_str):
   m = re_composite_filter.match(filter_str)
   if m:
@@ -324,6 +304,7 @@ def construct_filter(filter_str):
     return construct_filter("AND({})".format(filter_str))
   raise AppError("Filter format is unsupported: {}".format(filter_str))
 
+# Construct an ndb order from the query args.
 def construct_order(cls, o):
   neg = True if o[0] == "-" else False
   o = o[1:] if neg else o
@@ -333,6 +314,7 @@ def construct_order(cls, o):
     p = ndb.GenericProperty(o)
   return -p if neg else p
 
+# Construct the filter from a json object.
 def construct_filter_json(f):
   t = type(f)
   if t == list:
@@ -348,6 +330,7 @@ def construct_filter_json(f):
   else:
     return f
 
+# Construct a query from a json object which includes the filter and order parameters
 def construct_query_from_json(cls, filters, orders):
   q = cls.query()
   if filters:
@@ -357,6 +340,7 @@ def construct_query_from_json(cls, filters, orders):
     q = q.order(*[construct_order(cls,o) for o in orders])
   return q
 
+# Construct a query from url args
 def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
@@ -364,6 +348,8 @@ def construct_query_from_url_args(cls, filters, orders):
   q = q.order(*[construct_order(cls,o) for o in orders])
   return q
 
+# Determine which kind of query parameters are passed in and construct the query.
+# Includes paginated results in the response Headers for "More", "Next-Cursor", and "Prev-Cursor"
 def query(self, cls):
   params = self.request.get("params")
   if params:
@@ -391,10 +377,12 @@ def query(self, cls):
     self.response.headers["Prev-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
+# This does all the simple restful handling that you would expect. There is a special catch for
+# /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
   @as_json
   def get(self, model, id):
-    # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8
+    # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
       if model == "users":
@@ -406,7 +394,6 @@ class RestfulHandler(BaseHandler):
         if model == "users":
           m = users()
           m.key = ndb.Key("users", id)
-          # m.put()
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
@@ -542,15 +529,60 @@ class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
   def post(self):
     return [blob_info_to_dict(b) for b in self.get_uploads()]
 
-#-----------------
-# START Event code
-#-----------------
+
+# converting numbers to strings so that the user id is represented more consistently
+def convert_num_to_str(num):
+  s = ""
+  num = str(num)
+  i = 0
+  l = len(num)
+  letters = string.ascii_letters
+  while True:
+    if i == l-1:
+      s += letters[int(num[i])]
+      break
+    if i >= l:
+      break
+    x = num[i]
+    n = int(x+num[i+1])
+    if n < 52:
+      s += letters[n]
+      i += 2
+    else:
+      s += letters[int(x)]
+      i += 1
+  return s
+
+def convert_str_to_num(s):
+  num = ""
+  for x in s:
+    num += str(string.ascii_letters.index(x))
+  return num
+
+
+# Fetch the current user id or None
+def current_user(required=False):
+  u = api.users.get_current_user()
+  if u:
+    return convert_num_to_str(u.user_id())
+  if required:
+    raise LoginError("User must be logged in.")
+  return None
+
+
+# Event Code
+# ----------
+# Not really used directly so you can mostly ignore this section. Has some disabilities as a result
+# of being on the channel api rather than directly via sockets. Google the channel api and app
+# engine to learn more.
+
+# The storage and look up of listeners is sharded to reduce conflicts in adding and removing
+# listeners during simultaneous edits.
 class events(ndb.Model):
   NUM_SHARDS = 20
   name = ndb.StringProperty()
   shard_id = ndb.IntegerProperty()
   listeners = ndb.IntegerProperty(repeated=True)
-
 
 def bind(user_key, name):
   event = events.query(events.listeners == user_key, events.name == name).get()
@@ -585,7 +617,6 @@ def unbind(user_key, name=None):
   return eventlist.map(remove_from)
 
 def trigger(name, payload):
-  #TODO: bin the send to actions rather than deferring each one or async
   msg = json.dumps({ "name": name,
                      "payload": payload })
   def send(event):
@@ -617,12 +648,10 @@ class DisconnectedHandler(BaseHandler):
     logging.info("Disconnecting client id {}".format(client_id))
     unbind(client_id)
 
-
+# Remove all event bindings and force all current listeners to close and reconnect.
 class RebootHandler(BaseHandler):
   @as_json
   def get(self):
-    # remove all event bindings and
-    # force all current listeners to close and reconnect.
     logging.info("REBOOT")
     send_to = set()
     to_delete = set()
@@ -640,9 +669,9 @@ class RebootHandler(BaseHandler):
 
 
 class EventsHandler(BaseHandler):
-  # TODO(doug): add better client_id generation
   @as_json
   def post(self):
+    # TODO(doug): add better client_id generation
     data = parse_body(self)
     method = data.get("method")
     client_id = data.get("client_id")
@@ -655,10 +684,9 @@ class EventsHandler(BaseHandler):
     elif method == "trigger":
       trigger(data.get("name"), data.get("payload"))
 
-# ---------------
-# END Event Code
-# ---------------
 
+# Some Extra HTML handlers
+# ------------------------
 class LoginPopupHandler(webapp2.RequestHandler):
   def get(self):
     u = current_user()
@@ -687,7 +715,6 @@ If this window does not close, please click <a id="origin">here</a> to refresh.
 </html>
 """.format({"type":"Login", "payload": msg}))
 
-# prefix is taken from parsing the app.yaml
 PREFIX = "/api/"
 
 NAMESPACE = os.environ.get("NAMESPACE", "")

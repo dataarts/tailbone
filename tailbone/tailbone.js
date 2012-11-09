@@ -1,15 +1,25 @@
 'use strict';
 
-/*
- * Bi-Directional data binding with AppEngine and the channel api
- */
+// This is a simple javascript wrapper to make using the restful api provided
+// by tailbone easier.  It also includes bi-directional data binding with
+// AppEngine and the channel api so that your javascript models upload in
+// real time.
 
 window.tailbone = (function(window, document, undefined) {
 
+// We expose a global config object the only use at this point is to
+// enable the databinding feature which triggers and fetches updates
+// when other people modify one of the models you are querying.
 var config = {
   databinding: true
 };
 
+// Since all of this is ajax there is a simple wrapper around $.ajax.
+// If you don't have jQuery already on your site you will need to install
+// it or provide your own global function that has the same api and bind
+// it to $.ajax (for example you could use zepto.js but since
+// jQuery is cached in most browsers I would just point
+// to the google jQuery CDN)
 var http = {};
 function errorWrapper(fn) {
   if (fn) {
@@ -52,10 +62,332 @@ http.DELETE = function(url, load, error) {
   });
 };
 
-/////////////////////////
-// Events via Channel API
-/////////////////////////
 
+
+// Quering and Filtering
+// ---------------------
+// These are some useful helper functions for constructing queries, although you
+// probably won't have to use these directly, see the query section below.
+
+function FILTER(name, opsymbol, value) {
+  return [name, opsymbol, value];
+}
+
+function ORDER(name) {
+  return name;
+}
+
+function AND() {
+  var f = ['AND'];
+  for (var i = 0; i < arguments.length; i++) {
+    f.push(arguments[i]);
+  }
+  return f;
+}
+
+function OR() {
+  var f = ['OR'];
+  for (var i = 0; i < arguments.length; i++) {
+    f.push(arguments[i]);
+  }
+  return f;
+}
+
+
+// This helps construct a model type which can be queried and created.
+var ModelFactory = function(type, opt_schema) {
+  var ignored_prefixes = ['_', '$'];
+
+
+  // Model
+  // -----
+  // This is a model class for the particular type. This allows you to work with
+  // your models directly in javascript and has several built in functions to
+  // save them back to the server.
+  var Model = function() {
+  };
+
+  // Get a model by its id.
+  Model.get = function(id, opt_callback, opt_error) {
+    var m = new Model();
+    m.Id = id;
+    m.$update(opt_callback, opt_error);
+    return m;
+  };
+
+  // Query generates a iterator for a query object. Queries inherit from the
+  // native array type so all the ES5 iterators work on query objects, for
+  // example:
+  //
+  //     var Todo = new tailbone.Model("todos");
+  //     Todo.query(function(todos) {
+  //       todos.forEach(function(v,i) {
+  //         console.log(v,i);
+  //       });
+  //     });
+  Model.query = function(opt_callback) {
+    var query = new Query();
+    // xhr query for collection with timeout to allow for chaining.
+    //
+    //     var results = Todo.query().filter("text =", "sample")
+    setTimeout(function() {
+      query.fetch(opt_callback);
+    }, 0);
+    // Bind to watch for changes to this model by others on the server.
+    if (config.databinding) {
+      tailbone.bind(type, function() { query.fetch() });
+    }
+    return query;
+  };
+
+  // Helper function to serialize a model and strip any properties that match
+  // the set of ignored prefixes or are of an unsupported type such as a
+  // function.
+  serializeModel = function(model) {
+    var obj = {};
+    for (var member in model) {
+      if (ignored_prefixes.indexOf(member[0]) < 0) {
+        obj[member] = model[member];
+      }
+    }
+    return obj;
+  };
+
+  // Save the model to the server.
+  Model.prototype.$save = function(opt_callback, opt_error) {
+    var model = this;
+    http.POST('/api/' + type + '/', serializeModel(this), function(data) {
+      for (var k in data) {
+        model[k] = data[k];
+      }
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(model);
+      }
+      if (config.databinding) {
+        tailbone.trigger(type);
+      }
+    }, opt_error);
+  };
+
+  // Delete the model.
+  Model.prototype.$delete = function(opt_callback, opt_error) {
+    var _this = this;
+    http.DELETE('/api/' + type + '/' + this.Id, function() {
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn();
+      }
+      if (config.databinding) {
+        tailbone.trigger(type);
+      }
+    }, opt_error);
+  };
+
+  // Update the model by fetching its latest value and overwriting the current
+  // object.
+  Model.prototype.$update = function(opt_callback, opt_error) {
+    var model = this;
+    http.GET('/api/' + type + '/' + this.Id, function(data) {
+      for (var k in data) {
+        model[k] = data[k];
+      }
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(model);
+      }
+    }, opt_error);
+  };
+
+
+  // Query
+  // -----
+  // Query is an iterable collection of a Model.
+  var Query = function() {
+    this._filter = [];
+    this._order = [];
+    this.projection = [];
+    this._page_size = 100;
+    this._more = false;
+    this._dirty = false;
+  };
+
+  // The prototype inherits from the native Array
+  Query.prototype = new Array();
+
+  // the onchange callback
+  Query.prototype.onchange = undefined;
+
+  Query.prototype.next = function() {
+    return true;
+  };
+
+  Query.prototype.previous = function() {
+    return true;
+  };
+
+  Query.prototype.__defineGetter__('more', function() { return this._more; });
+
+  Query.prototype.__defineGetter__('page_size',
+      function() { return this._page_size; });
+  Query.prototype.__defineSetter__('page_size',
+      function(page_size) {
+        this._page_size = page_size;
+        this._dirty = true;
+      });
+
+  // Filter the query results. This can either be a constructed filter using one
+  // of the provided functions like
+  // AND(FILTER("name","=","value"), FILTER("other","=","value")). Or you can
+  // construct a filter in place with the shorthand. filter("name","=","value")
+  // or filter("name =", "value")
+  Query.prototype.filter = function() {
+    var filter;
+    switch (arguments.length) {
+      case 1:
+        filter = arguments[0];
+        break;
+      case 2:
+        filter = FILTER.apply(this,
+            arguments[0].split(' ').concat(arguments[1]));
+        break;
+      case 3:
+        filter = FILTER.apply(this, arguments);
+        break;
+      default:
+        throw Error('Undefined FILTER format.');
+    }
+    if (this._filter.length == 0) {
+      this._filter = ['AND'];
+    }
+    this._filter.push(filter);
+    return this;
+  };
+
+  // Order the query results. add a - in front of the name to make it sort
+  // descending.
+  Query.prototype.order = function(name) {
+    this._order.push(ORDER(name));
+    return this;
+  };
+
+  // Simple serialization and jsonification of the query so it can be passed to
+  // the server.
+  Query.prototype.serialize = function() {
+    return JSON.stringify({
+      filter: this._filter,
+      order: this._order,
+      projection: this.projection,
+      page_size: this._page_size
+    });
+  };
+
+  // Actually fetches and updates the results in the query. This happens
+  // automatically on a query so you shouldn't need this unless you want to
+  // update the results this will fetch and update the current results.
+  Query.prototype.fetch = function(opt_callback) {
+    var _this = this;
+    function callback(data) {
+      _this.length = 0;
+      _this.push.apply(_this, data);
+      var fn = opt_callback || _this.onchange;
+      if (fn) {
+        fn(_this);
+      }
+    }
+    http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
+  };
+
+
+  return Model;
+};
+
+// User is a built in model that is constructed like a normal model but has some
+// additional functionality built in.
+var User = new ModelFactory('users');
+
+function authorizeCallback(opt_callback) {
+
+  function processToken(callback) {
+    return function(message) {
+      if (message.data.type != 'Login') {
+        return;
+      }
+      var localhost = false;
+      if (message.origin.substr(0, 17) == 'http://localhost:') {
+        localhost = true;
+      }
+      if (!localhost && message.origin !== window.location.origin) {
+        throw new Error('Origin does not match.');
+      } else {
+        removeEventListener('message', process, false);
+        if (callback) {
+          callback(message.data.payload);
+        }
+      }
+    };
+  }
+
+  var process = processToken(opt_callback);
+  addEventListener('message', process, false);
+
+}
+
+// Constructs a login url.
+User.logout = function(opt_callback) {
+  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
+};
+
+User.login_url = function(redirect_url) {
+  return '/api/login?url=' + (redirect_url || '/');
+};
+
+// Constructs a login url use this with target _blank and setting a link on your
+// site for the best experience on most devices.
+User.login_popup_url = function(opt_callback) {
+  authorizeCallback(opt_callback);
+  return User.login_url('/api/login.html');
+};
+
+// Construct a logout url.
+User.logout = function(opt_callback) {
+  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
+};
+
+// Does the login with a popup in javascript. There is a potential problem with
+// this on browsers that don't support popups like some latest chrome builds and
+// most mobile devices.
+User.login = function(opt_callback) {
+  var x, y;
+  if (window.screen.width) {
+    x = window.screenX + window.screen.width / 2.0;
+    y = window.screenY + window.screen.height / 2.0;
+  }
+
+  var pos = {
+    x: x,
+    y: y,
+    width: 1100,
+    height: 600
+  };
+
+  var prop = 'menubar=0, resizable=0, location=0, toolbar=0, ' +
+    'status=0, scrollbars=1, titlebar=0, left=' +
+    (pos.x - (pos.width / 2.0)) + ', top=' +
+    (pos.y - (pos.height / 2.0)) + ', width=' +
+    pos.width + ', height=' + pos.height;
+
+  window.open(User.login_popup_url(opt_callback), 'Auth', prop);
+};
+
+
+// Event API
+// ---------
+// This is some code you should have to care about that does the event binding.
+// This exposes simple functions like bind, unbind, and trigger that will send
+// messages to all subscribed other users currently on the site. This is what
+// does the bidirectional databinding. I exposes it so you can use it for other
+// purposes as well.
 var CONNECTED = false;
 var CONNECTING = false;
 var BACKOFF = 1;
@@ -93,8 +425,8 @@ function onClose() {
   rebind();
 }
 
+// TODO: try reconnecting with backoff or alert system of lack of capability.
 function onError() {
-  // TODO: try reconnecting with backoff or alert system of lack of capability.
   if (console) {
     console.warn('Channel not connectable.');
   }
@@ -103,7 +435,6 @@ function onError() {
 function onMessage(msg) {
   var data = JSON.parse(msg.data);
   if (data.reboot) {
-    // close everything and try and reconnect and rebind the event listeners
     socket.close();
     return;
   }
@@ -192,296 +523,8 @@ function unbind(name, fn) {
 }
 
 
-/////////////////////////
-// Quering and Filtering
-/////////////////////////
-
-function FILTER(name, opsymbol, value) {
-  return [name, opsymbol, value];
-}
-
-function ORDER(name) {
-  return name;
-}
-
-function AND() {
-  var f = ['AND'];
-  for (var i = 0; i < arguments.length; i++) {
-    f.push(arguments[i]);
-  }
-  return f;
-}
-
-function OR() {
-  var f = ['OR'];
-  for (var i = 0; i < arguments.length; i++) {
-    f.push(arguments[i]);
-  }
-  return f;
-}
-
-var ModelFactory = function(type, opt_schema) {
-  var ignored_prefixes = ['_', '$'];
-
-  /**
-  * Query is an iterable collection of a Model
-  */
-  var Query = function() {
-    this._filter = [];
-    this._order = [];
-    this.projection = [];
-    this._page_size = 100;
-    this._more = false;
-    this._dirty = false;
-  };
-
-  Query.prototype = new Array();
-
-  /**
-  * onChange callback function
-  */
-  Query.prototype.onchange = undefined;
-
-  Query.prototype.next = function() {
-    return true;
-  };
-
-  Query.prototype.previous = function() {
-    return true;
-  };
-
-  Query.prototype.__defineGetter__('more', function() { return this._more; });
-
-  Query.prototype.__defineGetter__('page_size',
-      function() { return this._page_size; });
-  Query.prototype.__defineSetter__('page_size',
-      function(page_size) {
-        this._page_size = page_size;
-        this._dirty = true;
-      });
-
-  Query.prototype.filter = function() {
-    var filter;
-    switch (arguments.length) {
-      case 1:
-        filter = arguments[0];
-        break;
-      case 2:
-        filter = FILTER.apply(this,
-            arguments[0].split(' ').concat(arguments[1]));
-        break;
-      case 3:
-        filter = FILTER.apply(this, arguments);
-        break;
-      default:
-        throw Error('Undefined FILTER format.');
-    }
-    if (this._filter.length == 0) {
-      this._filter = ['AND'];
-    }
-    this._filter.push(filter);
-    return this;
-  };
-
-  Query.prototype.order = function(name) {
-    this._order.push(ORDER(name));
-    return this;
-  };
-
-  Query.prototype.serialize = function() {
-    return JSON.stringify({
-      filter: this._filter,
-      order: this._order,
-      projection: this.projection,
-      page_size: this._page_size
-    });
-  };
-
-  Query.prototype.fetch = function(opt_callback) {
-    var _this = this;
-    function callback(data) {
-      _this.length = 0;
-      _this.push.apply(_this, data);
-      var fn = opt_callback || _this.onchange;
-      if (fn) {
-        fn(_this);
-      }
-    }
-    http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
-  };
-
-  function update(model, data) {
-    for (var k in data) {
-      model[k] = data[k];
-    }
-  }
-
-  var Model = function() {
-  };
-
-  /*
-   * Get a model by its id.
-   */
-  Model.get = function(id, opt_callback, opt_error) {
-    var m = new Model();
-    m.Id = id;
-    m.$update(opt_callback, opt_error);
-    return m;
-  };
-
-  /*
-   * query generates a iterator for a query object.
-   */
-  Model.query = function(opt_callback) {
-    var query = new Query();
-    // xhr query for collection with timeout to allow for chaining
-    setTimeout(function() {
-      query.fetch(opt_callback);
-    }, 0);
-    if (config.databinding) {
-      tailbone.bind(type, function() { query.fetch() });
-    }
-    return query;
-  };
-
-  Model.serialize = function(model) {
-    var obj = {};
-    for (var member in model) {
-      if (ignored_prefixes.indexOf(member[0]) < 0) {
-        obj[member] = model[member];
-      }
-    }
-    return obj;
-  };
-
-  /*
-  * Dollar sign prefix names are ignored on the model as are underscore
-  * _name
-  * and
-  * $name
-  * are not included in the jsonifying of an object
-  */
-  Model.prototype.$save = function(opt_callback, opt_error) {
-    var _this = this;
-    http.POST('/api/' + type + '/', Model.serialize(this), function(data) {
-      update(_this, data);
-      var fn = opt_callback || _this.onchange;
-      if (fn) {
-        fn(_this);
-      }
-      if (config.databinding) {
-        tailbone.trigger(type);
-      }
-    }, opt_error);
-  };
-
-  Model.prototype.$delete = function(opt_callback, opt_error) {
-    var _this = this;
-    http.DELETE('/api/' + type + '/' + this.Id, function() {
-      var fn = opt_callback || _this.onchange;
-      if (fn) {
-        fn();
-      }
-      if (config.databinding) {
-        tailbone.trigger(type);
-      }
-    }, opt_error);
-  };
-
-  Model.prototype.$update = function(opt_callback, opt_error) {
-    var _this = this;
-    http.GET('/api/' + type + '/' + this.Id, function(data) {
-      update(_this, data);
-      var fn = opt_callback || _this.onchange;
-      if (fn) {
-        fn(_this);
-      }
-    }, opt_error);
-  };
-
-  return Model;
-};
-
-var User = new ModelFactory('users');
-
-function authorizeCallback(opt_callback) {
-
-  function processToken(callback) {
-    return function(message) {
-      if (message.data.type != 'Login') {
-        return;
-      }
-      var localhost = false;
-      if (message.origin.substr(0, 17) == 'http://localhost:') {
-        localhost = true;
-      }
-      if (!localhost && message.origin !== window.location.origin) {
-        throw new Error('Origin does not match.');
-      } else {
-        removeEventListener('message', process, false);
-        if (callback) {
-          callback(message.data.payload);
-        }
-      }
-    };
-  }
-
-  var process = processToken(opt_callback);
-  addEventListener('message', process, false);
-
-}
-
-// have a constructor for login url
-User.login_url = function(redirect_url) {
-  return '/api/login?url=' + (redirect_url || '/');
-};
-
-User.login_popup_url = function(opt_callback) {
-  authorizeCallback(opt_callback);
-  return User.login_url('/api/login.html');
-};
-
-User.login = function(opt_callback) {
-  var x, y;
-  if (window.screen.width) {
-    x = window.screenX + window.screen.width / 2.0;
-    y = window.screenY + window.screen.height / 2.0;
-  }
-
-  var pos = {
-    x: x,
-    y: y,
-    width: 1100,
-    height: 600
-  };
-
-  var prop = 'menubar=0, resizable=0, location=0, toolbar=0, ' +
-    'status=0, scrollbars=1, titlebar=0, left=' +
-    (pos.x - (pos.width / 2.0)) + ', top=' +
-    (pos.y - (pos.height / 2.0)) + ', width=' +
-    pos.width + ', height=' + pos.height;
-
-  window.open(User.login_popup_url(opt_callback), 'Auth', prop);
-};
-
-User.logout = function(opt_callback) {
-  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
-};
-
-//
-// User.get('me', function(me) {
-//  if(!me) {
-//    User.login(function(me) {
-//      doSomething(me);
-//    });
-//  } else {
-//    doSomething(me);
-//  }
-// });
-
-// Add the channel js for appengine and bind the events.
-
 // Exports
+// -------
 return {
   Model: ModelFactory,
   User: User,
