@@ -1,12 +1,21 @@
-# Automatic RESTful backend for AppEngine
+# Tailbone - Restful AppEngine and then some
 
-Dirty hacking on the cheap with with no server side code and App Engines infrastructure.
+AppEngine is cheap fast and awesome. Using it for the first time is sometimes ... well ...
+_different_. There are tons of frameworks like Django or others out there that work with AppEngine,
+but these days I write almost all my application in javascript with AngularJS, I just need a simple
+backend to do its part. The AppEngine frameworks are awesome and for more complex things I recommend
+you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
+their apps faster better, run cheaper, and scale well, all without having to write backend code.
+Oh is that all. I wrote this for me hopefully others find it useful too.
 It provides a simple restful backend setup for app engine so you can write your apps in javascript
 via frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
-using plain javascript and your own xhr calls.
+using plain javascript and your own xhr calls. All your static resources with be served fast and
+efficiently and if you turn on PageSpeed on app engine you get automatic compilation of your code,
+image optimization, and other goodies all for free. It even supports large file uploads and serving
+via the Google blobstore.
 
-Also, for added capabilities, there is a javascript library auto served at /tailbone.js which does
-additional niceties like bi-directional binding of your model and your backend to a javascript
+Finally, for added capabilities, there is a javascript library auto served at /tailbone.js which
+does additional niceties like bi-directional binding of your model and your backend to a javascript
 structure with simplified queries.
 
 - [Status](#status)
@@ -23,7 +32,7 @@ structure with simplified queries.
   - [tailbone.py](docs/tailbonepy.html)
   - [tailbone.js](docs/tailbonejs.html)
 
-<a id="status" />
+<a id="status" ></a>
 ## Status
 
 Just started this is a personal pet project just made out of past experiences and a desire for my
@@ -37,7 +46,7 @@ same in either go, python or any future language to support consistency of
 any implementation of the api.
 
 
-<a id="starting" />
+<a id="starting" ></a>
 ## Getting Started
 
 So how I get started with tailbone is.
@@ -71,10 +80,10 @@ For you javascript development I recommend two things [yeoman](http://yeoman.io)
 bootstrapping and installing js libraries and [angularjs](http://angularjs.org) for your MVC
 javascript application framework.
 
-<a id="special" />
+<a id="special" ></a>
 ## Special URLS
 
-<a id="models" />
+<a id="models" ></a>
 ### RESTful models:
 
     POST /api/{modelname}/
@@ -99,7 +108,7 @@ javascript application framework.
     "owners" which is a private list of the user ids of owners for this model, which by default just
     includes the user who creates it.
 
-<a id="users" />
+<a id="users" ></a>
 ### User models:
 
     /api/users/
@@ -111,7 +120,7 @@ javascript application framework.
     /api/logout
       logs you out
 
-<a id="files" />
+<a id="files" ></a>
 ### Large files:
 
     GET /api/files/
@@ -148,7 +157,7 @@ javascript application framework.
       note there is no put to update an id you must always create a new one and delete the old
       yourself
 
-<a id="events" />
+<a id="events" ></a>
 ### Events:
 
     /api/events/
@@ -159,10 +168,10 @@ javascript application framework.
         tailbone.unbind("name");
 
 
-<a id="tailbonejs" />
+<a id="tailbonejs" ></a>
 ## Tailbone.js
 
-<a id="include" />
+<a id="include" ></a>
 ### How to include:
 
     to use tailbone.js please include the following in your html
@@ -181,7 +190,7 @@ javascript application framework.
     <![endif]-->
 
 
-<a id="exported" />
+<a id="exported" ></a>
 ### Exported methods:
 
     Model: ModelFactory that creates a new model type,
@@ -194,7 +203,7 @@ javascript application framework.
     bind: bind a js function by name ,
     unbind: unbind a js function by name,
 
-<a id="example" />
+<a id="example" ></a>
 ### Examples:
 
     var Todo = new tailbone.Model("todos");
