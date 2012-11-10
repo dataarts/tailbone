@@ -20,7 +20,7 @@ structure with simplified queries.
 
 - [Status](#status)
 - [Special URLS](#special)
-  - [/api/models](#models)
+  - [/api/(yourModelName)](#models)
   - [/api/users](#users)
   - [/api/files](#files)
   - [/api/events](#events)
@@ -84,7 +84,7 @@ javascript application framework.
 ## Special URLS
 
 <a id="models" ></a>
-### RESTful models:
+### Restful models:
 
     POST /api/{modelname}/
       creates an object
