@@ -22,17 +22,18 @@ structure with simplified queries.
 
 - [Status](#status)
 - [Special URLS](#special)
-  - [/api/(yourModelName)](#models)
-  - [/api/users](#users)
-  - [/api/files](#files)
-  - [/api/events](#events)
+    - [/api/(yourModelName)](#models)
+    - [/api/users](#users)
+    - [Access Control](#access)
+    - [/api/files](#files)
+    - [/api/events](#events)
 - [Taibone.js](#tailbonejs)
-  - [Including](#include)
-  - [Exported Methods](#exported)
-  - [Examples](#example)
+    - [Including](#include)
+    - [Exported Methods](#exported)
+    - [Examples](#example)
 - Annotated Source Code
-  - [tailbone.py](docs/tailbonepy.html)
-  - [tailbone.js](docs/tailbonejs.html)
+    - [tailbone.py](docs/tailbonepy.html)
+    - [tailbone.js](docs/tailbonejs.html)
 
 <a id="status" ></a>
 ## Status
@@ -109,6 +110,28 @@ javascript application framework.
     "Id" which is a public id for the model
     "owners" which is a private list of the user ids of owners for this model, which by default just
     includes the user who creates it.
+
+<a id="access"></a>
+### Access Control
+
+Public private exposure of properties on a model is controlled by capitalization of the first
+letter, similar to Go. All models except for "users" have a private owners list which is just a
+list of user ids that can access and change the private variables of a model. This is prepopulated
+with the person who first creates this model. Only the signed in
+user can edit information on their "users" model. I thought about owners vs editors to grant
+access rights like most other systems, but thought it out of scope for this first pass trying to
+keep everything as simple as possible, so there is just one list add to it or remove from it as you
+like.
+
+    var Todo = new tailbone.Model("todos");
+    var todo = new Todo();
+    todo.Text = "some public text"
+    todo.secret = "some secret that only owners can see"
+    todo.$save();
+
+    todo.owners.append("somenewuser"); // now somenewuser can also edit this model and see secret
+    todo.$save();
+
 
 <a id="users" ></a>
 ### User models:
