@@ -6,7 +6,9 @@ but these days I write almost all my application in javascript with AngularJS, I
 backend to do its part. The AppEngine frameworks are awesome and for more complex things I recommend
 you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
 their apps faster better, run cheaper, and scale well, all without having to write backend code.
-Oh is that all. I wrote this for me hopefully others find it useful too.
+That said writing more code on your backend is great if you are up to it, I can't recomend go enough
+for doing that. Writing your backend in go makes coding pleasent again.
+Anyway, I wrote this for me at home in my spare time and hopefully others find it useful too.
 It provides a simple restful backend setup for app engine so you can write your apps in javascript
 via frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
 using plain javascript and your own xhr calls. All your static resources with be served fast and
