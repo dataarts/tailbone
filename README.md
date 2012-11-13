@@ -129,7 +129,6 @@ like.
     var todo = new Todo();
     todo.Text = "some public text";
     todo.secret = "some secret that only owners can see";
-    todo.$save();
 
     todo.owners.append("somenewuser"); // now somenewuser can also edit this model and see secret
     todo.$save();
@@ -146,6 +145,35 @@ like.
       logs you in
     /api/logout
       logs you out
+
+Tailbone.js, documented farther down the page, also provides some helpers for logging in and out.
+See the QUnit tests for an example. Note, there is also a popup version, but since Chrome
+started more agressivly blocking popups being able to create a url that calls a javascript
+callback via PostMessage is more useful.
+
+    asyncTest('Login', function() {
+
+      var User = tailbone.User;
+
+      var a = document.createElement('a');
+      a.appendChild(document.createTextNode('Login Test'));
+      User.logout(function() {
+        User.get('me', null, function(d) {
+          ok(d.error == 'LoginError', d);
+          var link = User.login_popup_url(function() {
+            User.get('me', function(d) {
+              ok(d.Id !== undefined, d.Id);
+              document.body.removeChild(a);
+              start();
+            });
+          });
+          a.href = link;
+          a.target = '_blank';
+        });
+      });
+      document.body.appendChild(a);
+    });
+
 
 <a id="files" ></a>
 ### Large files:
