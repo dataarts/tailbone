@@ -1,24 +1,26 @@
 # Tailbone - Restful AppEngine and then some
 
-AppEngine is cheap fast and awesome. Using it for the first time is sometimes ... well ...
+AppEngine is cheap, fast, and awesome. Using it for the first time is sometimes ... well ...
 _different_. There are tons of frameworks like Django or others out there that work with AppEngine,
 but these days I write almost all my application in javascript with AngularJS, I just need a simple
 backend to do its part. The AppEngine frameworks are awesome and for more complex things I recommend
 you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
-their apps faster better, run cheaper, and scale well, all without having to write backend code.
+their apps faster without worrying about their backend code.
 That said writing more code on your backend is great if you are up to it, I can't recommend Go enough
-for doing that. Writing your backend in Go makes coding pleasant again.
-Anyway, I wrote this for me at home in my spare time and hopefully others find it useful too.
-It provides a simple restful backend setup for app engine so you can write your apps in javascript
-via frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
-using plain javascript and your own xhr calls. All your static resources with be served fast and
-efficiently and if you turn on PageSpeed on app engine you get automatic compilation of your code,
-image optimization, and other goodies all for free. It even supports large file uploads and serving
-via the Google blobstore.
+for doing that, it really is fun.
+Anyway, I wrote this for myself in my spare time and hopefully others find it useful too.
+It provides a simple restful backend setup for AppEngine so you can write your apps in javascript
+via frameworks like AngularJS or Backbone etc and not have to touch any AppEngine code. Or just
+using plain javascript and your own xhr calls. All your static resources are automatically served
+from client/app.  AppEngine is great at static serving and if you turn on PageSpeed
+on AppEngine you get automatic optimization of your images and scripts, as well as other goodies
+all for free. It even supports large file uploads and serving via the Google blobstore. One example
+use case is drawing an image with canvas via javascript uploading it via ajax and serving variable
+sized thumbnails efficiently of that image. That is a simple example in the QUnit tests.
 
 Finally, for added capabilities, there is a javascript library auto served at /tailbone.js which
 does additional niceties like bi-directional binding of your model and your backend to a javascript
-structure with simplified queries.
+structure with simplified querying.
 
 - [Status](#status)
 - [Special URLS](#special)
@@ -181,6 +183,48 @@ like.
       deletes a file from blobstore
       note there is no put to update an id you must always create a new one and delete the old
       yourself
+
+
+Upload an image of something drawn with canvas via javascript.
+
+    function toBlob(data_url) {
+      var d = atob(data_url.split(',')[1]);
+      var b = new Uint8Array(d.length);
+      for (var i = 0; i < d.length; i++) {
+        b[i] = d.charCodeAt(i);
+      }
+      return new Blob([b], {type: 'image/png'});
+    }
+
+    asyncTest('Upload file', function() {
+      var data = new FormData();
+      var canvas = document.createElement('canvas');
+      document.body.appendChild(canvas);
+      var ctx = canvas.getContext('2d');
+      ctx.fillRect(0, 0, 100, 100);
+      var img = canvas.toDataURL();
+      data.append('blob', toBlob(img), 'image_filename');
+      document.body.removeChild(canvas);
+      $.get('/api/files', function(d) {
+        $.ajax({
+          type: 'POST',
+          url: d.upload_url,
+          data: data,
+          cache: false,
+          contentType: false,
+          processData: false,
+          success: function(items) {
+            var d = items[0];
+            ok(d.Id != undefined, 'Id is ' + d.Id);
+            ok(d.filename == 'image_filename', 'filename is ' + d.filename);
+            ok(d.size == 1616, 'size is ' + d.size);
+            ok(d.content_type == 'image/png', 'content type is ' + d.content_type);
+            start();
+          }
+        });
+      });
+    });
+
 
 <a id="events" ></a>
 ### Events:
