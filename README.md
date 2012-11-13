@@ -6,8 +6,8 @@ but these days I write almost all my application in javascript with AngularJS, I
 backend to do its part. The AppEngine frameworks are awesome and for more complex things I recommend
 you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
 their apps faster better, run cheaper, and scale well, all without having to write backend code.
-That said writing more code on your backend is great if you are up to it, I can't recomend go enough
-for doing that. Writing your backend in go makes coding pleasent again.
+That said writing more code on your backend is great if you are up to it, I can't recommend Go enough
+for doing that. Writing your backend in Go makes coding pleasant again.
 Anyway, I wrote this for me at home in my spare time and hopefully others find it useful too.
 It provides a simple restful backend setup for app engine so you can write your apps in javascript
 via frameworks like AngularJS or Backbone etc and not have to touch any app engine code. Or just
@@ -112,7 +112,7 @@ javascript application framework.
     includes the user who creates it.
 
 <a id="access"></a>
-### Access Control
+### Access Control:
 
 Public private exposure of properties on a model is controlled by capitalization of the first
 letter, similar to Go. All models except for "users" have a private owners list which is just a
@@ -125,8 +125,8 @@ like.
 
     var Todo = new tailbone.Model("todos");
     var todo = new Todo();
-    todo.Text = "some public text"
-    todo.secret = "some secret that only owners can see"
+    todo.Text = "some public text";
+    todo.secret = "some secret that only owners can see";
     todo.$save();
 
     todo.owners.append("somenewuser"); // now somenewuser can also edit this model and see secret
