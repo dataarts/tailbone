@@ -63,7 +63,7 @@ So how I get started with tailbone is.
 
 - Second, clone the repo to the name of your target project
 
-        git clone https://github.com/doug/tailbone.git myproject
+        git clone https://code.google.com/a/google.com/p/tailbone myproject
 
 - Third, create your app in any js framework or static html you want. Tailbone gitignores the client
   folder so anything you put there will be ignored making updating to the latests tailbone as simple
