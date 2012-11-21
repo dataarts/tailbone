@@ -121,7 +121,7 @@ class users(ndb.Expando):
       pass
     else:
       for k in result.keys():
-        if not re_public.match(k)
+        if not re_public.match(k):
           del result[k]
     result["Id"] = self.key.id()
     return result
