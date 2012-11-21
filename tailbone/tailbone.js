@@ -143,7 +143,7 @@ var ModelFactory = function(type, opt_schema) {
   // Helper function to serialize a model and strip any properties that match
   // the set of ignored prefixes or are of an unsupported type such as a
   // function.
-  serializeModel = function(model) {
+  function serializeModel(model) {
     var obj = {};
     for (var member in model) {
       if (ignored_prefixes.indexOf(member[0]) < 0) {
@@ -160,7 +160,7 @@ var ModelFactory = function(type, opt_schema) {
       for (var k in data) {
         model[k] = data[k];
       }
-      var fn = opt_callback || _this.onchange;
+      var fn = opt_callback || model.onchange;
       if (fn) {
         fn(model);
       }
@@ -172,9 +172,9 @@ var ModelFactory = function(type, opt_schema) {
 
   // Delete the model.
   Model.prototype.$delete = function(opt_callback, opt_error) {
-    var _this = this;
+    var model = this;
     http.DELETE('/api/' + type + '/' + this.Id, function() {
-      var fn = opt_callback || _this.onchange;
+      var fn = opt_callback || model.onchange;
       if (fn) {
         fn();
       }
@@ -192,7 +192,7 @@ var ModelFactory = function(type, opt_schema) {
       for (var k in data) {
         model[k] = data[k];
       }
-      var fn = opt_callback || _this.onchange;
+      var fn = opt_callback || model.onchange;
       if (fn) {
         fn(model);
       }
@@ -286,13 +286,13 @@ var ModelFactory = function(type, opt_schema) {
   // automatically on a query so you shouldn't need this unless you want to
   // update the results this will fetch and update the current results.
   Query.prototype.fetch = function(opt_callback) {
-    var _this = this;
+    var query = this;
     function callback(data) {
-      _this.length = 0;
-      _this.push.apply(_this, data);
-      var fn = opt_callback || _this.onchange;
+      query.length = 0;
+      query.push.apply(query, data);
+      var fn = opt_callback || query.onchange;
       if (fn) {
-        fn(_this);
+        fn(query);
       }
     }
     http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
