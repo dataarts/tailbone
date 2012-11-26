@@ -710,6 +710,19 @@ class ProxyHandler(webapp2.RequestHandler):
   def delete(self, *args, **kwargs):
     self.proxy(*args, **kwargs)
 
+# Test Handler
+# ------------
+#
+# QUnit tests can only be preformed on the local host because they actively modify the database and
+# don't properly clean up after themselves yet.
+class TestHandler(webapp2.RequestHandler):
+  def get(self):
+    if DEBUG:
+      with open('tailbone/test_tailbone.html') as f:
+        self.response.out.write(f.read())
+    else:
+      self.response.out.write("Sorry, tests can only be run from localhost because they modify the \
+      datastore.")
 
 # Some Extra HTML handlers
 # ------------------------
@@ -750,6 +763,7 @@ app = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}login.html".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
+  (r"{}test" .format(PREFIX), TestHandler),
   (r"{}admin/(.+)".format(PREFIX), AdminHandler),
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
   (r"{}files/?(.*)".format(PREFIX), FilesHandler),
