@@ -13,6 +13,10 @@ handlers:
   # - url: /custom/.*
   #   script: custom.app
 
+  # Allow proxying
+  - url: /proxy
+    script: tailbone.proxy
+
   # this links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
   - url: (/?.*)/
