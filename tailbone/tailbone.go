@@ -29,11 +29,20 @@ func (d Dict) Load(c <-chan datastore.Property) error {
     if strings.Contains(p.Name, ".") {
       names := strings.Split(p.Name, ".")
       for _, n := range names[:len(names)-1] {
-        _, exists := dict[n]
-        if !exists {
+        value, exists := dict[n]
+        if exists {
+          switch value.(type) {
+            case []interface{}:
+              dict_ := make(Dict)
+              dict[n] = append(value.([]interface{}), dict_)
+              dict = dict_
+            default:
+              dict = value.(Dict)
+          }
+        } else {
           dict[n] = make(Dict)
+          dict = dict[n].(Dict)
         }
-        dict = dict[n].(Dict)
       }
       key = names[len(names)-1]
     }
