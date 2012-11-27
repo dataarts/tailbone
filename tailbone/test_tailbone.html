@@ -84,8 +84,8 @@ asyncTest('Query and filtering', function() {
     var itemCount = d.length;
     var counter = new Counter(5, function() {
       $.get(query, function(d) {
-        ok(d[0].size == 4, 'Largest size is ' + d[0].size)
-        ok(d.length == itemCount + 3, 'Returned ' + d.length + 'items')
+        ok(d[0].size == 4, 'Largest size is ' + d[0].size);
+        ok(d.length == itemCount + 3, 'Returned ' + d.length + 'items');
         start();
       });
     });
@@ -101,20 +101,24 @@ asyncTest('Query and filtering', function() {
 });
 
 asyncTest('Query with params', function() {
-  $.get('/api/todos/?filter=text==stuff&filter=count>1', function(d) {
+  $.get('/api/todos/?filter=text==stuff&filter=size>1&order=-size', function(d) {
     var itemCount = d.length;
     var params = {
-      filters: ['AND',['text','==','stuff'],['count','>',1]]
-    }
+      filter: ['AND',['text','==','stuff'],['size','>',1]],
+      order: ['-size']
+    };
     var counter = new Counter(5, function() {
-      $.get('/api/todos/params='+JSON.stringify(), function(d) {
+      $.get('/api/todos/?params='+JSON.stringify(params), function(d) {
+        console.log(d);
+        ok(d[0].size == 4, 'Largest size is ' + d[0].size);
+        ok(d.length == itemCount + 3, 'Returned ' + d.length + 'items expected ' + (itemCount + 3));
         start();
       });
     });
     for(var i=0; i<5; i++) {
       var todo = new Todo();
-      todo.num = i;
-      todo.text == 'stuff';
+      todo.size = i;
+      todo.text = 'stuff';
       todo.$save(function() {
         counter.count -= 1;
       });

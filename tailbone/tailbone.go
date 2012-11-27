@@ -13,53 +13,95 @@ import (
 	"strings"
 	"strconv"
 	"regexp"
+	"time"
 )
 
 type HttpHandler func(w http.ResponseWriter, r *http.Request)
 type RequestHandler func(c appengine.Context, r *http.Request) (interface{}, error)
 
 type Dict map[string]interface{}
+type List []interface{}
 
 func (d Dict) Load(c <-chan datastore.Property) error {
-	log.Printf("Loading")
 	for p := range c {
-    log.Printf("Property: %s, Name: %s, Value: %s", p, p.Name, p.Value)
-		d[p.Name] = p.Value
+    key := p.Name
+    dict := d
+    if strings.Contains(p.Name, ".") {
+      names := strings.Split(p.Name, ".")
+      for _, n := range names[:len(names)-1] {
+        _, exists := dict[n]
+        if !exists {
+          dict[n] = make(Dict)
+        }
+        dict = dict[n].(Dict)
+      }
+      key = names[len(names)-1]
+    }
+    value, exists := dict[key]
+    if exists {
+      switch value.(type) {
+        case []interface{}:
+          log.Printf("ARRAY WTF %s %s", value, p.Value)
+          value = append(value.([]interface{}), p.Value)
+        default:
+          log.Printf("WTF %s %s", value, p.Value)
+          log.Printf("KEYWTF %s %s", p.Name, key)
+          value = []interface{}{value, p.Value}
+      }
+    } else {
+      value = p.Value
+    }
+    dict[key] = value
 	}
 	return nil
 }
 
-func (d Dict) SaveWithPrefix(prefix string, c chan<- datastore.Property) error {
+func saveWithPrefix(d map[string]interface{},
+                    prefix string,
+                    c chan<- datastore.Property,
+                    multiple bool) error {
+	for k, v := range d {
+	  save(prefix + "." + k, v, c, multiple)
+	}
   return nil
 }
 
-func (d Dict) Save(c chan<- datastore.Property) error {
-	log.Printf("Saving")
-	defer close(c)
-	for k, v := range d {
+func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) error {
 		switch t := v.(type) {
 		case map[string]interface{}:
 			log.Printf("type: map")
-			// v.SaveWithPrefix(k,c)
+      saveWithPrefix(v.(map[string]interface{}), k, c, multiple)
+      return nil
 		case []interface{}:
 			log.Printf("type: slice")
-		case float64, float32:
-			log.Printf("type: float64")
-		case int, int32, int64:
-			log.Printf("type: int")
+      for _, x := range v.([]interface{}) {
+        save(k, x, c, true)
+      }
+      return nil
+		case float64, float32, int, int32, int64:
+			log.Printf("type: number")
       v = v.(float64)
-		case string:
-			log.Printf("type: string")
-		case bool:
-			log.Printf("type: bool")
+    case string, []byte:
+		case bool, time.Time, *datastore.Key:
+      // pass
 		default:
-			log.Printf("type: %s", t)
+			log.Printf("UNKNOWN type: %s", t)
 		}
 		log.Printf("Key: %s Value: %s", k, v)
 		c <- datastore.Property {
 			Name: k,
 			Value: v,
+      Multiple: multiple,
 		}
+		return nil
+}
+
+
+func (d Dict) Save(c chan<- datastore.Property) error {
+	log.Printf("Saving")
+	defer close(c)
+	for k, v := range d {
+	  save(k, v, c, false)
 	}
 	return nil
 }
@@ -233,5 +275,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
+	http.HandleFunc("/api/login", Login)
+	http.HandleFunc("/api/logout", Logout)
 	http.HandleFunc("/api/", Json(Restful))
 }

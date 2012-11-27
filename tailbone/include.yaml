@@ -1,4 +1,11 @@
 handlers:
+  - url: /api/test
+    static_files: tailbone/test_tailbone.html
+    upload: tailbone/test_tailbone.html
+
+  - url: /_ah/channel/(dis)?connected/
+    script: _go_app
+
   # This is the main tailbone restful app handler
   - url: /api/.*
     script: _go_app
@@ -7,11 +14,4 @@ handlers:
   - url: /tailbone.js
     static_files: tailbone/tailbone.js
     upload: tailbone/tailbone.js
-
-  - url: /_test
-    static_files: tailbone/test_tailbone.html
-    upload: tailbone/test_tailbone.html
-
-  - url: /_ah/channel/(dis)?connected/
-    script: tailbone.connected
 

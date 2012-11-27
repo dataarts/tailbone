@@ -21,8 +21,13 @@ builtins:
   - deferred: on
   - admin_redirect: on
   - remote_api: on
-  # - datastore_admin: on
 
 inbound_services:
   - warmup
   - channel_presence
+
+pagespeed:
+  enabled_rewriters:
+  - MinifyCss
+  disabled_rewriters:
+  - LazyloadImages
