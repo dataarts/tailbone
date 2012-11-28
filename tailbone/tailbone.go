@@ -4,8 +4,8 @@ import (
 	"appengine"
 	"appengine/blobstore"
 	"appengine/datastore"
-	"appengine/user"
 	"appengine/image"
+	"appengine/user"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -284,29 +284,29 @@ func (blob BlobKey) Write(c appengine.Context, w http.ResponseWriter) {
 type blobInfoList map[string][]*blobstore.BlobInfo
 
 func (blobs blobInfoList) Write(c appengine.Context, w http.ResponseWriter) {
-  var d Dict
-  resp := DictList{}
-  for _, bloblist := range blobs {
-    for _, blob := range bloblist {
-      d = Dict{
-        "Id": string(blob.BlobKey),
-        "filename": blob.Filename,
-        "content_type": blob.ContentType,
-        "size": blob.Size,
-        "creation": blob.CreationTime.Unix(),
-      }
-      if re_image.MatchString(blob.ContentType) {
-        url, err := image.ServingURL(c, blob.BlobKey, nil)
-        if err == nil {
-          d["image_url"] = url.String()
-        }
-      }
-      resp = append(resp, d)
-    }
-  }
+	var d Dict
+	resp := DictList{}
+	for _, bloblist := range blobs {
+		for _, blob := range bloblist {
+			d = Dict{
+				"Id":           string(blob.BlobKey),
+				"filename":     blob.Filename,
+				"content_type": blob.ContentType,
+				"size":         blob.Size,
+				"creation":     blob.CreationTime.Unix(),
+			}
+			if re_image.MatchString(blob.ContentType) {
+				url, err := image.ServingURL(c, blob.BlobKey, nil)
+				if err == nil {
+					d["image_url"] = url.String()
+				}
+			}
+			resp = append(resp, d)
+		}
+	}
 	w.Header().Set("content-type", "application/json")
 	encoder := json.NewEncoder(w)
-  encoder.Encode(resp)
+	encoder.Encode(resp)
 }
 
 func Files(c appengine.Context, r *http.Request) (ResponseWritable, error) {
@@ -328,11 +328,11 @@ func Files(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 		return BlobKey(appengine.BlobKey(id)), nil
 	case "POST":
 		if id == "upload" {
-		  blobs, _, err := blobstore.ParseUpload(r)
-		  if err != nil {
-		    return nil, err
-      }
-      return blobInfoList(blobs), nil
+			blobs, _, err := blobstore.ParseUpload(r)
+			if err != nil {
+				return nil, err
+			}
+			return blobInfoList(blobs), nil
 		}
 		return nil, errors.New("You must make a GET call to /api/files to get a POST url.")
 	case "DELETE":
@@ -348,18 +348,18 @@ func Files(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 func Events(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	switch r.Method {
 	case "POST":
-    return Dict{"POST": "thing"}, nil
-  }
+		return Dict{"POST": "thing"}, nil
+	}
 	return nil, errors.New("Undefined method.")
 }
 
 func Users(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	switch r.Method {
 	case "GET":
-  case "POST", "PUT":
-    return Dict{"POST": "thing"}, nil
+	case "POST", "PUT":
+		return Dict{"POST": "thing"}, nil
 	case "DELETE":
-  }
+	}
 	return nil, errors.New("Undefined method.")
 }
 
