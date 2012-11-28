@@ -203,13 +203,14 @@ def reflective_create(cls, data):
   m = cls()
   for k,v in data.iteritems():
     m._default_indexed = True
-    if type(v) in [unicode, str]:
+    t = type(v)
+    if t in [unicode, str]:
       if len(bytearray(v, encoding="utf8")) >= 500:
         m._default_indexed = False
-    elif type(v) == dict:
+    elif t == dict:
       subcls = unicode.encode(k, "ascii", errors="ignore")
       v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
-    elif type(v) in [int, float]:
+    elif t in [int, float]:
       v = float(v)
     setattr(m, k, v)
   return m
