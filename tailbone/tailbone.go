@@ -86,7 +86,10 @@ func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) e
 	case []interface{}:
 		log.Printf("type: slice")
 		for _, x := range v.([]interface{}) {
-			save(k, x, c, true)
+      err := save(k, x, c, true)
+      if err != nil {
+        return err
+      }
 		}
 		return nil
 	case float64, float32, int, int32, int64:
@@ -111,7 +114,10 @@ func (d Dict) Save(c chan<- datastore.Property) error {
 	log.Printf("Saving")
 	defer close(c)
 	for k, v := range d {
-		save(k, v, c, false)
+    err := save(k, v, c, false)
+    if err != nil {
+      return err
+    }
 	}
 	return nil
 }
@@ -209,6 +215,61 @@ func ParseBody(r *http.Request) (Dict, error) {
 	return nil, errors.New("Unsupported Content-Type.")
 }
 
+func newKey(c appengine.Context, kind, id string, parent *datastore.Key) *datastore.Key {
+  i, err := strconv.ParseInt(id, 10, 64)
+  if err != nil {
+    return datastore.NewKey(c, kind, id, 0, nil)
+  }
+  return datastore.NewKey(c, kind, "", i, nil)
+}
+
+
+func getID(key *datastore.Key) interface{} {
+  intID := key.IntID()
+  if intID != 0 {
+    return intID
+  }
+  return key.StringID()
+}
+
+func query(c appengine.Context, r *http.Request, kind string) (ResponseWritable, error) {
+  items := DictList{}
+  q := datastore.NewQuery(kind)
+  q, err := PopulateQuery(q, r)
+  if err != nil {
+    return nil, err
+  }
+  for t := q.Run(c); ; {
+    x := Dict{}
+    key, err := t.Next(x)
+    if err == datastore.Done {
+      break
+    }
+    if err != nil {
+      return nil, err
+    }
+    x["Id"] = getID(key)
+    items = append(items, x)
+  }
+  return items, nil
+}
+
+func Users(c appengine.Context, r *http.Request) (ResponseWritable, error) {
+	// kind, id, err := ParseRestfulPath(r.URL.Path)
+	// if err != nil {
+	//   return nil, err
+	// }
+	// switch r.Method {
+	// case "GET":
+	//   if id == "" {
+  //  }
+	// case "POST", "PUT":
+	// 	return Dict{"POST": kind}, nil
+	// case "DELETE":
+	// }
+	return nil, errors.New("Undefined method.")
+}
+
 func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	kind, id, err := ParseRestfulPath(r.URL.Path)
 	if err != nil {
@@ -217,27 +278,16 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	switch r.Method {
 	case "GET":
 		if id == "" {
-			items := DictList{}
-			q := datastore.NewQuery(kind)
-			q, err := PopulateQuery(q, r)
-			if err != nil {
-				return nil, err
-			}
-			for t := q.Run(c); ; {
-				x := make(Dict)
-				key, err := t.Next(&x)
-				c.Infof("Key: %s", key)
-				if err == datastore.Done {
-					break
-				}
-				if err != nil {
-					return nil, err
-				}
-				items = append(items, x)
-			}
-			return items, nil
+      items, err := query(c, r, kind)
+      if err != nil {
+        return nil, err
+      }
+      return items, nil
 		} else {
-			return Dict{"method": "get"}, nil
+      item := Dict{}
+      key := newKey(c, kind, id, nil)
+		  datastore.Get(c, key, item)
+		  return item, nil
 		}
 	case "POST", "PUT":
 		data, err := ParseBody(r)
@@ -349,16 +399,6 @@ func Events(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	switch r.Method {
 	case "POST":
 		return Dict{"POST": "thing"}, nil
-	}
-	return nil, errors.New("Undefined method.")
-}
-
-func Users(c appengine.Context, r *http.Request) (ResponseWritable, error) {
-	switch r.Method {
-	case "GET":
-	case "POST", "PUT":
-		return Dict{"POST": "thing"}, nil
-	case "DELETE":
 	}
 	return nil, errors.New("Undefined method.")
 }
