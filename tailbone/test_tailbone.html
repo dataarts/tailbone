@@ -70,7 +70,7 @@ asyncTest('Create model', function() {
     todo.$save(function() {
       $.get('/api/todos/', function(d) {
         ok(d.length == itemCount + 1, 'Expected ' + (itemCount + 1) +
-          ' results got ' + itemCount);
+          ' results got ' + d.length);
         itemCount = d.length;
         start();
       });
