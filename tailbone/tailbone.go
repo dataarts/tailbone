@@ -80,11 +80,9 @@ func saveWithPrefix(d map[string]interface{},
 func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) error {
 	switch t := v.(type) {
 	case map[string]interface{}:
-		log.Printf("type: map")
 		saveWithPrefix(v.(map[string]interface{}), k, c, multiple)
 		return nil
 	case []interface{}:
-		log.Printf("type: slice")
 		for _, x := range v.([]interface{}) {
 			err := save(k, x, c, true)
 			if err != nil {
@@ -93,7 +91,6 @@ func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) e
 		}
 		return nil
 	case float64, float32, int, int32, int64:
-		log.Printf("type: number")
 		v = v.(float64)
 	case string, []byte:
 	case bool, time.Time, *datastore.Key:
@@ -101,7 +98,6 @@ func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) e
 	default:
 		log.Printf("UNKNOWN type: %s", t)
 	}
-	log.Printf("Key: %s Value: %s", k, v)
 	c <- datastore.Property{
 		Name:     k,
 		Value:    v,
@@ -253,6 +249,49 @@ func query(c appengine.Context, r *http.Request, kind string) (ResponseWritable,
 	return items, nil
 }
 
+var (
+	asciiLetters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+func convertNumToStr(num string) (string, error) {
+	var (
+		x, y int64
+		l    = len(num)
+		str  string
+		err  error
+	)
+	for i := 0; i < l; {
+		if i == l-1 {
+			str += string(asciiLetters[i])
+			break
+		}
+		x, err = strconv.ParseInt(string(num[i]), 10, 64)
+		if err != nil {
+			break
+		}
+		y, err = strconv.ParseInt(string(num[i+1]), 10, 64)
+		if err != nil {
+			break
+		}
+		n := x + y
+		if n < 52 {
+			str += string(asciiLetters[n])
+			i += 2
+		} else {
+			str += string(asciiLetters[x])
+			i += 1
+		}
+	}
+	return str, err
+}
+
+func convertStrToNum(str string) (num string) {
+	for _, x := range str {
+		num += strconv.FormatInt(int64(strings.Index(asciiLetters, string(x))), 10)
+	}
+	return
+}
+
 func Users(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	// kind, id, err := ParseRestfulPath(r.URL.Path)
 	// if err != nil {
@@ -333,11 +372,10 @@ func (blob BlobKey) Write(c appengine.Context, w http.ResponseWriter) {
 type blobInfoList map[string][]*blobstore.BlobInfo
 
 func (blobs blobInfoList) Write(c appengine.Context, w http.ResponseWriter) {
-	var d Dict
 	resp := DictList{}
 	for _, bloblist := range blobs {
 		for _, blob := range bloblist {
-			d = Dict{
+			d := Dict{
 				"Id":           string(blob.BlobKey),
 				"filename":     blob.Filename,
 				"content_type": blob.ContentType,
