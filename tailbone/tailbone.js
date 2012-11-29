@@ -204,99 +204,102 @@ var ModelFactory = function(type, opt_schema) {
   // -----
   // Query is an iterable collection of a Model.
   var Query = function() {
-    this._filter = [];
-    this._order = [];
-    this.projection = [];
-    this._page_size = 100;
-    this._more = false;
-    this._dirty = false;
-  };
+    var query = [],
+        _filter = [],
+        _order = [],
+        _page_size = 100,
+        _more = false,
+        _dirty = false;
 
-  // The prototype inherits from the native Array
-  Query.prototype = new Array();
+    // Provide a projection of desired properties to the query
+    query.projection = [];
 
-  // the onchange callback
-  Query.prototype.onchange = undefined;
+    // the onchange callback
+    query.onchange = undefined;
 
-  Query.prototype.next = function() {
-    return true;
-  };
+    query.next = function() {
+      return true;
+    };
 
-  Query.prototype.previous = function() {
-    return true;
-  };
+    query.previous = function() {
+      return true;
+    };
 
-  Query.prototype.__defineGetter__('more', function() { return this._more; });
+    query.__defineGetter__('more', function() { return _more; });
 
-  Query.prototype.__defineGetter__('page_size',
-      function() { return this._page_size; });
-  Query.prototype.__defineSetter__('page_size',
-      function(page_size) {
-        this._page_size = page_size;
-        this._dirty = true;
-      });
+    query.__defineGetter__('page_size',
+        function() { return _page_size; });
+    query.__defineSetter__('page_size',
+        function(page_size) {
+          _page_size = page_size;
+          _dirty = true;
+        });
 
-  // Filter the query results. This can either be a constructed filter using one
-  // of the provided functions like
-  // AND(FILTER("name","=","value"), FILTER("other","=","value")). Or you can
-  // construct a filter in place with the shorthand. filter("name","=","value")
-  // or filter("name =", "value")
-  Query.prototype.filter = function() {
-    var filter;
-    switch (arguments.length) {
-      case 1:
-        filter = arguments[0];
-        break;
-      case 2:
-        filter = FILTER.apply(this,
-            arguments[0].split(' ').concat(arguments[1]));
-        break;
-      case 3:
-        filter = FILTER.apply(this, arguments);
-        break;
-      default:
-        throw Error('Undefined FILTER format.');
-    }
-    if (this._filter.length == 0) {
-      this._filter = ['AND'];
-    }
-    this._filter.push(filter);
-    return this;
-  };
-
-  // Order the query results. add a - in front of the name to make it sort
-  // descending.
-  Query.prototype.order = function(name) {
-    this._order.push(ORDER(name));
-    return this;
-  };
-
-  // Simple serialization and jsonification of the query so it can be passed to
-  // the server.
-  Query.prototype.serialize = function() {
-    return JSON.stringify({
-      filter: this._filter,
-      order: this._order,
-      projection: this.projection,
-      page_size: this._page_size
-    });
-  };
-
-  // Actually fetches and updates the results in the query. This happens
-  // automatically on a query so you shouldn't need this unless you want to
-  // update the results this will fetch and update the current results.
-  Query.prototype.fetch = function(opt_callback) {
-    var query = this;
-    function callback(data) {
-      query.length = 0;
-      query.push.apply(query, data);
-      var fn = opt_callback || query.onchange;
-      if (fn) {
-        fn(query);
+    // Filter the query results. This can either be a constructed filter using one
+    // of the provided functions like
+    // AND(FILTER("name","=","value"), FILTER("other","=","value")). Or you can
+    // construct a filter in place with the shorthand. filter("name","=","value")
+    // or filter("name =", "value")
+    query.filter = function() {
+      var filter;
+      switch (arguments.length) {
+        case 1:
+          filter = arguments[0];
+          break;
+        case 2:
+          filter = FILTER.apply(this,
+              arguments[0].split(' ').concat(arguments[1]));
+          break;
+        case 3:
+          filter = FILTER.apply(this, arguments);
+          break;
+        default:
+          throw Error('Undefined FILTER format.');
       }
-    }
-    http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
+      if (_filter.length == 0) {
+        _filter = ['AND'];
+      }
+      _filter.push(filter);
+      return this;
+    };
+
+    // Order the query results. add a - in front of the name to make it sort
+    // descending.
+    query.order = function(name) {
+      _order.push(ORDER(name));
+      return this;
+    };
+
+    // Simple serialization and jsonification of the query so it can be passed to
+    // the server.
+    query.serialize = function() {
+      return JSON.stringify({
+        filter: _filter,
+        order: _order,
+        projection: this.projection,
+        page_size: _page_size
+      });
+    };
+
+    // Actually fetches and updates the results in the query. This happens
+    // automatically on a query so you shouldn't need this unless you want to
+    // update the results this will fetch and update the current results.
+    query.fetch = function(opt_callback) {
+      var query = this;
+      function callback(data) {
+        query.splice(0, query.length);
+        query.push.apply(query, data);
+        var fn = opt_callback || query.onchange;
+        if (fn) {
+          fn(query);
+        }
+      }
+      http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
+    };
+
+    return query;
   };
+
 
 
   return Model;
