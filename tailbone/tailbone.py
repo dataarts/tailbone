@@ -336,7 +336,6 @@ def construct_filter_json(f):
 def construct_query_from_json(cls, filters, orders):
   q = cls.query()
   if filters:
-    logging.info(construct_filter_json(filters))
     q = q.filter(construct_filter_json(filters))
   if orders:
     q = q.order(*[construct_order(cls,o) for o in orders])
@@ -347,7 +346,7 @@ def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
   # TODO(doug) correctly auto append orders when necessary like on a multiselect/OR
-  q = q.order(*[construct_order(cls,o) for o in orders])
+  q = q.order(*[construct_order(cls,o) for oo in orders for o in re_split.split(oo)])
   return q
 
 # Determine which kind of query parameters are passed in and construct the query.
