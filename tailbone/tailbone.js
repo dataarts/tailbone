@@ -337,8 +337,8 @@ function authorizeCallback(opt_callback) {
 }
 
 // Constructs a login url.
-User.logout = function(opt_callback) {
-  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
+User.logout_url = function(redirect_url) {
+  return '/api/login?url=' + (redirect_url || '/');
 };
 
 User.login_url = function(redirect_url) {
@@ -347,12 +347,11 @@ User.login_url = function(redirect_url) {
 
 // Constructs a login url use this with target _blank and setting a link on your
 // site for the best experience on most devices.
-User.login_popup_url = function(opt_callback) {
+User.login_callback_url = function(opt_callback) {
   authorizeCallback(opt_callback);
   return User.login_url('/api/login.html');
 };
 
-// Construct a logout url.
 User.logout = function(opt_callback) {
   http.GET('/api/logout?url=/api/users/me', null, opt_callback);
 };
@@ -380,7 +379,7 @@ User.login = function(opt_callback) {
     (pos.y - (pos.height / 2.0)) + ', width=' +
     pos.width + ', height=' + pos.height;
 
-  window.open(User.login_popup_url(opt_callback), 'Auth', prop);
+  window.open(User.login_callback_url(opt_callback), 'Auth', prop);
 };
 
 

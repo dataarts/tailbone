@@ -395,6 +395,8 @@ class RestfulHandler(BaseHandler):
       if not m:
         if model == "users":
           m = users()
+          u = api.users.get_current_user()
+          m.email = u.email()
           m.key = ndb.Key("users", id)
         else:
           raise AppError("No {} with id {}.".format(model, id))
