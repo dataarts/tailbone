@@ -292,20 +292,13 @@ func convertStrToNum(str string) (num string) {
 	return
 }
 
-func Users(c appengine.Context, r *http.Request) (ResponseWritable, error) {
-	// kind, id, err := ParseRestfulPath(r.URL.Path)
-	// if err != nil {
-	//   return nil, err
-	// }
-	// switch r.Method {
-	// case "GET":
-	//   if id == "" {
-	//  }
-	// case "POST", "PUT":
-	// 	return Dict{"POST": kind}, nil
-	// case "DELETE":
-	// }
-	return nil, errors.New("Undefined method.")
+func isOwner(c appengine.Context, u *user.User, key *datastore.Key) error {
+	item := Dict{}
+	err := datastore.Get(c, key, item)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
@@ -322,27 +315,71 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			}
 			return items, nil
 		} else {
+			if kind == "users" && id == "me" {
+				u := user.Current(c)
+				if u == nil {
+					return nil, errors.New("Login Required.")
+				}
+				id = convertStrToNum(u.ID)
+			}
 			item := Dict{}
 			key := newKey(c, kind, id, nil)
-			datastore.Get(c, key, item)
+			err = datastore.Get(c, key, item)
+			if err != nil {
+				if kind == "users" {
+					u := user.Current(c)
+					if id == "me" || id == convertStrToNum(u.ID) {
+						return User(*u), nil
+					}
+				}
+				return nil, errors.New("No model found with that Id.")
+			}
 			return item, nil
 		}
-	case "POST", "PUT":
-		data, err := ParseBody(r)
-		log.Printf("POST data: %s", data)
-		key := datastore.NewIncompleteKey(c, kind, nil)
-		datastore.Put(c, key, data)
-		if err != nil {
-			return nil, err
+	case "POST", "PUT", "DELETE":
+		u := user.Current(c)
+		if u == nil {
+			return nil, errors.New("Login Required.")
 		}
-		return data, nil
-	case "DELETE":
-		key := datastore.NewIncompleteKey(c, kind, nil)
-		err = datastore.Delete(c, key)
-		if err != nil {
-			return nil, err
+		switch r.Method {
+		case "POST", "PUT":
+			data, err := ParseBody(r)
+			var key *datastore.Key
+			if id == "" {
+				if _id, exists := data["Id"]; exists {
+					id = fmt.Sprintf("%s", _id)
+				}
+				key = datastore.NewIncompleteKey(c, kind, nil)
+			}
+			// verify data
+			// verify and inject owners
+			data["owners"] = []string{convertNumToStr(u.ID)}
+			if id != "" {
+				key = newKey(c, kind, id, nil)
+				err = isOwner(c, u, key)
+				if err != nil {
+					return nil, err
+				}
+			}
+			key, err = datastore.Put(c, key, data)
+			if err != nil {
+				return nil, err
+			}
+			// TODO: this doesn't work need to set the Id properly with string or int
+			data["Id"] = key.IntID()
+			return data, nil
+		case "DELETE":
+			key := newKey(c, kind, id, nil)
+			err = isOwner(c, u, key)
+			if err != nil {
+				return nil, err
+			}
+			err = datastore.Delete(c, key)
+			if err != nil {
+				return nil, err
+			}
+			return Dict{}, nil
 		}
-		return Dict{}, nil
 	}
 	return nil, errors.New("Undefined method.")
 }
@@ -351,9 +388,28 @@ type ResponseWritable interface {
 	Write(c appengine.Context, w http.ResponseWriter)
 }
 
+type User user.User
+
+func (u User) Write(c appengine.Context, w http.ResponseWriter) {
+	w.Header().Set("content-type", "application/json")
+	encoder := json.NewEncoder(w)
+	id, _ := convertNumToStr(u.ID)
+	encoder.Encode(Dict{
+		"Id":    id,
+		"email": u.Email,
+	})
+}
+
 func (resp Dict) Write(c appengine.Context, w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 	encoder := json.NewEncoder(w)
+	if owners, ok := resp["owners"]; ok {
+		if o, ok := owners.([]string); ok {
+			for x := range o {
+				log.Println(x)
+			}
+		}
+	}
 	encoder.Encode(resp)
 }
 
@@ -469,6 +525,5 @@ func init() {
 	http.HandleFunc("/api/logout", Logout)
 	http.HandleFunc("/api/files/", Json(Files))
 	http.HandleFunc("/api/events/", Json(Events))
-	http.HandleFunc("/api/users/", Json(Users))
 	http.HandleFunc("/api/", Json(Restful))
 }
