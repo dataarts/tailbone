@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type HttpHandler func(w http.ResponseWriter, r *http.Request)
@@ -59,6 +58,8 @@ func (d Dict) Load(c <-chan datastore.Property) error {
 				log.Printf("KEYWTF %s %s", p.Name, key)
 				value = []interface{}{value, p.Value}
 			}
+		} else if p.Multiple {
+			value = []interface{}{p.Value}
 		} else {
 			value = p.Value
 		}
@@ -77,7 +78,11 @@ func saveWithPrefix(d map[string]interface{},
 	return nil
 }
 
+// []byte fields more than 1 megabyte long will not be loaded or saved.
+const maxBlobLen = 1 << 20
+
 func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) error {
+	noIndex := false
 	switch t := v.(type) {
 	case map[string]interface{}:
 		saveWithPrefix(v.(map[string]interface{}), k, c, multiple)
@@ -92,22 +97,26 @@ func save(k string, v interface{}, c chan<- datastore.Property, multiple bool) e
 		return nil
 	case float64, float32, int, int32, int64:
 		v = v.(float64)
-	case string, []byte:
-	case bool, time.Time, *datastore.Key:
+	case string:
+		b := []byte(v.(string))
+		if len(b) >= maxBlobLen {
+			noIndex = true
+		}
+	case bool:
 		// pass
-	default:
+	default: // time.Time, *datastore.Key, []byte
 		log.Printf("UNKNOWN type: %s", t)
 	}
 	c <- datastore.Property{
 		Name:     k,
 		Value:    v,
+		NoIndex:  noIndex,
 		Multiple: multiple,
 	}
 	return nil
 }
 
 func (d Dict) Save(c chan<- datastore.Property) error {
-	log.Printf("Saving")
 	defer close(c)
 	for k, v := range d {
 		err := save(k, v, c, false)
@@ -353,7 +362,8 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			}
 			// verify data
 			// verify and inject owners
-			data["owners"] = []string{convertNumToStr(u.ID)}
+			owner, _ := convertNumToStr(u.ID)
+			data["owners"] = []interface{}{owner}
 			if id != "" {
 				key = newKey(c, kind, id, nil)
 				err = isOwner(c, u, key)
@@ -400,21 +410,30 @@ func (u User) Write(c appengine.Context, w http.ResponseWriter) {
 	})
 }
 
-func (resp Dict) Write(c appengine.Context, w http.ResponseWriter) {
-	w.Header().Set("content-type", "application/json")
-	encoder := json.NewEncoder(w)
-	if owners, ok := resp["owners"]; ok {
+func (d Dict) scoped() {
+	if owners, ok := d["owners"]; ok {
+		log.Println(owners)
 		if o, ok := owners.([]string); ok {
 			for x := range o {
 				log.Println(x)
 			}
 		}
 	}
+}
+
+func (resp Dict) Write(c appengine.Context, w http.ResponseWriter) {
+	w.Header().Set("content-type", "application/json")
+	encoder := json.NewEncoder(w)
+	resp.scoped()
 	encoder.Encode(resp)
 }
 
 func (resp DictList) Write(c appengine.Context, w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
+	c.Infof("WRITING")
+	for _, d := range resp {
+		d.scoped()
+	}
 	encoder := json.NewEncoder(w)
 	encoder.Encode(resp)
 }
