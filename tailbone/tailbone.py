@@ -81,29 +81,34 @@ re_public = re.compile(r"^[A-Z].*")
 # objects based on the capitolization of the property.
 class ScopedExpando(ndb.Expando):
   owners = ndb.StringProperty(repeated=True)
+  viewers = ndb.StringProperty(repeated=True)
 
-  def is_owner(self, u):
+  def can_write(self, u):
     try:
       owners = self.owners
-    except:
-      return False
+    except ndb.UnprojectedPropertyError:
+      owners = []
     if u and u in owners:
       return True
     return False
 
+  def can_read(self, u):
+    try:
+      owners = self.owners
+    except ndb.UnprojectedPropertyError:
+      owners = []
+    try:
+      viewers = self.viewers
+    except ndb.UnprojectedPropertyError:
+      viewers = []
+    if u and (u in owners or u in viewers):
+      return True
+    return False
+
+
   def to_dict(self, *args, **kwargs):
-    excluded = ["owners"]
-    if len(args) == 2:
-      args[1] += exluded
-    if kwargs.has_key("exclude"):
-      kwargs["exclude"] += excluded
-    else:
-      kwargs["exclude"] = excluded
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
-    if self.is_owner(current_user()):
-      # private and public properties
-      result["owners"] = self.owners
-    else:
+    if not self.can_read(current_user()):
       # public properties only
       for k in result.keys():
         if not re_public.match(k):
@@ -370,7 +375,13 @@ def query(self, cls):
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
   cursor = Cursor.from_websafe_string(cursor) if cursor else None
-
+  if projection:
+    # if asking for private variables and not specifing owners and viewers append them
+    private = [p for p in projection if not re_public.match(p)]
+    if len(private) > 0:
+      acl = [p for p in private if p == "owners" or p == "viewers"]
+      if len(acl) == 0:
+        projection += ["owners", "viewers"]
   results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
@@ -417,7 +428,7 @@ class RestfulHandler(BaseHandler):
     clean_data(data)
     if id and model != "users":
       old_model = cls.get_by_id(id)
-      if old_model and not old_model.is_owner(u):
+      if old_model and not old_model.can_write(u):
         raise AppError("You do not have sufficient privileges.")
     m = reflective_create(cls, data)
     if id:

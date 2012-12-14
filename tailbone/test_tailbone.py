@@ -139,6 +139,8 @@ class RestfulTestCase(unittest.TestCase):
       ignored_list.append("Id")
     if not data.has_key("owners"):
       ignored_list.append("owners")
+    if not data.has_key("viewers"):
+      ignored_list.append("viewers")
     for ignored in ignored_list:
       if response_data.has_key(ignored):
         del response_data[ignored]
@@ -240,13 +242,13 @@ class RestfulTestCase(unittest.TestCase):
   def test_query_projection(self):
     num_items = 3
     for i in xrange(num_items):
-      data = {"Text": i, "other": i}
+      data = {"Value": i, "other": i}
       response, response_data = self.create(self.model_url, data)
 
-    request = webapp2.Request.blank("{}?filter=Text>0&projection=Text".format(self.model_url))
+    request = webapp2.Request.blank("{}?filter=Value>0&projection=Value".format(self.model_url))
     response = request.get_response(tailbone.app)
     items = json.loads(response.body)
-    self.assertEqual(items[0], {"Text":1, "Id": 2})
+    self.assertEqual(items[0], {"Value":1, "Id": 2})
     self.assertEqual(len(items), 2)
 
   def test_order_asc(self):
@@ -258,7 +260,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank("{}?order=text".format(self.model_url))
     response = request.get_response(tailbone.app)
     items = json.loads(response.body)
-    self.assertEqual(items[0], {"text":0, "Id": 1, "owners": ["limOwBmjSigmf"]})
+    self.assertEqual(items[0], {"text":0, "Id": 1, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
 
   def test_order_desc(self):
@@ -270,7 +272,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank("{}?order=-text".format(self.model_url))
     response = request.get_response(tailbone.app)
     items = json.loads(response.body)
-    self.assertEqual(items[0], {"text":2, "Id": 3, "owners": ["limOwBmjSigmf"]})
+    self.assertEqual(items[0], {"text":2, "Id": 3, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
 
   def test_user_create_and_update(self):
@@ -295,9 +297,11 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     response = request.get_response(tailbone.app)
-    data = {}
     from tailbone import convert_num_to_str
-    data["Id"] = convert_num_to_str(self.user_id)
+    data = {
+        "Id": convert_num_to_str(self.user_id),
+        "email": "test@gmail.com"
+        }
     self.assertJsonResponseData(response, data)
 
   def test_get_user_by_id(self):
