@@ -355,7 +355,7 @@ def construct_query_from_url_args(cls, filters, orders):
   return q
 
 # Determine which kind of query parameters are passed in and construct the query.
-# Includes paginated results in the response Headers for "More", "Next-Cursor", and "Prev-Cursor"
+# Includes paginated results in the response Headers for "More", "Next-Cursor", and "Reverse-Cursor"
 def query(self, cls):
   params = self.request.get("params")
   if params:
@@ -388,7 +388,7 @@ def query(self, cls):
   if cursor:
     self.response.headers["Next-Cursor"] = cursor.urlsafe()
   if prev_cursor:
-    self.response.headers["Prev-Cursor"] = prev_cursor.reversed().urlsafe()
+    self.response.headers["Reverse-Cursor"] = prev_cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
 # This does all the simple restful handling that you would expect. There is a special catch for
