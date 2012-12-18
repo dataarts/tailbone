@@ -374,7 +374,7 @@ def query(self, cls):
     filters = self.request.get_all("filter")
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
-  cursor = Cursor.from_websafe_string(cursor) if cursor else None
+  cursor = ndb.Cursor.from_websafe_string(cursor) if cursor else None
   if projection:
     # if asking for private variables and not specifing owners and viewers append them
     private = [p for p in projection if not re_public.match(p)]
@@ -382,11 +382,13 @@ def query(self, cls):
       acl = [p for p in private if p == "owners" or p == "viewers"]
       if len(acl) == 0:
         projection += ["owners", "viewers"]
-  results, cursor, more = q.fetch_page(page_size=page_size, cursor=cursor, projection=projection)
+  prev_cursor = cursor
+  results, cursor, more = q.fetch_page(page_size=page_size, start_cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
     self.response.headers["Next-Cursor"] = cursor.urlsafe()
-    self.response.headers["Prev-Cursor"] = cursor.reversed().urlsafe()
+  if prev_cursor:
+    self.response.headers["Prev-Cursor"] = prev_cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
 # This does all the simple restful handling that you would expect. There is a special catch for
@@ -397,17 +399,20 @@ class RestfulHandler(BaseHandler):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
+      me = False
       if model == "users":
         if id == "me":
+          me = True
           id = current_user(required=True)
       id = parse_id(id)
       m = cls.get_by_id(id)
       if not m:
-        if model == "users":
-          m = users()
+        if model == "users" and me:
           u = api.users.get_current_user()
+          m = users()
           m.email = u.email()
           m.key = ndb.Key("users", id)
+          setattr(m, "$firstlogin", True)
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
