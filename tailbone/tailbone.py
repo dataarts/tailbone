@@ -382,13 +382,12 @@ def query(self, cls):
       acl = [p for p in private if p == "owners" or p == "viewers"]
       if len(acl) == 0:
         projection += ["owners", "viewers"]
-  prev_cursor = cursor
-  results, cursor, more = q.fetch_page(page_size=page_size, start_cursor=cursor, projection=projection)
+  results, cursor, more = q.fetch_page(page_size, start_cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
-    self.response.headers["Next-Cursor"] = cursor.urlsafe()
-  if prev_cursor:
-    self.response.headers["Reverse-Cursor"] = prev_cursor.reversed().urlsafe()
+    self.response.headers["Cursor"] = cursor.urlsafe()
+    # The Reverse-Cursor is used if you construct a query in the opposite direction
+    self.response.headers["Reverse-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
 # This does all the simple restful handling that you would expect. There is a special catch for
