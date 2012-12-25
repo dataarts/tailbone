@@ -160,7 +160,7 @@ callback via PostMessage is more useful.
       User.logout(function() {
         User.get('me', null, function(d) {
           ok(d.error == 'LoginError', d);
-          var link = User.login_popup_url(function() {
+          var link = User.login_callback_url(function() {
             User.get('me', function(d) {
               ok(d.Id !== undefined, d.Id);
               document.body.removeChild(a);
@@ -184,7 +184,7 @@ callback via PostMessage is more useful.
         {"upload_url": "http://some-special-upload-url"}
     GET /api/files/{id}
       returns the actual uploaded file
-      if the file was an image it the POST call will return a special url called "image_url" which
+      if the file was an image the POST call will return a special url called "image_url" which
       should be used as the url for any images, it will not only serve faster, but it can take
       additional parameters to automatically crop and produce thumbnail images. Do so by appending
       =sXX to the end of the url. For example =s200 will return a 200 sized image with the original

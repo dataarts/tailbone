@@ -38,7 +38,7 @@ asyncTest('Login', function() {
   User.logout(function() {
     User.get('me', null, function(d) {
       ok(d.error == 'LoginError', d);
-      var link = User.login_popup_url(function() {
+      var link = User.login_callback_url(function() {
         User.get('me', function(d) {
           ok(d.Id !== undefined, d.Id);
           document.body.removeChild(a);
