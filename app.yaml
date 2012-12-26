@@ -4,27 +4,20 @@ runtime: python27
 api_version: 1
 threadsafe: true
 
+includes:
+  - tailbone/files
+  - tailbone/events
+  - tailbone/js
+  # - tailbone/proxy
+  # restful must come last in the includes
+  - tailbone/restful
+
 handlers:
   # # Add your own custom apps and handlers if you want to extend this
   # - url: /custom/.*
   #   script: custom.app
 
-  # # Allow a proxy util, useful for cross domain resource access
-  # - url: /proxy
-  #   script: tailbone.proxy
-
-  # This is the main tailbone restful app handler
-  - url: /api/.*
-    script: tailbone.app
-
-  # use this javascript file if you want the evented databinding abilities
-  - url: /tailbone.js
-    static_files: tailbone/tailbone.js
-    upload: tailbone/tailbone.js
-  - url: /_ah/channel/(dis)?connected/
-    script: tailbone.connected
-
-  # this links everything else in your client/app folder to be served
+  # This links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
   - url: (/?.*)/
     static_files: client/app\1/index.html

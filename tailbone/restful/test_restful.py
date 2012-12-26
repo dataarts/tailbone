@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 import random
-import tailbone
+import tailbone.restful as app
 import time
 import unittest
 import webapp2
@@ -19,85 +19,10 @@ from StringIO import StringIO
 import urllib
 import urllib2
 
-
-class MultiPartForm(object):
-  """Accumulate the data to be used when posting a form."""
-
-  def __init__(self):
-    self.form_fields = []
-    self.files = []
-    self.boundary = mimetools.choose_boundary()
-    return
-
-  def get_content_type(self):
-    return 'multipart/form-data; boundary=%s' % self.boundary
-
-  def add_field(self, name, value):
-    """Add a simple field to the form data."""
-    self.form_fields.append((name, value))
-    return
-
-  def add_file(self, fieldname, filename, fileHandle, mimetype=None):
-    """Add a file to be uploaded."""
-    body = fileHandle.read()
-    if mimetype is None:
-      mimetype = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
-    self.files.append((fieldname, filename, mimetype, body))
-    return
-
-  def __str__(self):
-    """Return a string representing the form data, including attached files."""
-    # Build a list of lists, each containing "lines" of the
-    # request.  Each part is separated by a boundary string.
-    # Once the list is built, return a string where each
-    # line is separated by '\r\n'.
-    parts = []
-    part_boundary = '--' + self.boundary
-
-    # Add the form fields
-    parts.extend(
-      [ part_boundary,
-        'Content-Disposition: form-data; name="%s"' % name,
-        '',
-        value,
-      ]
-      for name, value in self.form_fields
-      )
-
-    # Add the files to upload
-    parts.extend(
-      [ part_boundary,
-        'Content-Disposition: file; name="%s"; filename="%s"' % \
-         (field_name, filename),
-        'Content-Type: %s' % content_type,
-        '',
-        body,
-      ]
-      for field_name, filename, content_type, body in self.files
-      )
-
-    # Flatten the list and add closing boundary marker,
-    # then return CR+LF separated data
-    flattened = list(itertools.chain(*parts))
-    flattened.append('--' + self.boundary + '--')
-    flattened.append('')
-    return '\r\n'.join(flattened)
-
-class TestbedWithFiles(testbed.Testbed):
-
-  def init_blobstore_stub(self):
-    blob_storage = file_blob_storage.FileBlobStorage('/tmp/testbed.blobstore',
-                        testbed.DEFAULT_APP_ID)
-    blob_stub = blobstore_stub.BlobstoreServiceStub(blob_storage)
-    file_stub = file_service_stub.FileServiceStub(blob_storage)
-    self._register_stub('blobstore', blob_stub)
-    self._register_stub('file', file_stub)
-
-
-class RestfulTestCase(unittest.TestCase):
+class TestCase(unittest.TestCase):
 
   def setUp(self):
-    self.testbed = TestbedWithFiles()
+    self.testbed = testbed.Testbed()
     self.testbed.activate()
     self.testbed.init_datastore_v3_stub()
     self.testbed.init_blobstore_stub()
@@ -126,7 +51,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "POST"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     self.assertEqual(response.headers["Content-Type"], "application/json")
     response_data = json.loads(response.body)
     return response, response_data
@@ -154,7 +79,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
 
     self.assertJsonResponseData(response, data)
 
@@ -165,7 +90,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
@@ -182,7 +107,7 @@ class RestfulTestCase(unittest.TestCase):
         "filter": ["text",">=",1]
         }
     request = webapp2.Request.blank("{}?params={}".format(self.model_url, json.dumps(params)))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 3)
 
@@ -195,7 +120,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text>=1".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 3)
 
@@ -208,7 +133,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text==true".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -224,7 +149,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text.sub==true".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -235,7 +160,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=OR(text==0, text==2)&order=text&order=key".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 2)
 
@@ -246,7 +171,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=Value>0&projection=Value".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"Value":1, "Id": 2})
     self.assertEqual(len(items), 2)
@@ -258,7 +183,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=text".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":0, "Id": 1, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
@@ -270,7 +195,7 @@ class RestfulTestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=-text".format(self.model_url))
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":2, "Id": 3, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
@@ -287,7 +212,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     data["Id"] = "limOwBmjSigmf"
     self.assertJsonResponseData(response, data)
 
@@ -296,11 +221,12 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.user_url+"me")
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     from tailbone import convert_num_to_str
     data = {
         "Id": convert_num_to_str(self.user_id),
-        "email": "test@gmail.com"
+        "email": "test@gmail.com",
+        "$unsaved": True,
         }
     self.assertJsonResponseData(response, data)
 
@@ -311,7 +237,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     from tailbone import convert_num_to_str
     data["Id"] = convert_num_to_str(self.user_id)
     self.assertJsonResponseData(response, data)
@@ -319,7 +245,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     self.assertJsonResponseData(response, data)
 
   def test_user_illegal(self):
@@ -332,7 +258,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     self.assertJsonResponseData(response,
         { "error": "AppError",
           "message": "Id must be the current user_id or me. " +
@@ -347,43 +273,11 @@ class RestfulTestCase(unittest.TestCase):
 
     self.setCurrentUser(None, None)
     request = webapp2.Request.blank(self.user_url)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
 
-  def test_file_upload(self):
-    request = webapp2.Request.blank("/api/files/")
-    request.method = "GET"
-    response = request.get_response(tailbone.app)
-    self.assertJsonResponseData(response, {
-        "upload_url": "http://testbed.example.com/_ah/upload/agx0ZXN0YmVkLXRlc3RyGwsSFV9fQmxvYlVwbG9hZFNlc3Npb25fXxgBDA"
-      })
-    upload_url = json.loads(response.body).get("upload_url")
-    upload_url = upload_url[26:]
-
-    # TODO: does not seem to work yet in stub though live test works at /api/upload_test.html
-#
-#     form = MultiPartForm()
-#
-#     # Add a fake file
-#     form.add_file("file", "file.txt",
-#                   fileHandle=StringIO("Some big file object."))
-#
-#     # Build the request
-#     request = webapp2.Request.blank(upload_url)
-#     body = str(form)
-#     request.method = "POST"
-#     request.headers["Content-Length"] = len(body)
-#     request.headers["Content-Type"] = "multipart/form-data"
-#     # request.headers["Content-Type"] = form.get_content_type()
-#     request.body = body
-#     response = request.get_response(tailbone.app)
-#     print("response %s" % response)
-#     self.assertJsonResponseData(response, [
-#       {
-#         "filename": "file"
-#       }])
 
   def test_ownership(self):
     # create model
@@ -404,7 +298,7 @@ class RestfulTestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.model_url + "1")
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     del data["private_stuff"]
     self.assertJsonResponseData(response, data)
     # edit from other account
@@ -420,7 +314,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "POST"
     request.headers["Content-Type"] = "application/x-www-form-urlencoded"
     request.body = urllib.urlencode(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     response_data = json.loads(response.body)
     data["Id"] = 1
     self.assertJsonResponseData(response, data)
@@ -456,7 +350,7 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     self.assertJsonResponseData(response, data)
 
   def test_delete(self):
@@ -468,12 +362,12 @@ class RestfulTestCase(unittest.TestCase):
     request.method = "DELETE"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     response_data = json.loads(response.body)
     self.assertEqual(json.dumps(response_data), json.dumps({}))
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 0)
 
@@ -492,7 +386,7 @@ class RestfulTestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(tailbone.app)
+    response = request.get_response(app.app)
     items = json.loads(response.body)
 
   def test_datetime(self):
@@ -505,7 +399,7 @@ class RestfulTestCase(unittest.TestCase):
     self.assertJsonResponseData(response, data)
 
   def test_large_text(self):
-    data = {"text": "example" * 100}
+    data = {"text": "example" * 1000}
     response, response_data = self.create(self.model_url, data)
 
     self.assertJsonResponseData(response, data)

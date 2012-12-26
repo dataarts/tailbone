@@ -1,0 +1,3 @@
+handlers:
+  - url: /api/admin/.*
+    script: tailbone.admin.app

@@ -1,0 +1,3 @@
+handlers:
+  - url: /api/files.*
+    script: tailbone.files.app

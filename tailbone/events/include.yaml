@@ -1,0 +1,5 @@
+handlers:
+  - url: /api/events.*
+    script: tailbone.events.app
+  - url: /_ah/channel/(dis)?connected/
+    script: tailbone.events.connected

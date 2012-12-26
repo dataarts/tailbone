@@ -1,0 +1,3 @@
+handlers:
+  - url: /api/.*
+    script: tailbone.restful.app

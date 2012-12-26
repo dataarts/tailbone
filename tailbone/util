@@ -18,6 +18,11 @@ app_engine_path = os.path.realpath(os.path.join(path,'dev_appserver.py'))
 app_engine_path = os.path.dirname(app_engine_path)
 sys.path.append(app_engine_path)
 
+# add app.yaml path
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.join(current, '..')
+sys.path.append(parent)
+
 import appcfg
 sys.path.extend(appcfg.EXTRA_PATHS)
 
