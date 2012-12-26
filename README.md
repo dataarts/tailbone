@@ -46,7 +46,7 @@ working with a few rough edges. Also working on a go branch with the same api.
 If you want to contribute please add a test for any fix or feature.
 Tests can be run by calling ./tailbone/util test to run with the python stubby calls.
 For the testing of js code you need to start the dev server by running 'dev_appserver.py .' and
-browsing to http://localhost:8080/js/test. These are QUnit javascript tests and should be the
+browsing to http://localhost:8080/_test. These are QUnit javascript tests and should be the
 same in either go, python or any future language to support consistency of
 any implementation of the api. Note, these tests modify the db, and can only be run locally.
 

@@ -3,5 +3,5 @@ handlers:
   - url: /tailbone.js
     static_files: tailbone/js/tailbone.js
     upload: tailbone/js/tailbone.js
-  - url: /js/test
+  - url: /_test
     script: tailbone.js.app
