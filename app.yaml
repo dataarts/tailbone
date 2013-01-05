@@ -5,7 +5,10 @@ api_version: go1
 
 # this includes the tailbone api links and /tailbone.js
 includes:
-  - tailbone
+  - tailbone/events.yaml
+  - tailbone/files.yaml
+  - tailbone/js.yaml
+  - tailbone/restful.yaml
 
 handlers:
   # this links everything else in your client/app folder to be served

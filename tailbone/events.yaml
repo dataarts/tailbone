@@ -1,0 +1,8 @@
+handlers:
+  - url: /api/events.*
+    script: _go_app
+
+  - url: /_ah/channel/(dis)?connected/
+    script: _go_app
+
+

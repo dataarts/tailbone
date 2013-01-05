@@ -12,6 +12,7 @@
   <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
   <script type="text/javascript">
 
+tailbone.config.databinding = false;
 
 var Todo = new tailbone.Model('todos');
 
@@ -29,28 +30,28 @@ function Counter(count, callback) {
   return this;
 }
 
-asyncTest('Login', function() {
-
-  var User = tailbone.User;
-
-  var a = document.createElement('a');
-  a.appendChild(document.createTextNode('Login Test'));
-  User.logout(function() {
-    User.get('me', null, function(d) {
-      ok(d.error == 'LoginError', d);
-      var link = User.login_popup_url(function() {
-        User.get('me', function(d) {
-          ok(d.Id !== undefined, d.Id);
-          document.body.removeChild(a);
-          start();
-        });
-      });
-      a.href = link;
-      a.target = '_blank';
-    });
-  });
-  document.body.appendChild(a);
-});
+// asyncTest('Login', function() {
+//
+//   var User = tailbone.User;
+//
+//   var a = document.createElement('a');
+//   a.appendChild(document.createTextNode('Login Test'));
+//   User.logout(function() {
+//     User.get('me', null, function(d) {
+//       ok(d.error == 'LoginError', d);
+//       var link = User.login_popup_url(function() {
+//         User.get('me', function(d) {
+//           ok(d.Id !== undefined, d.Id);
+//           document.body.removeChild(a);
+//           start();
+//         });
+//       });
+//       a.href = link;
+//       a.target = '_blank';
+//     });
+//   });
+//   document.body.appendChild(a);
+// });
 
 asyncTest('List items', function() {
   var itemCount = 0;
