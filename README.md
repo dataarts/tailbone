@@ -178,10 +178,12 @@ callback via PostMessage is more useful.
 <a id="files" ></a>
 ### Large files:
 
-    GET /api/files/
+    GET /api/files/create
       Must be called first to get the special upload url that files can be posted to for storage.
       returns
         {"upload_url": "http://some-special-upload-url"}
+    GET /api/files/
+      List all blob info objects can only be accessed by administrators
     GET /api/files/{id}
       returns the actual uploaded file
       if the file was an image the POST call will return a special url called "image_url" which
@@ -211,6 +213,7 @@ callback via PostMessage is more useful.
       deletes a file from blobstore
       note there is no put to update an id you must always create a new one and delete the old
       yourself
+      This delete can only be done by an administrator
 
 
 Upload an image of something drawn with canvas via javascript.

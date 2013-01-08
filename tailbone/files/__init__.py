@@ -6,8 +6,11 @@ import urllib
 
 from google.appengine.api.images import delete_serving_url
 from google.appengine.api.images import get_serving_url_async
-from google.appengine.ext import blobstore
+from google.appengine.api import users
+from google.appengine.ext.ndb import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
+
+from tailbone.restful import query
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
 
@@ -24,8 +27,11 @@ def blob_info_to_dict(blob_info):
 class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
   @as_json
   def get(self, key):
-    if key == "":
-      current_user(required=True)
+    if key == "": # query
+      if not users.is_current_user_admin():
+        raise AppError("User must be administrator.")
+      return query(self, blobstore.BlobInfo)
+    elif key == "create":
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
           }
@@ -40,7 +46,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
 
   @as_json
   def post(self, _):
-    raise AppError("You must make a GET call to /api/files to get a POST url.")
+    raise AppError("You must make a GET call to /api/files/create to get a POST url.")
 
   @as_json
   def put(self, _):
@@ -48,7 +54,8 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
 
   @as_json
   def delete(self, key):
-    current_user(required=True)
+    if not users.is_current_user_admin():
+      raise AppError("User must be administrator.")
     key = blobstore.BlobKey(str(urllib.unquote(key)))
     blob_info = blobstore.BlobInfo.get(key)
     if blob_info:
@@ -64,6 +71,7 @@ class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
   @as_json
   def post(self):
     return [blob_info_to_dict(b) for b in self.get_uploads()]
+
 
 app = webapp2.WSGIApplication([
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),

@@ -137,7 +137,7 @@ class TestCase(unittest.TestCase):
     self.assertEqual(data, response_data)
 
   def test_file_upload(self):
-    request = webapp2.Request.blank("/api/files/")
+    request = webapp2.Request.blank("/api/files/create")
     request.method = "GET"
     response = request.get_response(app.app)
     self.assertJsonResponseData(response, {
