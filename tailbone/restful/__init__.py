@@ -177,6 +177,13 @@ def convert_value(value):
       value = float(value)
     except:
       pass
+    # try:
+    #   value = int(value)
+    # except:
+    #   try:
+    #     value = float(value)
+    #   except:
+    #     pass
   return value
 
 def convert_opsymbol(opsymbol):

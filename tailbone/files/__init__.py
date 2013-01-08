@@ -8,11 +8,18 @@ from google.appengine.api.images import delete_serving_url
 from google.appengine.api.images import get_serving_url_async
 from google.appengine.api import users
 from google.appengine.ext.ndb import blobstore
+from google.appengine.ext import blobstore as bs
 from google.appengine.ext.webapp import blobstore_handlers
 
 from tailbone.restful import query
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
+
+class BlobInfo(blobstore.BlobInfo):
+  def to_dict(self, *args, **kwargs):
+    result = super(BlobInfo, self).to_dict(*args, **kwargs)
+    result["Id"] = str(self.key())
+    return result
 
 def blob_info_to_dict(blob_info):
   d = {}
@@ -30,13 +37,13 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
     if key == "": # query
       if not users.is_current_user_admin():
         raise AppError("User must be administrator.")
-      return query(self, blobstore.BlobInfo)
+      return query(self, BlobInfo)
     elif key == "create":
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
           }
     key = str(urllib.unquote(key))
-    blob_info = blobstore.BlobInfo.get(key)
+    blob_info = bs.BlobInfo.get(key)
     if blob_info:
       self.send_blob(blob_info)
       raise BreakError
@@ -57,7 +64,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
     if not users.is_current_user_admin():
       raise AppError("User must be administrator.")
     key = blobstore.BlobKey(str(urllib.unquote(key)))
-    blob_info = blobstore.BlobInfo.get(key)
+    blob_info = BlobInfo.get(key)
     if blob_info:
       blob_info.delete()
       if re_image.match(blob_info.content_type):
