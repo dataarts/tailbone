@@ -340,6 +340,10 @@ class RestfulHandler(BaseHandler):
       if len(m.owners) == 0:
         m.owners.append(u)
     m.put()
+    redirect = self.request.get("redirect")
+    if redirect:
+      self.redirect(redirect)
+      return
     return m.to_dict()
   @as_json
   def post(self, model, id):
