@@ -5,12 +5,16 @@ api_version: 1
 threadsafe: true
 
 includes:
+  - tailbone/admin
   - tailbone/files
   - tailbone/events
   - tailbone/js
   # - tailbone/proxy
-  # restful must come last in the includes
+  # restful must come last in the includes because it matches /api/*
   - tailbone/restful
+
+env_variables:
+  NAMESPACE: '' # The datastore namespace '' for default
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this
@@ -35,8 +39,52 @@ inbound_services:
   - warmup
   - channel_presence
 
+admin_console:
+  pages:
+  - name: Datastore Abuse
+    url: /api/admin/abuse
+
 pagespeed:
+  # domains_to_rewrite:
+  # - somedomainslowdomain.com
+  # url_blacklist:
+  # - http://myapp.com/dontoptomize/*
   enabled_rewriters:
   - MinifyCss
   disabled_rewriters:
   - LazyloadImages
+  # Available rewriters
+  # - ProxyCss # - default
+  # - ProxyImages # - default
+  # - ProxyJs # - default
+  # - ConvertMetaTags # - default
+  # - InlineCss # - default
+  # - InlineJs
+  # - InlineImages
+  # - InlinePreviewImages # - default
+  # - CollapseWhitespace
+  # - CombineHeads
+  # - ElideAttributes
+  # - RemoveComments
+  # - RemoveQuotes
+  # - LeftTrimUrls
+
+  # - CombineCss # - default
+  # - MoveCssToHead # - default
+  # - MinifyCss
+
+  # - WebpOptimization # - default
+  # - ImageConvertToJpeg # - default
+  # - ImageRecompressJpeg # - default
+  # - ImageProgressiveJpeg # - default
+  # - ImageRecompressPng # - default
+  # - ImageStripMetadata # - default
+  # - ImageStripColorProfile # - default
+  # - ImageResize # - default
+  # - LazyloadImages # - default
+  # - ImageAddDimensions
+
+  # - CombineJs # - default
+  # - JsOptimize # - default
+  # - DeferJs
+

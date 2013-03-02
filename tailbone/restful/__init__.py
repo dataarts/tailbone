@@ -427,6 +427,25 @@ If this window does not close, please click <a id="origin">here</a> to refresh.
 </html>
 """.format({"type":"Login", "payload": msg}))
 
+# Load an optional validation.json
+# --------------------------------
+validation = None
+try:
+  with open("validation.json") as f:
+    validation = json.load(f)
+    models = validation.get("models")
+    if models:
+      for model, props in models.iteritems():
+        for prop, value in props.iteritems():
+          props[prop] = re.compile(value)
+    else:
+      validation = None
+      logging.error("validation.json present but no models specified.")
+except ValueError:
+  logging.error("validation.json is not a valid json document.")
+except IOError:
+  logging.info("validation.json doesn't exist no model validation will be preformed.")
+
 app = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}login.html".format(PREFIX), LoginPopupHandler),
