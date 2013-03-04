@@ -343,6 +343,7 @@ class RestfulHandler(BaseHandler):
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)
+      raise BreakError()
       return
     return m.to_dict()
   @as_json
