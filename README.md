@@ -1,5 +1,7 @@
 # Tailbone - Restful AppEngine and then some
 
+The Go Branch is __EXPERIMENTAL__ and not ready for use.
+
 AppEngine is cheap, fast, and awesome. Using it for the first time is sometimes ... well ...
 _different_. There are tons of frameworks like Django or others out there that work with AppEngine,
 but these days I write almost all my application in javascript with AngularJS, I just need a simple
