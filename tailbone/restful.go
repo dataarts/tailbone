@@ -42,11 +42,8 @@ func (d Dict) Load(c <-chan datastore.Property) error {
 		if exists {
 			switch value.(type) {
 			case []interface{}:
-				log.Printf("ARRAY WTF %s %s", value, p.Value)
 				value = append(value.([]interface{}), p.Value)
 			default:
-				log.Printf("WTF %s %s", value, p.Value)
-				log.Printf("KEYWTF %s %s", p.Name, key)
 				value = []interface{}{value, p.Value}
 			}
 		} else if p.Multiple {
