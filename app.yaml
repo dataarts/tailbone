@@ -3,14 +3,13 @@ version: master
 runtime: go
 api_version: go1
 
-# this includes the tailbone api links and /tailbone.js
-includes:
-  - tailbone/events.yaml
-  - tailbone/files.yaml
-  - tailbone/js.yaml
-  - tailbone/restful.yaml
-
 handlers:
+  - url: /_ah/channel/(dis)?connected/
+    script: _go_app
+
+  - url: /api/.*
+    script: _go_app
+
   # this links everything else in your client/app folder to be served
   # Change this to something else if your public folder is not client/app
   - url: (/?.*)/

@@ -1,4 +1,0 @@
-handlers:
-  - url: /api/files.*
-    script: _go_app
-

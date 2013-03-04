@@ -1,4 +1,0 @@
-handlers:
-  # This is the main tailbone restful app handler
-  - url: /api/.*
-    script: _go_app

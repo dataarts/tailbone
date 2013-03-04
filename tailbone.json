@@ -1,0 +1,7 @@
+{
+  "services": [
+    "files",
+    "events",
+    "restful"
+  ]
+}

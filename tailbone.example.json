@@ -1,0 +1,10 @@
+{
+  "namespace": "",
+  "services": [
+    "files",
+    "events",
+    "js",
+    "restful"
+  ]
+}
+
