@@ -2,11 +2,11 @@
 
 AppEngine is cheap, fast, and awesome. Using it for the first time is sometimes ... well ...
 _different_. There are tons of frameworks like Django or others out there that work with AppEngine,
-but these days I write almost all my application in javascript with AngularJS, I just need a simple
-backend to do its part. The AppEngine frameworks are awesome and for more complex things I recommend
+but these days I write almost all my application in javascript with AngularJS or Backbone.js, I just
+need a simple backend to do its part. The AppEngine server side APIs are great and for more complex things I recommend
 you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
 their apps faster without worrying about their backend code.
-That said writing more code on your backend is great if you are up to it, I can't recommend Go enough
+That said, writing more code on your backend is great if you are up to it, I can't recommend Go enough
 for doing that, it really is fun.
 Anyway, I wrote this for myself in my spare time and hopefully others find it useful too.
 It provides a simple restful backend setup for AppEngine so you can write your apps in javascript
@@ -20,7 +20,8 @@ sized thumbnails efficiently of that image. That is a simple example in the QUni
 
 Finally, for added capabilities, there is a javascript library auto served at /tailbone.js which
 does additional niceties like bi-directional binding of your model and your backend to a javascript
-structure with simplified querying.
+structure with simplified querying. The javascipt library is pretty alpha don't think I would
+necessarily rely on that part just yet.
 
 - [Status](#status)
 - [Special URLS](#special)
@@ -148,7 +149,7 @@ like.
 
 Tailbone.js, documented farther down the page, also provides some helpers for logging in and out.
 See the QUnit tests for an example. Note, there is also a popup version, but since Chrome
-started more agressivly blocking popups being able to create a url that calls a javascript
+started more aggressively blocking popups being able to create a url that calls a javascript
 callback via PostMessage is more useful.
 
     asyncTest('Login', function() {
