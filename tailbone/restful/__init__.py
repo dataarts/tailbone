@@ -277,10 +277,11 @@ def query(self, cls):
   if projection:
     # if asking for private variables and not specifing owners and viewers append them
     private = [p for p in projection if not re_public.match(p)]
+    acl_attributes = ["owners", "viewers"]
     if len(private) > 0:
-      acl = [p for p in private if p == "owners" or p == "viewers"]
+      acl = [p for p in private if p in acl_attributes]
       if len(acl) == 0:
-        projection += ["owners", "viewers"]
+        projection += acl_attributes
   results, cursor, more = q.fetch_page(page_size, start_cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
@@ -288,6 +289,42 @@ def query(self, cls):
     # The Reverse-Cursor is used if you construct a query in the opposite direction
     self.response.headers["Reverse-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
+
+# This validates the data see validation.template.json for an example.
+# Must create a validation.json in the root of your application.
+def validate(cls_name, data):
+  properties = data.keys()
+  logging.info('val {}'.format(validation))
+  # confirm the format of any tailbone specific types
+  for name in ["owners", "viewers"]:
+    val = data.get(name)
+    if val:
+      properties.remove(name)
+      # TODO(doug): validate list, can't be empty list, must contain id like objects
+  # run validation over remaining properties
+  if validation:
+    models = validation.get("models")
+    if not models:
+      return
+    strict = bool(validation.get('strict')) or False
+    validations = models.get(cls_name)
+    if not validations:
+      if strict:
+        raise AppError("Strict validation requires all valid properties to be listed.")
+      else:
+        return
+    for name in properties:
+      val = data.get(name)
+      validator = validations.get(name)
+      if not validator:
+        if strict:
+          raise AppError("Strict validation does not allow for unspecified property: {}".format(name))
+        else:
+          continue
+      if type(val) not in [str, unicode]:
+        val = json.dumps(val)
+      if not validator.match(val):
+        raise AppError("Validator '{}' does not match '{}' for '{}'".format(validator.pattern, val, name))
 
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
@@ -329,6 +366,7 @@ class RestfulHandler(BaseHandler):
     data = parse_body(self)
     id = parse_id(id, data.get("Id"))
     clean_data(data)
+    validate(cls.__name__, data)
     if id and model != "users":
       old_model = cls.get_by_id(id)
       if old_model and not old_model.can_write(u):

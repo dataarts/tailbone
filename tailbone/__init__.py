@@ -97,7 +97,7 @@ class BaseHandler(webapp2.RequestHandler):
 re_json = re.compile(r"^application/json", re.IGNORECASE)
 
 # Parse the body of an upload based on the type if you are trying to post a cgi.FieldStorage object
-# you should instead upload those blob seperately via the special /api/files url.
+# you should instead upload those blob separately via the special /api/files url.
 def parse_body(self):
   if re_json.match(self.request.content_type):
     data = json.loads(self.request.body)
@@ -105,8 +105,10 @@ def parse_body(self):
     data = {}
     for k,v in self.request.POST.items():
       if isinstance(v, cgi.FieldStorage):
-        raise AppError("Files should be uploaded seperately as their own form to /api/files/ and \
+        raise AppError("Files should be uploaded separately as their own form to /api/files/ and \
             then their ids should be uploaded and stored with the object.")
+      if type(v) in [str, unicode]:
+        v = json.loads(v)
       if data.has_key(k):
         current = data[k]
         if isinstance(current, list):
