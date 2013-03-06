@@ -24,16 +24,16 @@ structure with simplified querying. The javascipt library is pretty alpha don't 
 necessarily rely on that part just yet.
 
 - [Status](#status)
-- [Special URLS](#special)
-    - [/api/(yourModelName)](#models)
-    - [/api/users](#users)
-    - [Access Control](#access)
-    - [/api/files](#files)
+- [Special URLS](#special-urls)
+    - [/api/(yourModelName)](#restful-models)
+    - [Access Control](#access-control)
+    - [/api/users](#user-models)
+    - [/api/files](#large-files)
     - [/api/events](#events)
 - [Taibone.js](#tailbonejs)
-    - [Including](#include)
-    - [Exported Methods](#exported)
-    - [Examples](#example)
+    - [Including](#how-to-include)
+    - [Exported Methods](#exported-methods)
+    - [Examples](#examples)
 - Annotated Source Code
     - [tailbone.py](docs/tailbonepy.html)
     - [tailbone.js](docs/tailbonejs.html)
@@ -52,7 +52,7 @@ same in either go, python or any future language to support consistency of
 any implementation of the api. Note, these tests modify the db, and can only be run locally.
 
 
-<a id="starting" ></a>
+<a id="getting-starting" ></a>
 ## Getting Started
 
 So how I get started with tailbone is.
@@ -86,10 +86,10 @@ For you javascript development I recommend two things [yeoman](http://yeoman.io)
 bootstrapping and installing js libraries and [angularjs](http://angularjs.org) for your MVC
 javascript application framework.
 
-<a id="special" ></a>
+<a id="special-urls" ></a>
 ## Special URLS
 
-<a id="models" ></a>
+<a id="restful-models" ></a>
 ### Restful models:
 
     POST /api/{modelname}/
@@ -114,7 +114,7 @@ javascript application framework.
     "owners" which is a private list of the user ids of owners for this model, which by default just
     includes the user who creates it.
 
-<a id="access"></a>
+<a id="access-control"></a>
 ### Access Control:
 
 Public private exposure of properties on a model is controlled by capitalization of the first
@@ -135,7 +135,7 @@ like.
     todo.$save();
 
 
-<a id="users" ></a>
+<a id="users-models" ></a>
 ### User models:
 
     /api/users/
@@ -176,7 +176,7 @@ callback via PostMessage is more useful.
     });
 
 
-<a id="files" ></a>
+<a id="large-files" ></a>
 ### Large files:
 
     GET /api/files/create
@@ -272,7 +272,7 @@ Upload an image of something drawn with canvas via javascript.
 <a id="tailbonejs" ></a>
 ## Tailbone.js
 
-<a id="include" ></a>
+<a id="how-to-include" ></a>
 ### How to include:
 
     to use tailbone.js please include the following in your html
@@ -291,7 +291,7 @@ Upload an image of something drawn with canvas via javascript.
     <![endif]-->
 
 
-<a id="exported" ></a>
+<a id="exported-methods" ></a>
 ### Exported methods:
 
     Model: ModelFactory that creates a new model type,
@@ -304,7 +304,7 @@ Upload an image of something drawn with canvas via javascript.
     bind: bind a js function by name ,
     unbind: unbind a js function by name,
 
-<a id="example" ></a>
+<a id="examples" ></a>
 ### Examples:
 
     var Todo = new tailbone.Model("todos");
