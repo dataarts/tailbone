@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 import random
-import tailbone.restful as app
+from tailbone import restful
 import time
 import unittest
 import webapp2
@@ -13,11 +13,13 @@ from google.appengine.api.blobstore import file_blob_storage
 from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.api.files import file_service_stub
 import itertools
+import logging
 import mimetools
 import mimetypes
 from StringIO import StringIO
 import urllib
 import urllib2
+
 
 class TestCase(unittest.TestCase):
 
@@ -33,6 +35,7 @@ class TestCase(unittest.TestCase):
     self.user_url = "/api/users/"
     self.user_id = "118124022271294486125"
     self.setCurrentUser("test@gmail.com", self.user_id, True)
+    restful.validation = None
 
   def tearDown(self):
     self.testbed.deactivate()
@@ -51,7 +54,7 @@ class TestCase(unittest.TestCase):
     request.method = "POST"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     self.assertEqual(response.headers["Content-Type"], "application/json")
     response_data = json.loads(response.body)
     return response, response_data
@@ -73,13 +76,24 @@ class TestCase(unittest.TestCase):
         del data[ignored]
     self.assertEqual(data, response_data)
 
+  def test_validation(self):
+    test_validation = r"""{
+    "todos": {
+      "text": ""
+    }}"""
+    restful.validation = restful.compile_validation(json.loads(test_validation))
+    data = {"text": "example"}
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, data)
+    restful.validation = None
+
 
   def test_query_by_id(self):
     data = {"text": "example"}
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
 
     self.assertJsonResponseData(response, data)
 
@@ -90,7 +104,7 @@ class TestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
@@ -107,7 +121,7 @@ class TestCase(unittest.TestCase):
         "filter": ["text",">=",1]
         }
     request = webapp2.Request.blank("{}?params={}".format(self.model_url, json.dumps(params)))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 3)
 
@@ -120,7 +134,7 @@ class TestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text>=1".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 3)
 
@@ -133,7 +147,7 @@ class TestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text==true".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -149,7 +163,7 @@ class TestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=text.sub==true".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
 
@@ -160,7 +174,7 @@ class TestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=OR(text==0, text==2)&order=text&order=key".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 2)
 
@@ -171,7 +185,7 @@ class TestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?filter=Value>0&projection=Value".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"Value":1, "Id": 2})
     self.assertEqual(len(items), 2)
@@ -183,7 +197,7 @@ class TestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=text".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":0, "Id": 1, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
@@ -195,7 +209,7 @@ class TestCase(unittest.TestCase):
       response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank("{}?order=-text".format(self.model_url))
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(items[0], {"text":2, "Id": 3, "owners": ["limOwBmjSigmf"], "viewers": []})
     self.assertEqual(len(items), num_items)
@@ -212,7 +226,7 @@ class TestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     data["Id"] = "limOwBmjSigmf"
     self.assertJsonResponseData(response, data)
 
@@ -221,7 +235,7 @@ class TestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.user_url+"me")
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     from tailbone import convert_num_to_str
     data = {
         "Id": convert_num_to_str(self.user_id),
@@ -237,7 +251,7 @@ class TestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.user_url+str(response_data["Id"]))
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     from tailbone import convert_num_to_str
     data["Id"] = convert_num_to_str(self.user_id)
     self.assertJsonResponseData(response, data)
@@ -245,7 +259,7 @@ class TestCase(unittest.TestCase):
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     self.assertJsonResponseData(response, data)
 
   def test_user_illegal(self):
@@ -258,7 +272,7 @@ class TestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     self.assertJsonResponseData(response,
         { "error": "AppError",
           "message": "Id must be the current user_id or me. " +
@@ -273,7 +287,7 @@ class TestCase(unittest.TestCase):
 
     self.setCurrentUser(None, None)
     request = webapp2.Request.blank(self.user_url)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), num_items)
     self.assertEqual(response.headers["Content-Type"], "application/json")
@@ -298,7 +312,7 @@ class TestCase(unittest.TestCase):
     request = webapp2.Request.blank(self.model_url + "1")
     request.method = "GET"
     request.headers["Content-Type"] = "application/json"
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     del data["private_stuff"]
     self.assertJsonResponseData(response, data)
     # edit from other account
@@ -314,7 +328,7 @@ class TestCase(unittest.TestCase):
     request.method = "POST"
     request.headers["Content-Type"] = "application/x-www-form-urlencoded"
     request.body = urllib.urlencode(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     response_data = json.loads(response.body)
     data["Id"] = 1
     self.assertJsonResponseData(response, data)
@@ -350,7 +364,7 @@ class TestCase(unittest.TestCase):
     request.method = "PUT"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     self.assertJsonResponseData(response, data)
 
   def test_delete(self):
@@ -362,12 +376,12 @@ class TestCase(unittest.TestCase):
     request.method = "DELETE"
     request.headers["Content-Type"] = "application/json"
     request.body = json.dumps(data)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     response_data = json.loads(response.body)
     self.assertEqual(json.dumps(response_data), json.dumps({}))
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 0)
 
@@ -386,7 +400,7 @@ class TestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     request = webapp2.Request.blank(self.model_url)
-    response = request.get_response(app.app)
+    response = request.get_response(restful.app)
     items = json.loads(response.body)
 
   def test_datetime(self):

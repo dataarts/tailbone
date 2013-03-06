@@ -55,6 +55,7 @@ from google.appengine.ext import ndb
 
 
 re_public = re.compile(r"^[A-Z].*")
+re_type = type(re_public)
 
 # Model
 # -----
@@ -290,41 +291,44 @@ def query(self, cls):
     self.response.headers["Reverse-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
-# This validates the data see validation.template.json for an example.
-# Must create a validation.json in the root of your application.
-def validate(cls_name, data):
-  properties = data.keys()
-  logging.info('val {}'.format(validation))
-  # confirm the format of any tailbone specific types
-  for name in ["owners", "viewers"]:
-    val = data.get(name)
-    if val:
-      properties.remove(name)
-      # TODO(doug): validate list, can't be empty list, must contain id like objects
-  # run validation over remaining properties
-  if validation:
-    models = validation.get("models")
-    if not models:
-      return
-    strict = bool(validation.get('strict')) or False
-    validations = models.get(cls_name)
-    if not validations:
-      if strict:
-        raise AppError("Strict validation requires all valid properties to be listed.")
-      else:
-        return
-    for name in properties:
-      val = data.get(name)
-      validator = validations.get(name)
-      if not validator:
-        if strict:
-          raise AppError("Strict validation does not allow for unspecified property: {}".format(name))
-        else:
-          continue
+# Helper function to validate the date recursively if needed.
+def _validate(validations, data, ignored=None):
+  if not isinstance(data, dict):
+    raise AppError("Expected a 'dict' received '{}'".format(data))
+  for name, val in data.iteritems():
+    if not ignored and name in ignored:
+      continue
+    validator = validations.get(name)
+    if validator == None:
+      raise AppError("Validation does not allow for unspecified property: '{}'. Use empty quotes (\"\") to skip.".format(name))
+    if isinstance(validator, re_type):
+      if validator.pattern == "":
+        continue
       if type(val) not in [str, unicode]:
         val = json.dumps(val)
       if not validator.match(val):
         raise AppError("Validator '{}' does not match '{}' for '{}'".format(validator.pattern, val, name))
+    elif isinstance(validator, dict):
+      _validate(validator, val, strict)
+    else:
+      raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
+
+# This validates the data see validation.template.json for an example.
+# Must create a validation.json in the root of your application.
+def validate(cls_name, data):
+  properties = data.keys()
+  # confirm the format of any tailbone specific types
+  for name in ["owners", "viewers"]:
+    val = data.get(name)
+    if val:
+      # TODO(doug): validate list, can't be empty list, must contain id like objects
+      pass
+  # run validation over remaining properties
+  if validation:
+    validations = validation.get(cls_name)
+    if not validations:
+      raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
+    _validate(validations, data, ["owners", "viewers"])
 
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
@@ -422,20 +426,6 @@ class LogoutHandler(webapp2.RequestHandler):
           self.request.get("url", default_value="/")))
 
 
-# Test Handler
-# ------------
-#
-# QUnit tests can only be preformed on the local host because they actively modify the database and
-# don't properly clean up after themselves yet.
-class TestHandler(webapp2.RequestHandler):
-  def get(self):
-    if DEBUG:
-      with open('tailbone/restful/test_restful.html') as f:
-        self.response.out.write(f.read())
-    else:
-      self.response.out.write("Sorry, tests can only be run from localhost because they modify the \
-      datastore.")
-
 # Some Extra HTML handlers
 # ------------------------
 class LoginPopupHandler(webapp2.RequestHandler):
@@ -468,18 +458,21 @@ If this window does not close, please click <a id="origin">here</a> to refresh.
 
 # Load an optional validation.json
 # --------------------------------
+def compile_validation(target):
+  if not isinstance(target, dict):
+    logging.error("validation.json invalid, target is {}".format(target))
+    raise ValueError("Invalid target type")
+  for k, v in target.iteritems():
+    if type(v) in [str, unicode]:
+      target[k] = re.compile(v)
+    else:
+      target[k] = compile_validation(v)
+  return target
+
 validation = None
 try:
   with open("validation.json") as f:
-    validation = json.load(f)
-    models = validation.get("models")
-    if models:
-      for model, props in models.iteritems():
-        for prop, value in props.iteritems():
-          props[prop] = re.compile(value)
-    else:
-      validation = None
-      logging.error("validation.json present but no models specified.")
+    validation = compile_validation(json.load(f))
 except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
@@ -489,7 +482,6 @@ app = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}login.html".format(PREFIX), LoginPopupHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
-  (r"{}test" .format(PREFIX), TestHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
   ], debug=DEBUG)
 

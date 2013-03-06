@@ -108,7 +108,11 @@ def parse_body(self):
         raise AppError("Files should be uploaded separately as their own form to /api/files/ and \
             then their ids should be uploaded and stored with the object.")
       if type(v) in [str, unicode]:
-        v = json.loads(v)
+        try:
+          v = json.loads(v)
+        except ValueError:
+          pass
+      # TODO(doug): Bug when loading multiple json lists with same key
       if data.has_key(k):
         current = data[k]
         if isinstance(current, list):
