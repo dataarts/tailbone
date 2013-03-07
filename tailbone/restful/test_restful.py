@@ -87,6 +87,15 @@ class TestCase(unittest.TestCase):
     self.assertJsonResponseData(response, data)
     restful.validation = None
 
+  def test_validation_skip(self):
+    test_validation = r"""{
+    "todos": ""
+    }"""
+    restful.validation = restful.compile_validation(json.loads(test_validation))
+    data = {"text": "example"}
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, data)
+    restful.validation = None
 
   def test_query_by_id(self):
     data = {"text": "example"}

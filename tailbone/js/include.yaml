@@ -1,7 +1,7 @@
 handlers:
   # use this javascript file if you want the evented databinding abilities
-  - url: /tailbone.js
-    static_files: tailbone/js/tailbone.js
-    upload: tailbone/js/tailbone.js
+  - url: /tailbone.(json|models).js
+    static_files: tailbone/js/tailbone.\1.js
+    upload: tailbone/js/tailbone.(json|models).js
   - url: /_test
     script: tailbone.js.app

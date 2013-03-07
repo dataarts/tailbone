@@ -18,7 +18,7 @@ all for free. It even supports large file uploads and serving via the Google blo
 use case is drawing an image with canvas via javascript uploading it via ajax and serving variable
 sized thumbnails efficiently of that image. That is a simple example in the QUnit tests.
 
-Finally, for added capabilities, there is a javascript library auto served at /tailbone.js which
+Finally, for added capabilities, there is a javascript library served up which
 does additional niceties like bi-directional binding of your model and your backend to a javascript
 structure with simplified querying. The javascipt library is pretty alpha don't think I would
 necessarily rely on that part just yet.
@@ -255,7 +255,7 @@ Upload an image of something drawn with canvas via javascript.
 
     /api/events/
       Is a special api used for sending and recieving events across clients.
-      This can be used by /tailbone.js which defines functions like:
+      This can be used by tailbonejs which defines functions like:
         tailbone.bind("name", function() { console.log("callback"); });
         tailbone.trigger("name");
         tailbone.unbind("name");
@@ -269,7 +269,8 @@ Upload an image of something drawn with canvas via javascript.
     if you don't want to use jquery just define $.ajax yourself somehow somewhere
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-    <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/tailbone.json.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
 
     to support older browsers also include this before the other two scripts
     <!--[if lt IE 7]>

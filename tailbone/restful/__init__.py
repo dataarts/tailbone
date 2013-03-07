@@ -292,26 +292,19 @@ def query(self, cls):
   return [m.to_dict() for m in results]
 
 # Helper function to validate the date recursively if needed.
-def _validate(validations, data, ignored=None):
-  if not isinstance(data, dict):
-    raise AppError("Expected a 'dict' received '{}'".format(data))
-  for name, val in data.iteritems():
-    if not ignored and name in ignored:
-      continue
-    validator = validations.get(name)
-    if validator == None:
-      raise AppError("Validation does not allow for unspecified property: '{}'. Use empty quotes (\"\") to skip.".format(name))
-    if isinstance(validator, re_type):
-      if validator.pattern == "":
-        continue
-      if type(val) not in [str, unicode]:
-        val = json.dumps(val)
-      if not validator.match(val):
-        raise AppError("Validator '{}' does not match '{}' for '{}'".format(validator.pattern, val, name))
-    elif isinstance(validator, dict):
-      _validate(validator, val, strict)
-    else:
-      raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
+def _validate(validator, data, ignored=None):
+  if isinstance(validator, re_type):
+    if validator.pattern == "":
+      return
+    if type(data) not in [str, unicode]:
+      data = json.dumps(data)
+    if not validator.match(data):
+      raise AppError("Validator '{}' does not match '{}'".format(validator.pattern, data))
+  elif isinstance(validator, dict) and isinstance(data, dict):
+    for name, val in data.iteritems():
+      _validate(validator.get(name), val)
+  else:
+    raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
 
 # This validates the data see validation.template.json for an example.
 # Must create a validation.json in the root of your application.
@@ -324,8 +317,8 @@ def validate(cls_name, data):
       # TODO(doug): validate list, can't be empty list, must contain id like objects
       pass
   # run validation over remaining properties
-  if validation:
-    validations = validation.get(cls_name)
+  if _validation:
+    validations = _validation.get(cls_name)
     if not validations:
       raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
     _validate(validations, data, ["owners", "viewers"])
@@ -469,10 +462,10 @@ def compile_validation(target):
       target[k] = compile_validation(v)
   return target
 
-validation = None
+_validation = None
 try:
   with open("validation.json") as f:
-    validation = compile_validation(json.load(f))
+    _validation = compile_validation(json.load(f))
 except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:

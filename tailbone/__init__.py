@@ -72,10 +72,11 @@ def as_json(func):
         logging.error(str(e))
     if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
-    callback = self.request.get("callback")
-    if callback:
-      self.response.headers["Content-Type"] = "text/javascript"
-      resp = "%s(%s);" % (_callback, resp)
+    # # UNCOMMENT TO ENABLE JSONP
+    # callback = self.request.get("callback")
+    # if callback:
+    #   self.response.headers["Content-Type"] = "text/javascript"
+    #   resp = "%s(%s);" % (_callback, resp)
     self.response.out.write(resp)
   return wrapper
 
@@ -83,7 +84,7 @@ def as_json(func):
 class BaseHandler(webapp2.RequestHandler):
   def handle_exception(self, exception, debug):
     # Log the error.
-    logging.exception(exception)
+    logging.error(exception)
 
     # If the exception is a HTTPException, use its error code.
     # Otherwise use a generic 500 error code.
@@ -113,6 +114,7 @@ def parse_body(self):
         except ValueError:
           pass
       # TODO(doug): Bug when loading multiple json lists with same key
+      # TODO(doug): Bug when loading a number that should be a string representation of said number
       if data.has_key(k):
         current = data[k]
         if isinstance(current, list):
@@ -160,5 +162,4 @@ def current_user(required=False):
   if required:
     raise LoginError("User must be logged in.")
   return None
-
 

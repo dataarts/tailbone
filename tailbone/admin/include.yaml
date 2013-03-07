@@ -1,5 +1,5 @@
 handlers:
-  - url: /api/admin/.*
+  - url: /api/admin/?.*
     script: tailbone.admin.app
     login: admin
 

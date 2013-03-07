@@ -14,5 +14,5 @@
     },
     "list": "^\\[.*\\]$"
   },
-  "anydocuments": ""
+  "documents_with_anything": ""
 }

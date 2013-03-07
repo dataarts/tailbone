@@ -1,0 +1,3 @@
+handlers:
+  - url: /api/search/?.*
+    script: tailbone.search.app

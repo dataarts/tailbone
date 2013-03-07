@@ -9,6 +9,7 @@ includes:
   - tailbone/files
   - tailbone/events
   - tailbone/js
+  - tailbone/search
   # - tailbone/proxy
   # restful must come last in the includes because it matches /api/*
   - tailbone/restful
