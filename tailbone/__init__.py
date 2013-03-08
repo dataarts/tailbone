@@ -9,6 +9,7 @@ import time
 import webapp2
 
 from google.appengine import api
+from google.appengine.ext import ndb
 from google.appengine.ext import testbed
 
 PREFIX = "/api/"
@@ -30,10 +31,10 @@ def json_extras(obj):
   """Extended json processing of types."""
   if hasattr(obj, "get_result"): # RPC
     return obj.get_result()
-  if hasattr(obj, "utctimetuple"): # datetime
-    ms = time.mktime(obj.utctimetuple()) * 1000
-    ms += getattr(obj, "microseconds", 0) / 1000
-    return int(ms)
+  if hasattr(obj, "strftime"): # datetime
+    return obj.strftime("%Y-%m-%dT%H:%M:%S.") + str(obj.microsecond / 1000) + "Z"
+  if isinstance(obj, ndb.GeoPt):
+    return {"lat": obj.lat, "lon": obj.lon}
   return None
 
 # Decorator to return the result of a function as json. It supports jsonp by default.

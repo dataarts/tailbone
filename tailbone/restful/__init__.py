@@ -119,6 +119,9 @@ class users(ndb.Expando):
 # Reflectively instantiate a class given some data parsed by the restful json POST. If the size of
 # an object is larger than 500 characters it cannot be indexed. Otherwise everything else is. In the
 # future there may be a way to express what should be indexed or searchable, but not yet.
+_latlon = set(["lat", "lon"])
+_reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
+
 def reflective_create(cls, data):
   m = cls()
   for k,v in data.iteritems():
@@ -127,9 +130,26 @@ def reflective_create(cls, data):
     if t in [unicode, str]:
       if len(bytearray(v, encoding="utf8")) >= 500:
         m._default_indexed = False
+      elif _reISO.match(v):
+        try:
+          values = map(int, re.split('[^\d]', v)[:-1])
+          values[-1] *= 1000 # to account for python using microseconds vs js milliseconds
+          v = datetime.datetime(*values)
+        except ValueError as e:
+          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
     elif t == dict:
-      subcls = unicode.encode(k, "ascii", errors="ignore")
-      v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
+      recurse = True
+      if set(v.keys()) == _latlon:
+        try:
+          v = ndb.GeoPt(v["lat"], v["lon"])
+          recurse = False
+        except api.datastore_errors.BadValueError as e:
+          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
+      if recurse:
+        subcls = unicode.encode(k, "ascii", errors="ignore")
+        v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
     elif t in [int, float]:
       v = float(v)
     setattr(m, k, v)

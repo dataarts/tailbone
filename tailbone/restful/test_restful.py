@@ -35,7 +35,7 @@ class TestCase(unittest.TestCase):
     self.user_url = "/api/users/"
     self.user_id = "118124022271294486125"
     self.setCurrentUser("test@gmail.com", self.user_id, True)
-    restful.validation = None
+    restful._validation = None
 
   def tearDown(self):
     self.testbed.deactivate()
@@ -81,21 +81,39 @@ class TestCase(unittest.TestCase):
     "todos": {
       "text": ""
     }}"""
-    restful.validation = restful.compile_validation(json.loads(test_validation))
+    restful._validation = restful.compile_validation(json.loads(test_validation))
     data = {"text": "example"}
     response, response_data = self.create(self.model_url, data)
     self.assertJsonResponseData(response, data)
-    restful.validation = None
+    restful._validation = None
 
   def test_validation_skip(self):
     test_validation = r"""{
     "todos": ""
     }"""
-    restful.validation = restful.compile_validation(json.loads(test_validation))
+    restful._validation = restful.compile_validation(json.loads(test_validation))
     data = {"text": "example"}
     response, response_data = self.create(self.model_url, data)
     self.assertJsonResponseData(response, data)
-    restful.validation = None
+    restful._validation = None
+
+  def test_datetime(self):
+    data = {"date": "2013-03-07T23:09:55.597Z", "bad": "4013-23-67T23:09:55.597Z"}
+    response, response_data = self.create(self.model_url, data)
+
+    request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
+    response = request.get_response(restful.app)
+
+    self.assertJsonResponseData(response, data)
+
+  def test_geo(self):
+    data = {"location": {"lat": 33.3, "lon": 33.3}, "bad": {"lat": "232sda", "lon": "232aaa"}}
+    response, response_data = self.create(self.model_url, data)
+
+    request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
+    response = request.get_response(restful.app)
+
+    self.assertJsonResponseData(response, data)
 
   def test_query_by_id(self):
     data = {"text": "example"}
@@ -412,14 +430,14 @@ class TestCase(unittest.TestCase):
     response = request.get_response(restful.app)
     items = json.loads(response.body)
 
-  def test_datetime(self):
-    obj = datetime.datetime.now()
-    ms = time.mktime(obj.utctimetuple()) * 1000
-    ms += getattr(obj, "microseconds", 0) / 1000
-    data = {"date": int(ms)}
-    response, response_data = self.create(self.model_url, data)
+  # def test_datetime(self):
+  #   obj = datetime.datetime.now()
+  #   ms = time.mktime(obj.utctimetuple()) * 1000
+  #   ms += getattr(obj, "microseconds", 0) / 1000
+  #   data = {"date": int(ms)}
+  #   response, response_data = self.create(self.model_url, data)
 
-    self.assertJsonResponseData(response, data)
+  #   self.assertJsonResponseData(response, data)
 
   def test_large_text(self):
     data = {"text": "example" * 1000}
