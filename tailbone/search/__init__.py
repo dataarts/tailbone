@@ -33,8 +33,6 @@ def put(model):
         continue
       cls = getattr(search, v)
       fields.append(cls(name=k, value=getattr(model, k)))
-    logging.error(fields)
-    logging.error(model.key.urlsafe())
     doc = search.Document(doc_id=model.key.urlsafe(), fields=fields)
     try:
       idx.put(doc)
@@ -74,7 +72,7 @@ def compile_searchable(target):
 _searchable = None
 try:
   with open("searchable.json") as f:
-    _SEARCHABLE = compile_searchable(json.load(f))
+    _searchable = compile_searchable(json.load(f))
 except ValueError:
   logging.error("searchable.json is not a valid json document.")
 except IOError:
