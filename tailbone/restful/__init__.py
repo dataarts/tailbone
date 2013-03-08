@@ -37,6 +37,7 @@
 
 # shared resources and global variables
 from tailbone import *
+from tailbone import search
 
 import datetime
 import json
@@ -198,13 +199,6 @@ def convert_value(value):
       value = float(value)
     except:
       pass
-    # try:
-    #   value = int(value)
-    # except:
-    #   try:
-    #     value = float(value)
-    #   except:
-    #     pass
   return value
 
 def convert_opsymbol(opsymbol):
@@ -395,6 +389,8 @@ class RestfulHandler(BaseHandler):
       if len(m.owners) == 0:
         m.owners.append(u)
     m.put()
+    # update indexes
+    search.put(m)
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)
@@ -424,6 +420,7 @@ class RestfulHandler(BaseHandler):
     id = parse_id(id)
     key = ndb.Key(model.lower(), id)
     key.delete()
+    search.delete(key)
     return {}
 
 class LoginHandler(webapp2.RequestHandler):

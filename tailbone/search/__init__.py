@@ -12,11 +12,44 @@ import urllib
 import webapp2
 import yaml
 
-from google.appengine import api
+from google.appengine.api import search
 from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 
 _INDEX_NAME = "default"
+
+def put(model):
+  if _searchable:
+    kind = model.key.kind()
+    m = _searchable.get(kind)
+    if not m:
+      return
+    index_name = m.get("_index", _INDEX_NAME)
+    idx = search.Index(name=index_name)
+    fields = []
+    for k, v in m.iteritems():
+      # skip things starting with _ like _index
+      if k[0] == "_":
+        continue
+      cls = getattr(search, v)
+      fields.append(cls(name=k, value=getattr(model, k)))
+    logging.error(fields)
+    logging.error(model.key.urlsafe())
+    doc = search.Document(doc_id=model.key.urlsafe(), fields=fields)
+    try:
+      idx.put(doc)
+    except search.Error:
+      logging.error("Failed to put document {}".format(doc))
+
+def delete(key):
+  if _searchable:
+    kind = key.kind()
+    m = _searchable.get(kind)
+    if not m:
+      return
+    index_name = m.get("_index", _INDEX_NAME)
+    idx = search.Index(name=index_name)
+    idx.delete(key.urlsafe())
 
 class SearchHandler(BaseHandler):
   @as_json
@@ -27,7 +60,6 @@ class SearchHandler(BaseHandler):
       q = json.loads(q)
     return {}
 
-_indexes = {}
 # Load an optional searchable.json
 # --------------------------------
 def compile_searchable(target):
@@ -35,10 +67,8 @@ def compile_searchable(target):
     logging.error("searchable.json invalid, target is {}".format(target))
     raise ValueError("Invalid target type")
   for k, v in target.iteritems():
-    if type(v) in [str, unicode]:
-      target[k] = re.compile(v)
-    else:
-      target[k] = compile_validation(v)
+    if type(v) not in [str, unicode]:
+      target[k] = compile_searchable(v)
   return target
 
 _searchable = None

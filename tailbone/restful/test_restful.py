@@ -430,7 +430,7 @@ class TestCase(unittest.TestCase):
     response = request.get_response(restful.app)
     items = json.loads(response.body)
 
-  # def test_datetime(self):
+  # def test_datetime_number(self):
   #   obj = datetime.datetime.now()
   #   ms = time.mktime(obj.utctimetuple()) * 1000
   #   ms += getattr(obj, "microseconds", 0) / 1000
