@@ -316,7 +316,8 @@ def _validate(validator, data, ignored=None):
       raise AppError("Validator '{}' does not match '{}'".format(validator.pattern, data))
   elif isinstance(validator, dict) and isinstance(data, dict):
     for name, val in data.iteritems():
-      _validate(validator.get(name), val)
+      if name not in ignored:
+        _validate(validator.get(name), val)
   else:
     raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
 
