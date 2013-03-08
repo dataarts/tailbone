@@ -25,7 +25,7 @@ def put(model):
     if not m:
       return
     index_name = m.get("_index", _INDEX_NAME)
-    idx = search.Index(name=index_name)
+    index = search.Index(name=index_name)
     fields = []
     for k, v in m.iteritems():
       # skip things starting with _ like _index
@@ -33,9 +33,12 @@ def put(model):
         continue
       cls = getattr(search, v)
       fields.append(cls(name=k, value=getattr(model, k)))
+    # Add kind iff added to the default index
+    if index_name == _INDEX_NAME:
+      fields.append(search.TextField(name="Kind", value=kind))
     doc = search.Document(doc_id=model.key.urlsafe(), fields=fields)
     try:
-      idx.put(doc)
+      index.put(doc)
     except search.Error:
       logging.error("Failed to put document {}".format(doc))
 
@@ -46,17 +49,56 @@ def delete(key):
     if not m:
       return
     index_name = m.get("_index", _INDEX_NAME)
-    idx = search.Index(name=index_name)
-    idx.delete(key.urlsafe())
+    index = search.Index(name=index_name)
+    index.delete(key.urlsafe())
+
+def doc_to_json(doc):
+  d = {}
+  key = ndb.Key(urlsafe=doc.doc_id)
+  d["Id"] = key.id()
+  for f in doc.fields:
+    if f.name[0].isupper():
+      d[f.name] = f.value
+  return d
 
 class SearchHandler(BaseHandler):
   @as_json
   def get(self, index_name):
+    q = self.request.get("q", "")
+    limit = self.request.get_range("limit", default=100)
+    cursor = self.request.get("cursor", None)
+    if cursor:
+      cursor = search.Cursor(web_safe_string=cursor)
+    # TODO(doug): some way to express sort calculations
+    # sort = parse_sort(self.request.get_all("sort"))
+    sort = None
+    returned_fields = self.request.get("returned_fields", None)
+    if returned_fields:
+      try:
+        returned_fields = json.loads(returned_fields)
+      except ValueError:
+        returned_fields = None
+    snippeted_fields = self.request.get("snippeted_fields", None)
+    if snippeted_fields:
+      try:
+        snippeted_fields = json.loads(snippeted_fields)
+      except ValueError:
+        snippeted_fields = None
+    options = search.QueryOptions(
+                limit=limit,  # the number of results to return
+                cursor=cursor,
+                sort_options=sort,
+                returned_fields=returned_fields,
+                snippeted_fields=snippeted_fields)
+    query = search.Query(query_string=q, options=options)
+
     index_name = index_name or _INDEX_NAME
-    q = self.request.get("q")
-    if q:
-      q = json.loads(q)
-    return {}
+    index = search.Index(name=index_name)
+    try:
+      results = index.search(query)
+    except search.Error as e:
+      raise AppError("Search Error: {}".format(e))
+    return [doc_to_json(d) for d in results]
 
 # Load an optional searchable.json
 # --------------------------------
