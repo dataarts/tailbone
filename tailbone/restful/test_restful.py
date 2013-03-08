@@ -82,7 +82,7 @@ class TestCase(unittest.TestCase):
       "text": ""
     }}"""
     restful._validation = restful.compile_validation(json.loads(test_validation))
-    data = {"text": "example"}
+    data = {"text": "example", "viewers": [self.user_id]}
     response, response_data = self.create(self.model_url, data)
     self.assertJsonResponseData(response, data)
     restful._validation = None
