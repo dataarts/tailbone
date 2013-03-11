@@ -1,0 +1,8 @@
+handlers:
+  # use this javascript file if you want the evented databinding abilities
+  - url: /tailbone.(json|models).js
+    static_files: tailbone/js/tailbone.\1.js
+    upload: tailbone/js/tailbone.(json|models).js
+  - url: /((?!api).)[^.]*
+    script: tailbone.html5mode.app
+

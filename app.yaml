@@ -10,12 +10,15 @@ includes:
   - tailbone/events
   - tailbone/js
   - tailbone/search
-  # - tailbone/proxy
-  # restful must come last in the includes because it matches /api/*
   - tailbone/restful
+  # Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
+  # will cost you bandwidth and has no auth)
+  # - tailbone/proxy
+  # any non file extenstion path not in /api gets the app/client/index.html text
+  # - tailbone/html5mode
 
 env_variables:
-  NAMESPACE: '' # The datastore namespace '' for default
+  NAMESPACE: '' # The datastore namespace, '' for default
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this
