@@ -1,3 +1,7 @@
 handlers:
-  - url: /api/((?!(admin|events|files|proxy|search)).)/?.*
+  # TODO: App Engine doesn't seem to accept multiple word negative lookahead
+  #                     https://code.google.com/p/googleappengine/issues/detail?id=541
+  # - url: /api/((?!admin|events|files|js|pathrewrite|proxy|search).)/?.*
+  #   script: tailbone.restful.app
+  - url: /api/?.*
     script: tailbone.restful.app
