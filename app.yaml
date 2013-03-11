@@ -11,11 +11,12 @@ includes:
   - tailbone/js
   - tailbone/search
   - tailbone/restful
-  # Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
-  # will cost you bandwidth and has no auth)
+  # # Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
+  # # will cost you bandwidth and has no auth)
   # - tailbone/proxy
-  # any non file extenstion path not in /api gets the app/client/index.html text
-  # - tailbone/html5mode
+  # # Any path without a file extension not in /api gets the app/client/index.html text. Useful for
+  # # html5 applications that use the history api to write their paths.
+  # - tailbone/pathrewrite
 
 env_variables:
   NAMESPACE: '' # The datastore namespace, '' for default

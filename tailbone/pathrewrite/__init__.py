@@ -7,17 +7,17 @@ import webapp2
 
 # index.html is symlinked to api/client/index.html
 index = None
-with open('tailbone/html5mode/index.html') as f:
+with open('tailbone/pathrewrite/index.html') as f:
   index = f.read()
 
-# Html5mode Handler
+# Pathrewrite Handler
 # ------------
 #
 # Proxies any page to the base url
-class Html5modeHandler(webapp2.RequestHandler):
+class PathrewriteHandler(webapp2.RequestHandler):
   def get(self):
     self.response.out.write(index)
 
 app = webapp2.WSGIApplication([
-  (r"^[^.]*$", Html5modeHandler),
+  (r"^[^.]*$", PathrewriteHandler),
   ], debug=DEBUG)
