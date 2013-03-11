@@ -3,11 +3,12 @@
 AppEngine is cheap, fast, and awesome. Using it for the first time is sometimes ... well ...
 _different_. There are tons of frameworks like Django or others out there that work with AppEngine,
 but these days I write almost all my application in javascript with AngularJS or Backbone.js, I just
-need a simple backend to do its part. The AppEngine server side APIs are great and for more complex things I recommend
-you learn them and use them. All this hopes to do is ease that barrier of use and get people writing
+need a simple backend to do its part. The AppEngine server side APIs are great and for more
+complex things I recommend you learn them and use them.
+All this hopes to do is ease that barrier of use and get people writing
 their apps faster without worrying about their backend code.
-That said, writing more code on your backend is great if you are up to it, I can't recommend Go enough
-for doing that, it really is fun.
+That said, writing more code on your backend is great if you are up to it,
+I can't recommend Go enough for doing that, it's a wonderful language.
 Anyway, I wrote this for myself in my spare time and hopefully others find it useful too.
 It provides a simple restful backend setup for AppEngine so you can write your apps in javascript
 via frameworks like AngularJS or Backbone etc and not have to touch any AppEngine code. Or just
@@ -17,6 +18,7 @@ on AppEngine you get automatic optimization of your images and scripts, as well 
 all for free. It even supports large file uploads and serving via the Google blobstore. One example
 use case is drawing an image with canvas via javascript uploading it via ajax and serving variable
 sized thumbnails efficiently of that image. That is a simple example in the QUnit tests.
+It also has experimental support for model validation and full text search.
 
 Finally, for added capabilities, there is a javascript library served up which
 does additional niceties like bi-directional binding of your model and your backend to a javascript
@@ -27,9 +29,11 @@ necessarily rely on that part just yet.
 - [Special URLS](#special-urls)
     - [/api/(yourModelName)](#restful-models)
     - [Access Control](#access-control)
+    - [Validation](#validation)
     - [/api/users](#user-models)
     - [/api/files](#large-files)
     - [/api/events](#events)
+    - [/api/search](#search)
 - [Taibone.js](#tailbonejs)
     - [Including](#how-to-include)
     - [Exported Methods](#exported-methods)
@@ -62,7 +66,10 @@ So how I get started with tailbone is.
 
 - Second, clone the repo to the name of your target project
 
-        git clone https://code.google.com/a/google.com/p/tailbone myproject
+        git clone https://github.com/doug/tailbone.git myproject
+
+        I alias tailbone="git clone https://github.com/doug/tailbone.git"
+        so I can just type "tailbone myproject"
 
 - Third, create your app in any js framework or static html you want. Tailbone gitignores the client
   folder so anything you put there will be ignored making updating to the latests tailbone as simple
@@ -110,6 +117,28 @@ javascript application framework.
     "owners" which is a private list of the user ids of owners for this model, which by default just
     includes the user who creates it.
 
+    Special types include Geo locations which will be when an object is serialized as
+    {"lat": NUMBER, "lon": NUMBER}
+    And timestamps which are in ISO format, this is the same style JSON supports when given a
+    new Date() in Ecmascript 5.
+
+    To extend the loading of a date strings into native javascript Date format try something like:
+
+    var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
+
+    JSON._parse = JSON.parse;
+    JSON.parse = function(json) {
+      return JSON._parse(json, function(key, value) {
+        if (typeof value === 'string') {
+          if (reISO.exec(value)) {
+            return new Date(value);
+          }
+        }
+        return value;
+      });
+    };
+
+
 ### Access Control:
 
 Public private exposure of properties on a model is controlled by capitalization of the first
@@ -121,14 +150,50 @@ access rights like most other systems, but thought it out of scope for this firs
 keep everything as simple as possible, so there is just one list add to it or remove from it as you
 like.
 
-    var Todo = new tailbone.Model("todos");
-    var todo = new Todo();
-    todo.Text = "some public text";
-    todo.secret = "some secret that only owners can see";
+    $.ajax({
+      url: "/api/todos/",
+      method: "POST",
+      data: {
+        Text: "some public text",
+        secret: "some secret that only owners can see"
+      }
+    })
 
-    todo.owners.append("somenewuser"); // now somenewuser can also edit this model and see secret
-    todo.$save();
 
+### Validation:
+
+So as of write now you have to be authenticated sure, but you can still write basically whatever you
+want to the datastore. Which is great and why I wrote this, but sometimes that is not what you want.
+Sometimes you want that during dev then you want to harden things up a bit when you go live. To help
+with that tailbone will do simple regex validation of all properties. Simply create a
+validation.json and put it in the root of your project. See validation.template.json for an example.
+It is a map of a model name to a series of properties. Anything that is an empty string will mean
+skip validation, everything else will be parsed as a regex and verified against. Note: Validation
+is still experimental and not fully vetted, so let me know when you find bugs. Also, as in the
+example below because of the way json strings are loaded you will need to escape in \'s in your
+regular expressions.
+
+    {
+      "todos": {
+        "skipvalidation": "",
+        "anything": ".*",
+        "shortstring": "^.{3,30}$",
+        "integer": "^[-]?[0-9]+$",
+        "float": "^[-]?([0-9]*\\.[0-9]+|[0-9]+)$",
+        "timestamp": "^[0-9]+$",
+        "object": "^\\{.*\\}$",
+        "objectdeep": {
+          "anything": ".*",
+          "skipvalidation": "",
+          "integer": "^[-]?[0-9]+$"
+        },
+        "list": "^\\[.*\\]$"
+      },
+      "documents_with_anything": ""
+    }
+
+This validates a bunch of things on /api/todos/ and lets anything through on
+/api/documents_with_anything, but no other models would be allowed.
 
 ### User models:
 
@@ -259,6 +324,28 @@ Upload an image of something drawn with canvas via javascript.
         tailbone.bind("name", function() { console.log("callback"); });
         tailbone.trigger("name");
         tailbone.unbind("name");
+
+### Search:
+
+    /api/search/?q=myquery
+      Is a special api used for doing full text search of models. To enable this experimental
+      feature you need to create a searchable.json which lists which properties on which models are
+      indexed and how they are indexed. Read more about search
+      [here](https://developers.google.com/appengine/docs/python/search/overview)
+
+Example searchable.json
+
+    {
+      "todos": {
+        "_index": "optional_field_for_name_of_index_default_if_not_defined",
+        "item": "TextField",
+        "snippet": "HtmlField",
+        "slug": "AtomField",
+        "value": "NumberField",
+        "dayof": "DateField",
+        "place": "GeoField"
+      }
+    }
 
 
 ## Tailbone.js
