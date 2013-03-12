@@ -52,7 +52,7 @@ admin_console:
 
 pagespeed:
   # domains_to_rewrite:
-  # - somedomainslowdomain.com
+  # - slowdomain.com
   # url_blacklist:
   # - http://myapp.com/dontoptomize/*
   enabled_rewriters:
