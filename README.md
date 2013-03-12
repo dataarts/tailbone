@@ -122,22 +122,23 @@ javascript application framework.
     And timestamps which are in ISO format, this is the same style JSON supports when given a
     new Date() in Ecmascript 5.
 
-    To extend the loading of a date strings into native javascript Date format try something like:
+To extend the loading of a date strings into native javascript Date format try something like:
 
-    var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
+```javascript
+var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
 
-    JSON._parse = JSON.parse;
-    JSON.parse = function(json) {
-      return JSON._parse(json, function(key, value) {
-        if (typeof value === 'string') {
-          if (reISO.exec(value)) {
-            return new Date(value);
-          }
-        }
-        return value;
-      });
-    };
-
+JSON._parse = JSON.parse;
+JSON.parse = function(json) {
+  return JSON._parse(json, function(key, value) {
+    if (typeof value === 'string') {
+      if (reISO.exec(value)) {
+        return new Date(value);
+      }
+    }
+    return value;
+  });
+};
+```
 
 ### Access Control:
 
@@ -150,15 +151,16 @@ access rights like most other systems, but thought it out of scope for this firs
 keep everything as simple as possible, so there is just one list add to it or remove from it as you
 like.
 
-    $.ajax({
-      url: "/api/todos/",
-      method: "POST",
-      data: {
-        Text: "some public text",
-        secret: "some secret that only owners can see"
-      }
-    })
-
+```javascript
+$.ajax({
+  url: "/api/todos/",
+  method: "POST",
+  data: {
+    Text: "some public text",
+    secret: "some secret that only owners can see"
+  }
+})
+```
 
 ### Validation:
 
@@ -173,24 +175,26 @@ is still experimental and not fully vetted, so let me know when you find bugs. A
 example below because of the way json strings are loaded you will need to escape in \'s in your
 regular expressions.
 
-    {
-      "todos": {
-        "skipvalidation": "",
-        "anything": ".*",
-        "shortstring": "^.{3,30}$",
-        "integer": "^[-]?[0-9]+$",
-        "float": "^[-]?([0-9]*\\.[0-9]+|[0-9]+)$",
-        "timestamp": "^[0-9]+$",
-        "object": "^\\{.*\\}$",
-        "objectdeep": {
-          "anything": ".*",
-          "skipvalidation": "",
-          "integer": "^[-]?[0-9]+$"
-        },
-        "list": "^\\[.*\\]$"
-      },
-      "documents_with_anything": ""
-    }
+```javascript
+{
+  "todos": {
+    "skipvalidation": "",
+    "anything": ".*",
+    "shortstring": "^.{3,30}$",
+    "integer": "^[-]?[0-9]+$",
+    "float": "^[-]?([0-9]*\\.[0-9]+|[0-9]+)$",
+    "timestamp": "^[0-9]+$",
+    "object": "^\\{.*\\}$",
+    "objectdeep": {
+      "anything": ".*",
+      "skipvalidation": "",
+      "integer": "^[-]?[0-9]+$"
+    },
+    "list": "^\\[.*\\]$"
+  },
+  "documents_with_anything": ""
+}
+```
 
 This validates a bunch of things on /api/todos/ and lets anything through on
 /api/documents_with_anything, but no other models would be allowed.
@@ -211,28 +215,30 @@ See the QUnit tests for an example. Note, there is also a popup version, but sin
 started more aggressively blocking popups being able to create a url that calls a javascript
 callback via PostMessage is more useful.
 
-    asyncTest('Login', function() {
+```javascript
+asyncTest('Login', function() {
 
-      var User = tailbone.User;
+  var User = tailbone.User;
 
-      var a = document.createElement('a');
-      a.appendChild(document.createTextNode('Login Test'));
-      User.logout(function() {
-        User.get('me', null, function(d) {
-          ok(d.error == 'LoginError', d);
-          var link = User.login_callback_url(function() {
-            User.get('me', function(d) {
-              ok(d.Id !== undefined, d.Id);
-              document.body.removeChild(a);
-              start();
-            });
-          });
-          a.href = link;
-          a.target = '_blank';
+  var a = document.createElement('a');
+  a.appendChild(document.createTextNode('Login Test'));
+  User.logout(function() {
+    User.get('me', null, function(d) {
+      ok(d.error == 'LoginError', d);
+      var link = User.login_callback_url(function() {
+        User.get('me', function(d) {
+          ok(d.Id !== undefined, d.Id);
+          document.body.removeChild(a);
+          start();
         });
       });
-      document.body.appendChild(a);
+      a.href = link;
+      a.target = '_blank';
     });
+  });
+  document.body.appendChild(a);
+});
+```
 
 
 ### Large files:
@@ -277,44 +283,45 @@ callback via PostMessage is more useful.
 
 Upload an image of something drawn with canvas via javascript.
 
-    function toBlob(data_url) {
-      var d = atob(data_url.split(',')[1]);
-      var b = new Uint8Array(d.length);
-      for (var i = 0; i < d.length; i++) {
-        b[i] = d.charCodeAt(i);
+```javascript
+function toBlob(data_url) {
+  var d = atob(data_url.split(',')[1]);
+  var b = new Uint8Array(d.length);
+  for (var i = 0; i < d.length; i++) {
+    b[i] = d.charCodeAt(i);
+  }
+  return new Blob([b], {type: 'image/png'});
+}
+
+asyncTest('Upload file', function() {
+  var data = new FormData();
+  var canvas = document.createElement('canvas');
+  document.body.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+  ctx.fillRect(0, 0, 100, 100);
+  var img = canvas.toDataURL();
+  data.append('blob', toBlob(img), 'image_filename');
+  document.body.removeChild(canvas);
+  $.get('/api/files', function(d) {
+    $.ajax({
+      type: 'POST',
+      url: d.upload_url,
+      data: data,
+      cache: false,
+      contentType: false,
+      processData: false,
+      success: function(items) {
+        var d = items[0];
+        ok(d.Id != undefined, 'Id is ' + d.Id);
+        ok(d.filename == 'image_filename', 'filename is ' + d.filename);
+        ok(d.size == 1616, 'size is ' + d.size);
+        ok(d.content_type == 'image/png', 'content type is ' + d.content_type);
+        start();
       }
-      return new Blob([b], {type: 'image/png'});
-    }
-
-    asyncTest('Upload file', function() {
-      var data = new FormData();
-      var canvas = document.createElement('canvas');
-      document.body.appendChild(canvas);
-      var ctx = canvas.getContext('2d');
-      ctx.fillRect(0, 0, 100, 100);
-      var img = canvas.toDataURL();
-      data.append('blob', toBlob(img), 'image_filename');
-      document.body.removeChild(canvas);
-      $.get('/api/files', function(d) {
-        $.ajax({
-          type: 'POST',
-          url: d.upload_url,
-          data: data,
-          cache: false,
-          contentType: false,
-          processData: false,
-          success: function(items) {
-            var d = items[0];
-            ok(d.Id != undefined, 'Id is ' + d.Id);
-            ok(d.filename == 'image_filename', 'filename is ' + d.filename);
-            ok(d.size == 1616, 'size is ' + d.size);
-            ok(d.content_type == 'image/png', 'content type is ' + d.content_type);
-            start();
-          }
-        });
-      });
     });
-
+  });
+});
+```
 
 ### Events:
 
@@ -336,17 +343,17 @@ Upload an image of something drawn with canvas via javascript.
 Example searchable.json
 
 ```javascript
-    {
-      "todos": {
-        "_index": "optional_field_for_name_of_index_default_if_not_defined",
-        "item": "TextField",
-        "snippet": "HtmlField",
-        "slug": "AtomField",
-        "value": "NumberField",
-        "dayof": "DateField",
-        "place": "GeoField"
-      }
-    }
+{
+  "todos": {
+    "_index": "optional_field_for_name_of_index_default_if_not_defined",
+    "item": "TextField",
+    "snippet": "HtmlField",
+    "slug": "AtomField",
+    "value": "NumberField",
+    "dayof": "DateField",
+    "place": "GeoField"
+  }
+}
 ```
 
 ## Tailbone.js
@@ -357,21 +364,21 @@ Example searchable.json
     if you don't want to use jquery just define $.ajax yourself somehow somewhere
 
 ```html
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
-    <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-    <script src="/tailbone.json.js" type="text/javascript" charset="utf-8"></script>
-    <script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+<script src="/tailbone.json.js" type="text/javascript" charset="utf-8"></script>
+<script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
 ```
 
     to support older browsers also include this before the other two scripts
 ```html
-    <!--[if lt IE 7]>
-        <p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
-    <![endif]-->
-    <!--[if lt IE 9]>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
-    <![endif]-->
+<!--[if lt IE 7]>
+    <p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
+<![endif]-->
+<!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
+<![endif]-->
 ```
 
 
@@ -389,18 +396,19 @@ Example searchable.json
 
 ### Examples:
 
-    var Todo = new tailbone.Model("todos");
-    var todos = Todo.query().filter("text =", "Go to store").order("-date");
+```javascript
+var Todo = new tailbone.Model("todos");
+var todos = Todo.query().filter("text =", "Go to store").order("-date");
 
-    var todo = new Todo();
-    todo.text = "Go to store";
-    todo.date = Date.now()
-    todo.$save();
+var todo = new Todo();
+todo.text = "Go to store";
+todo.date = Date.now()
+todo.$save();
 
-    todos.onchange = function() {
-      todos.forEach(function(item, idx) {
-        console.log(idx, item);
-      });
-    };
-
+todos.onchange = function() {
+  todos.forEach(function(item, idx) {
+    console.log(idx, item);
+  });
+};
+```
 
