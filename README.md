@@ -335,6 +335,7 @@ Upload an image of something drawn with canvas via javascript.
 
 Example searchable.json
 
+```javascript
     {
       "todos": {
         "_index": "optional_field_for_name_of_index_default_if_not_defined",
@@ -346,7 +347,7 @@ Example searchable.json
         "place": "GeoField"
       }
     }
-
+```
 
 ## Tailbone.js
 
@@ -354,12 +355,16 @@ Example searchable.json
 
     to use tailbone.js please include the following in your html
     if you don't want to use jquery just define $.ajax yourself somehow somewhere
+
+```html
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.json.js" type="text/javascript" charset="utf-8"></script>
     <script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
+```
 
     to support older browsers also include this before the other two scripts
+```html
     <!--[if lt IE 7]>
         <p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
     <![endif]-->
@@ -367,6 +372,7 @@ Example searchable.json
         <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/1.2.4/es5-shim.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/json3/3.2.4/json3.min.js"></script>
     <![endif]-->
+```
 
 
 ### Exported methods:
