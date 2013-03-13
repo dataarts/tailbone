@@ -3,15 +3,15 @@
 ### Preamble
 
 [App Engine](http://appengine.google.com/) is cheap, fast, and awesome. Using it for the first time is sometimes&hellip;well&hellip;_different_. There are tons of frameworks like [Django](https://www.djangoproject.com/) or others out there that work with App Engine,
-but these days we write almost all our applications in JavaScript with [AngularJS](http://angularjs.org/) or [Backbone.js](http://backbonejs.org/), I just
+but these days we write almost all our applications in JavaScript with [AngularJS](http://angularjs.org/) or [Backbone.js](http://backbonejs.org/), we just
 need a simple backend to do its part. The App Engine server side APIs are great and for more
-complex things I recommend you learn them and use them.
+complex things we recommend you learn them and use them.
 All this hopes to do is ease that barrier of use and get people writing
 their apps faster without worrying about their backend code.
 That said, writing more code on your backend is great if you are up to it,
 we can’t recommend [Go](http://golang.org/) enough for doing that, it's a wonderful language.
 
-Anyway, I wrote this for myself in my spare time and hopefully others find it useful too.
+Anyway, we wrote this for myself in my spare time and hopefully others find it useful too.
 It provides a simple [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer) backend setup for App Engine so you can write your apps in JavaScript
 via frameworks like AngularJS, Backbone, etc. and not have to touch any App Engine code. Or just
 using plain JavaScript and your own `xhr` calls. All your static resources are automatically served
@@ -29,7 +29,7 @@ It also has experimental support for model validation and full text search.
 
 Finally, for added capabilities, there is a JavaScript library served up which
 does additional niceties like bi-directional binding of your model and your backend to a JavaScript
-structure with simplified querying. The JavaScript library is pretty alpha don’t think I would
+structure with simplified querying. The JavaScript library is pretty alpha don’t think we would
 necessarily rely on that part just yet.
 
 - [Status](#status)
@@ -92,7 +92,7 @@ How to get started:
         dev_appserver.py .
         open http://localhost:8080
 
-__N.B:__ For you javascript development I recommend two things [yeoman](http://yeoman.io) for
+__N.B:__ For you javascript development we recommend two things [yeoman](http://yeoman.io) for
 bootstrapping and installing js libraries and [angularjs](http://angularjs.org) for your MVC
 javascript application framework.
 
