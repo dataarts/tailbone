@@ -272,17 +272,19 @@ These filetypes are considered images:
 
 When you `POST` files to the `upload_url` you’ve requested the response will contain a list of objects. Each object represents the file that you `POST`ed. Each object will have additional information outlined below:
 
-    [
-      {
-      "Id": file_id,
-      "filename": filename,
-      "content_type": content_type,
-      "creation": creation-date,
-      "size": file-size,
-      "image_url": optional-image-url-if-content_type-is-image
-      },
-      ...
-    ]
+```javascript
+[
+  {
+  "Id": file_id,
+  "filename": filename,
+  "content_type": content_type,
+  "creation": creation-date,
+  "size": file-size,
+  "image_url": optional-image-url-if-content_type-is-image
+  },
+  ...
+]
+```
 
 __N.B:__ The `image_url` is only present if the file `POST`ed is an image. In addition the `POST` is currently the only scenario where you can receive meta-information about the file uploaded. So be sure to keep the `file_id` for retrieval later!
 
