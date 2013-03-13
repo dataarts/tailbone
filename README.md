@@ -166,7 +166,9 @@ $.ajax({
 
 While you have to be authenticated, at the time of this writing you can still write anything to the datastore. This is fantastic for rapid development and changing schemas. However, you might want to be more strict once you deploy your application. In order to help, Tailbone does simple [regex validation](https://github.com/dataarts/tailbone/blob/master/validation.template.json) of all properties.
 
-This is a map of a model name to a series of properties. Anything that is an empty string will effectively bypass validation. Everything else will be parsed as a regex and verified against you and your users requests. __N.B:__ This is still experimental and not full vetted. Don’t hesitate to file any issues when you find bugs. Finally, as in the example below you will need to escape any `'`’s in your regular expression.
+This is a map of a model name to a series of properties. Anything that is an empty string will effectively bypass validation. Everything else will be parsed as a regex and verified against you and your users requests.
+
+__N.B:__ This is still experimental and not full vetted. Don’t hesitate to file any issues when you find bugs. Finally, as in the example below you will need to escape any `'`’s in your regular expression.
 
 ```javascript
 {
@@ -205,7 +207,7 @@ This validates a bunch of things on `/api/todos/` and lets anything through on `
     /api/logout
       Logs you out.
 
-Tailbone.js, documented farther down the page, also provides some helpers for logging in and out. See the QUnit tests for an example. Note, there is also a popup version, but since Chrome started more aggressively blocking popups being able to create a url that calls a javascript callback via [PostMessage](https://developer.mozilla.org/en-US/docs/DOM/window.postMessage) is more useful.
+Tailbone.js, documented [farther down the page](https://github.com/dataarts/tailbone#tailbonejs), also provides some helpers for logging in and out. See the QUnit tests for an example. Note, there is also a popup version, but since Chrome started more aggressively blocking popups being able to create a url that calls a javascript callback via [PostMessage](https://developer.mozilla.org/en-US/docs/DOM/window.postMessage) is more useful.
 
 ```javascript
 asyncTest('Login', function() {
@@ -236,7 +238,7 @@ asyncTest('Login', function() {
 ### Large Files:
 
     GET /api/files/create
-      This must be called first to get the special upload url for each file. Returns {"upload_url": "http://some-special-upload-url"}
+      This must be called prior to uploading a file. It returns an object with an "upload_url" URL where you can POST files to.
 
     GET /api/files/
       List all blob info objects. This can only be accessed by administrators.
