@@ -238,7 +238,7 @@ asyncTest('Login', function() {
 ### Large Files:
 
     GET /api/files/create
-      This must be called prior to uploading a file. It returns an object with an "upload_url" URL where you can POST files to.
+      Call prior to uploading files. Returns an object with an "upload_url" property. POST files there.
 
     GET /api/files/
       List all blob info objects. This can only be accessed by administrators.
