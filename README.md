@@ -1,4 +1,4 @@
-# Tailbone - Restful App Engine and then some
+# ![Tailbone](workshop.chromeexperiments.com/img/tailbone.gif) Tailbone - Restful App Engine and then some
 
 ### Preamble
 
