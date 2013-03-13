@@ -1,8 +1,8 @@
-# ![Tailbone](workshop.chromeexperiments.com/img/tailbone.gif) Tailbone - Restful App Engine and then some
+# ![Tailbone](http://workshop.chromeexperiments.com/img/tailbone.gif) Tailbone - Restful App Engine and then some
 
 ### Preamble
 
-[App Engine](http://appengine.google.com/) is cheap, fast, and awesome. Using it for the first time is sometimes&hellip;well&hellip;_different_. There are tons of frameworks like [Django](https://www.djangoproject.com/) or others out there that work with App Engine,
+[App Engine](http://appengine.google.com/) is cheap, fast, and awesome. Using it for the first time is sometimes&hellip;well&hellip;different. There are tons of frameworks like [Django](https://www.djangoproject.com/) or others out there that work with App Engine,
 but these days we write almost all our applications in JavaScript with [AngularJS](http://angularjs.org/) or [Backbone.js](http://backbonejs.org/), we just
 need a simple backend to do its part. The App Engine server side APIs are great and for more
 complex things we recommend you learn them and use them.
