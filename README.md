@@ -11,7 +11,7 @@ their apps faster without worrying about their backend code.
 That said, writing more code on your backend is great if you are up to it,
 we can’t recommend [Go](http://golang.org/) enough for doing that, it's a wonderful language.
 
-Anyway, we wrote this for myself in my spare time and hopefully others find it useful too.
+Anyway, this was written in spare time to fill a need and hopefully others find it useful too.
 It provides a simple [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer) backend setup for App Engine so you can write your apps in JavaScript
 via frameworks like AngularJS, Backbone, etc. and not have to touch any App Engine code. Or just
 using plain JavaScript and your own `xhr` calls. All your static resources are automatically served
@@ -207,7 +207,8 @@ This validates a bunch of things on `/api/todos/` and lets anything through on `
     /api/logout
       Logs you out.
 
-Tailbone.js, documented [farther down the page](https://github.com/dataarts/tailbone#tailbonejs), also provides some helpers for logging in and out. See the QUnit tests for an example. Note, there is also a popup version, but since Chrome started more aggressively blocking popups being able to create a url that calls a javascript callback via [PostMessage](https://developer.mozilla.org/en-US/docs/DOM/window.postMessage) is more useful.
+Tailbone.js, documented [farther down the page](https://github.com/dataarts/tailbone#tailbonejs), also provides some helpers for logging in and out. See the QUnit tests for an example. 
+Note, there is also a popup version, but since Chrome started more aggressively blocking popups being able to create a url that calls a javascript callback via [PostMessage](https://developer.mozilla.org/en-US/docs/DOM/window.postMessage) is more useful.
 
 ```javascript
 asyncTest('Login', function() {
