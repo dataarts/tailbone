@@ -114,6 +114,13 @@ class ScopedExpando(ndb.Expando):
     result["Id"] = self.key.id()
     return result
 
+  #@classmethod
+  #def _pre_delete_hook(cls, key):
+    #m = key.get()
+    #if not m.can_write(current_user()):
+      #raise AppError("You do not have permission to delete this model.")
+
+
 # User
 # ----
 # User is an special model that can only be written to by the google account owner.
@@ -426,14 +433,18 @@ class RestfulHandler(BaseHandler):
   def delete(self, model, id):
     if not id:
       raise AppError("Must provide an id.")
+    u = current_user(required=True)
     if model == "users":
-      u = current_user(required=True)
       if id != "me" and id != u:
         raise AppError("Id must be the current " +
             "user_id or me. User {} tried to modify user {}.".format(u,id))
       id = u
     id = parse_id(id)
     key = ndb.Key(model.lower(), id)
+    if model != "users":
+      m = key.get()
+      if not m.can_write(u):
+        raise AppError("You ({}) do not have permission to delete this model ({}).".format(u, id))
     key.delete()
     search.delete(key)
     return {}

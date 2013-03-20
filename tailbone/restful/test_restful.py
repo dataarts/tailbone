@@ -426,6 +426,25 @@ class TestCase(unittest.TestCase):
     items = json.loads(response.body)
     self.assertEqual(len(items), 0)
 
+  def test_delete_not_owner(self):
+    data = {"text": "example"}
+    response, response_data = self.create(self.model_url, data)
+    self.setCurrentUser("baddie@test.com", "22323421234", False)
+
+    request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
+    data = {"text": "example"}
+    request.method = "DELETE"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(restful.app)
+    response_data = json.loads(response.body)
+    self.assertEqual(json.dumps(response_data), json.dumps({"message": "You (wGIvxe) do not have permission to delete this model (1).", "error": "AppError"}))
+
+    request = webapp2.Request.blank(self.model_url)
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 1)
+
   def test_put_to_create(self):
     pass
 
