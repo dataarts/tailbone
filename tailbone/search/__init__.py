@@ -46,8 +46,14 @@ def put(model):
       if k[0] == "_":
         continue
       cls = getattr(search, v)
-      fields.append(cls(name=k, value=getattr(model, k)))
-    # Add kind iff added to the default index
+      search_val = getattr(model, k, None)
+      if not search_val:
+        continue
+      # Note: GeoPt values should be converted tp search.GeoPoint values before adding to the search index !
+      if isinstance(search_val, ndb.GeoPt):
+         search_val = search.GeoPoint(search_val.lat, search_val.lon)
+      fields.append(cls(name=k, value=search_val))
+    # add a Kind type to all searchable items in the default index
     if index_name == _INDEX_NAME:
       fields.append(search.TextField(name="Kind", value=kind))
     doc = search.Document(doc_id=model.key.urlsafe(), fields=fields)
@@ -64,7 +70,11 @@ def delete(key):
       return
     index_name = m.get("_index", _INDEX_NAME)
     index = search.Index(name=index_name)
-    index.delete(key.urlsafe())
+    try:
+      index.delete(key.urlsafe())
+    except search.DeleteError as e:
+      logging.error("Failed to delete document {}: {}".format(key, e))
+
 
 def doc_to_json(doc):
   d = {}
