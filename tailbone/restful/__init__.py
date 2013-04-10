@@ -64,6 +64,8 @@ import urllib
 import webapp2
 import yaml
 
+from webapp2_extras import routes
+
 from google.appengine import api
 from google.appengine.ext import deferred
 from google.appengine.ext import ndb
@@ -363,8 +365,7 @@ def validate(cls_name, data):
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
-  @as_json
-  def get(self, model, id):
+  def _get(self, model, id):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
@@ -387,6 +388,11 @@ class RestfulHandler(BaseHandler):
       return m.to_dict()
     else:
       return query(self, cls)
+
+  @as_json
+  def get(self, model, id):
+    return self._get(model, id)
+
   def set_or_create(self, model, id):
     u = current_user(required=True)
     if model == "users":
@@ -509,13 +515,20 @@ try:
 except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
-  logging.info("validation.json doesn't exist no model validation will be preformed.")
+  logging.info("validation.json doesn't exist no model validation will be performed.")
+
+
+api_prefix = PREFIX
+if api_prefix.endswith('/'):
+  api_prefix = api_prefix[:-1]
 
 app = webapp2.WSGIApplication([
-  (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}login.html".format(PREFIX), LoginPopupHandler),
-  (r"{}logout" .format(PREFIX), LogoutHandler),
-  (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
-  ], debug=DEBUG)
+        routes.PathPrefixRoute(api_prefix, [
+            webapp2.Route('/login', LoginHandler, 'user-login'),
+            webapp2.Route('/login.html', LoginPopupHandler, 'user-login-popup'),
+            webapp2.Route('/<model>', RestfulHandler, 'restfull-list', {'id':None}),
+            webapp2.Route('/<model>/<id>', RestfulHandler, 'restfull-detail'),
+        ]),
+      ], debug=DEBUG)
 
 
