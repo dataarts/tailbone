@@ -207,7 +207,7 @@ This validates a bunch of things on `/api/todos/` and lets anything through on `
     /api/logout
       Logs you out.
 
-Tailbone.js, documented [farther down the page](https://github.com/dataarts/tailbone#tailbonejs), also provides some helpers for logging in and out. See the QUnit tests for an example. 
+Tailbone.js, documented [farther down the page](https://github.com/dataarts/tailbone#tailbonejs), also provides some helpers for logging in and out. See the QUnit tests for an example.
 Note, there is also a popup version, but since Chrome started more aggressively blocking popups being able to create a url that calls a javascript callback via [PostMessage](https://developer.mozilla.org/en-US/docs/DOM/window.postMessage) is more useful.
 
 ```javascript
@@ -375,7 +375,8 @@ In order to use Tailbone.js include the following in your html. If you don’t w
 ```html
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
 <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-<script src="/tailbone.json.js" type="text/javascript" charset="utf-8"></script>
+<script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
+<script src="/tailbone.events.js" type="text/javascript" charset="utf-8"></script>
 <script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
 ```
 
