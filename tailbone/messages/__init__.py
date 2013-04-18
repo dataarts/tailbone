@@ -44,5 +44,5 @@ class MessagesHandler(BaseHandler):
     channel.send_message(to, body)
 
 app = webapp2.WSGIApplication([
-  (r"{}messages/.*".format(PREFIX), MessagesHandler),
+  (r"{}messages/?".format(PREFIX), MessagesHandler),
 ], debug=DEBUG)
