@@ -26,9 +26,9 @@ class MessagesHandler(BaseHandler):
   @as_json
   def get(self):
     # randomly generate client_id
-    # collision probability with 50000 concurrent users and 8 digit client_id = 0.00000572499
-    # 1 - e^(-(50000^2)/(2*62^8))
-    client_id = ''.join(random.choice(string.ascii_letters + string.digits) for x in range(8))
+    # collision probability with 5000 concurrent users and 8 letter client_id = 0.00005985635
+    # 1 - e^(-(5000^2)/(2*26^8))
+    client_id = ''.join(random.choice(string.lowercase) for x in range(8))
     return {
       "token": channel.create_channel(client_id),
       "client_id": client_id
