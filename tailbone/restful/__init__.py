@@ -463,13 +463,8 @@ class RestfulHandler(BaseHandler):
 
   def nested_set_or_create(self, model, id, parent_model, parent_id):
     parent_obj = self._get(parent_model, parent_id)
-    if parent_obj:
-      child_obj = self.set_or_create(model,id, parent_model, parent_id)
-    else:
-      # TODO: should we raise an error here or just create the object without a parent !?
-      # child_obj = self.set_or_create(model,id)
-      child_obj = None
-    return child_obj
+    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
+    return self.set_or_create(model,id, parent_model, parent_id)
 
 
   @as_json
@@ -506,7 +501,7 @@ class NestedRestfulHandler(RestfulHandler):
 
   @as_json
   def post(self, parent_model, parent_id, model, id):
-    self.nested_set_or_create(model, id, parent_model, parent_id)
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
 
 class LoginHandler(webapp2.RequestHandler):
   def get(self):
