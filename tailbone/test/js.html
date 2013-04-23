@@ -9,10 +9,10 @@
   <script src="//code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
   <script type="text/javascript">
 
-tailbone.config.databinding = false;
 
 var Todo = new tailbone.Model('todos');
 
@@ -30,28 +30,28 @@ function Counter(count, callback) {
   return this;
 }
 
-// asyncTest('Login', function() {
-//
-//   var User = tailbone.User;
-//
-//   var a = document.createElement('a');
-//   a.appendChild(document.createTextNode('Login Test'));
-//   User.logout(function() {
-//     User.get('me', null, function(d) {
-//       ok(d.error == 'LoginError', d);
-//       var link = User.login_popup_url(function() {
-//         User.get('me', function(d) {
-//           ok(d.Id !== undefined, d.Id);
-//           document.body.removeChild(a);
-//           start();
-//         });
-//       });
-//       a.href = link;
-//       a.target = '_blank';
-//     });
-//   });
-//   document.body.appendChild(a);
-// });
+asyncTest('Login', function() {
+
+  var User = tailbone.User;
+
+  var a = document.createElement('a');
+  a.appendChild(document.createTextNode('Login Test'));
+  User.logout(function() {
+    User.get('me', null, function(d) {
+      ok(d.error == 'LoginError', d);
+      var link = User.login_callback_url(function() {
+        User.get('me', function(d) {
+          ok(d.Id !== undefined, d.Id);
+          document.body.removeChild(a);
+          start();
+        });
+      });
+      a.href = link;
+      a.target = '_blank';
+    });
+  });
+  document.body.appendChild(a);
+});
 
 asyncTest('List items', function() {
   var itemCount = 0;
@@ -71,7 +71,7 @@ asyncTest('Create model', function() {
     todo.$save(function() {
       $.get('/api/todos/', function(d) {
         ok(d.length == itemCount + 1, 'Expected ' + (itemCount + 1) +
-          ' results got ' + d.length);
+          ' results got ' + itemCount);
         itemCount = d.length;
         start();
       });
@@ -189,7 +189,8 @@ asyncTest('Upload file', function() {
   var img = canvas.toDataURL();
   data.append('blob', toBlob(img), 'image_filename');
   document.body.removeChild(canvas);
-  $.get('/api/files', function(d) {
+  $.get('/api/files/create', function(d) {
+    console.log(d);
     $.ajax({
       type: 'POST',
       url: d.upload_url,
@@ -223,16 +224,6 @@ asyncTest('User ownership', function() {
     start();
   });
 });
-
-
-
-
-
-
-
-
-
-
 
 
   </script>

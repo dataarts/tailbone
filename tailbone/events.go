@@ -16,7 +16,6 @@ package tailbone
 
 import (
 	"appengine"
-	"errors"
 	"net/http"
 )
 
@@ -25,7 +24,7 @@ func Events(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 	case "POST":
 		return Dict{"POST": "thing"}, nil
 	}
-	return nil, errors.New("Undefined method.")
+	return nil, AppError{"Undefined method."}
 }
 
 func init() {

@@ -5,7 +5,9 @@
 // AppEngine and the channel api so that your javascript models upload in
 // real time.
 
-window.tailbone = (function(window, document, undefined) {
+window.tailbone = !window.tailbone ? {} : window.tailbone;
+
+(function(window, document, undefined) {
 
 // We expose a global config object the only use at this point is to
 // enable the databinding feature which triggers and fetches updates
@@ -13,55 +15,6 @@ window.tailbone = (function(window, document, undefined) {
 var config = {
   databinding: true
 };
-
-// Since all of this is ajax there is a simple wrapper around $.ajax.
-// If you don't have jQuery already on your site you will need to install
-// it or provide your own global function that has the same api and bind
-// it to $.ajax (for example you could use zepto.js but since
-// jQuery is cached in most browsers I would just point
-// to the google jQuery CDN)
-var http = {};
-function errorWrapper(fn) {
-  if (fn) {
-    return function(jqXHR, textStatus, errorThrown) {
-      var data;
-      try {
-        data = JSON.parse(jqXHR.responseText);
-      } catch (e) { }
-      fn(data, textStatus, jqXHR, errorThrown);
-    }
-  }
-}
-http.GET = function(url, load, error) {
-  $.ajax({
-    type: 'GET',
-    url: url,
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json'
-  });
-};
-http.POST = function(url, data, load, error) {
-  $.ajax({
-    type: 'POST',
-    url: url,
-    data: JSON.stringify(data),
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json',
-    contentType: 'application/json'
-  });
-};
-http.DELETE = function(url, load, error) {
-  $.ajax({
-    type: 'DELETE',
-    url: url,
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json'
-  });
-};
-
 
 
 // Quering and Filtering
@@ -337,8 +290,8 @@ function authorizeCallback(opt_callback) {
 }
 
 // Constructs a login url.
-User.logout = function(opt_callback) {
-  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
+User.logout_url = function(redirect_url) {
+  return '/api/login?url=' + (redirect_url || '/');
 };
 
 User.login_url = function(redirect_url) {
@@ -347,12 +300,11 @@ User.login_url = function(redirect_url) {
 
 // Constructs a login url use this with target _blank and setting a link on your
 // site for the best experience on most devices.
-User.login_popup_url = function(opt_callback) {
+User.login_callback_url = function(opt_callback) {
   authorizeCallback(opt_callback);
   return User.login_url('/api/login.html');
 };
 
-// Construct a logout url.
 User.logout = function(opt_callback) {
   http.GET('/api/logout?url=/api/users/me', null, opt_callback);
 };
@@ -380,165 +332,21 @@ User.login = function(opt_callback) {
     (pos.y - (pos.height / 2.0)) + ', width=' +
     pos.width + ', height=' + pos.height;
 
-  window.open(User.login_popup_url(opt_callback), 'Auth', prop);
+  window.open(User.login_callback_url(opt_callback), 'Auth', prop);
 };
 
 
-// Event API
-// ---------
-// This is some code you should have to care about that does the event binding.
-// This exposes simple functions like bind, unbind, and trigger that will send
-// messages to all subscribed other users currently on the site. This is what
-// does the bidirectional databinding. I exposes it so you can use it for other
-// purposes as well.
-var CONNECTED = false;
-var CONNECTING = false;
-var BACKOFF = 1;
 
-var event_map = {};
-var queue = [];
-var socket;
-var client_id = parseInt(Date.now() / Math.random());
-
-function onOpen() {
-  CONNECTED = true;
-  BACKOFF = 1;
-  for (var i = 0, l = queue.length; i < l; i++) {
-    queue[i].call(this);
-  }
-  queue = [];
-}
-
-function rebind() {
-  var event_bindings = [];
-  for (var name in event_map) {
-    for (var fn in event_map[name]) {
-      event_bindings.push([name, fn]);
-    }
-  }
-  event_map = {};
-  for (var i = 0, l = event_bindings.length; i < l; i++) {
-    ifConnected(bind, event_bindings[i][0], event_bindings[i][1]);
-  }
-}
-
-function onClose() {
-  CONNECTED = false;
-  CONNECTING = false;
-  rebind();
-}
-
-// TODO: try reconnecting with backoff or alert system of lack of capability.
-function onError() {
-  if (console) {
-    console.warn('Channel not connectable.');
-  }
-}
-
-function onMessage(msg) {
-  var data = JSON.parse(msg.data);
-  if (data.reboot) {
-    socket.close();
-    return;
-  }
-  var fns = event_map[data.name];
-  if (fns && fns.length > 0) {
-    for (var i = 0, l = fns.length; i < l; i++) {
-      fns[i].call(fns[i], data.payload);
-    }
-  }
-}
-
-function connect(callback) {
-  if (callback) queue.push(callback);
-  if (!CONNECTING) {
-    http.POST('/api/events/',
-        {'method': 'token', 'client_id': client_id},
-        function(resp) {
-          var channel = new goog.appengine.Channel(resp.token);
-          socket = channel.open();
-          socket.onopen = onOpen;
-          socket.onmessage = onMessage;
-          socket.onclose = onClose;
-          socket.onerror = onError;
-        }
-    );
-  } else {
-    CONNECTING = true;
-  }
-}
-
-function ifConnected(fn, arg1, arg2) {
-  var _this = this;
-  if (CONNECTED) {
-    fn.call(_this, arg1, arg2);
-  } else {
-    connect(function() {fn.call(_this, arg1, arg2);});
-  }
-}
-
-function errorHandler(msg) {
-  if (msg && msg.error && console) {
-    console.warn(msg.error);
-  }
-}
-
-function trigger(name, payload) {
-  http.POST('/api/events/',
-      {'method': 'trigger',
-       'client_id': client_id,
-       'name': name, 'payload': payload},
-       null,
-       errorHandler);
-}
-
-function bind(name, fn) {
-  event_map[name] = event_map[name] || [];
-  event_map[name].push(fn);
-  http.POST('/api/events/',
-      {'method': 'bind',
-       'client_id': client_id,
-       'name': name},
-       null,
-       errorHandler);
-}
-
-function unbind(name, fn) {
-  if (name) {
-    if (fn) {
-      var index = event_map[name].indexOf(fn);
-      if (index < 0) {
-        throw new Error('No matching function exists.');
-      } else {
-        delete event_map[name][index];
-      }
-    } else {
-      delete event_map[name];
-    }
-  } else {
-    event_map = {};
-  }
-  http.POST('/api/events/',
-      {'method': 'unbind',
-       'client_id': client_id, 'name': name},
-      null,
-      errorHandler);
-}
 
 
 // Exports
 // -------
-return {
-  Model: ModelFactory,
-  User: User,
-  FILTER: FILTER,
-  ORDER: ORDER,
-  AND: AND,
-  OR: OR,
-  trigger: function(name, payload) { ifConnected(trigger, name, payload); },
-  bind: function(name, fn) { ifConnected(bind, name, fn); },
-  unbind: function(name, fn) { ifConnected(unbind, name, fn); },
-  config: config
-};
+tailbone.Model = ModelFactory;
+tailbone.User = User;
+tailbone.FILTER = FILTER;
+tailbone.ORDER = ORDER;
+tailbone.AND = AND;
+tailbone.OR = OR;
+tailbone.config = config;
 
 })(this, this.document);

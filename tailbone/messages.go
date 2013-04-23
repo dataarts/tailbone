@@ -18,7 +18,6 @@ import (
 	"appengine"
 	"appengine/channel"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -64,9 +63,9 @@ func Messages(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			channel.Send(c, to, string(body))
 			return Dict{}, nil
 		}
-		return nil, errors.New("Must provide a 'to' client_id.")
+		return nil, AppError{"Must provide a 'to' client_id."}
 	}
-	return nil, errors.New("Undefined method.")
+	return nil, AppError{"Undefined method."}
 }
 
 func init() {

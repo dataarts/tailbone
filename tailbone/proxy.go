@@ -54,6 +54,9 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Cache-Control", "public, max-age=300")
 	// w.Header().Set("Pragma", "Public")
 
+	// Cors
+	// w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	// Reverse Proxy
 	r.Header.Del("Content-Length")
 	revProxy.ServeHTTP(w, r)

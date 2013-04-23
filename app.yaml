@@ -4,6 +4,10 @@ runtime: go
 api_version: go1
 
 handlers:
+  - url: /tailbone.(.*).js
+    static_files: tailbone/js/tailbone.\1.js
+    upload: tailbone/js/.*
+
   - url: /_ah/channel/(dis)?connected/
     script: _go_app
 

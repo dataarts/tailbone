@@ -19,7 +19,6 @@ import (
 	"appengine/datastore"
 	"appengine/user"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -139,7 +138,7 @@ func ParseRestfulPath(str string) (kind, id string, err error) {
 	case 4:
 		id = s[3]
 	default:
-		err = errors.New(fmt.Sprintf("Unparsable url: %s", str))
+		err = AppError{fmt.Sprintf("Unparsable url: %s", str)}
 	}
 	return
 }
@@ -169,7 +168,7 @@ func parseFilter(q *datastore.Query, filter string) (*datastore.Query, error) {
 	if len(composite) == 0 {
 		f := re_filter.FindStringSubmatch(filter)
 		if len(f) != 4 {
-			return nil, errors.New("Incorrectly formated filter.")
+			return nil, AppError{"Incorrectly formated filter."}
 		}
 		var err error
 		q, err = appendFilter(q, f[1], f[2], f[3])
@@ -177,7 +176,7 @@ func parseFilter(q *datastore.Query, filter string) (*datastore.Query, error) {
 			return nil, err
 		}
 	} else {
-		return nil, errors.New("Composite filters like OR/AND are not supported in Go version.")
+		return nil, AppError{"Composite filters like OR/AND are not supported in Go version."}
 	}
 	return q, nil
 }
@@ -187,7 +186,7 @@ func PopulateQuery(q *datastore.Query, r *http.Request) (*datastore.Query, error
 	if params, ok := query["params"]; ok {
 		_ = params
 		log.Printf("%s", params)
-		return nil, errors.New("Query by params, not yet supported.")
+		return nil, AppError{"Query by params, not yet supported."}
 	} else {
 		if filters, ok := query["filter"]; ok {
 			var err error
@@ -212,6 +211,7 @@ func ParseBody(r *http.Request) (Dict, error) {
 	switch contentType {
 	case "application/json":
 		var data Dict
+		defer r.Body.Close()
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&data)
 		if err != nil {
@@ -219,9 +219,9 @@ func ParseBody(r *http.Request) (Dict, error) {
 		}
 		return data, nil
 	case "application/x-www-form-urlencoded":
-		return nil, errors.New("Unsupported Content-Type.")
+		return nil, AppError{"Unsupported Content-Type."}
 	}
-	return nil, errors.New("Unsupported Content-Type.")
+	return nil, AppError{"Unsupported Content-Type."}
 }
 
 func newKey(c appengine.Context, kind, id string, parent *datastore.Key) *datastore.Key {
@@ -331,7 +331,7 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			if kind == "users" && id == "me" {
 				u := user.Current(c)
 				if u == nil {
-					return nil, errors.New("Login Required.")
+					return nil, LoginError{}
 				}
 				id = convertStrToNum(u.ID)
 			}
@@ -345,14 +345,14 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 						return User(*u), nil
 					}
 				}
-				return nil, errors.New("No model found with that Id.")
+				return nil, AppError{"No model found with that Id."}
 			}
 			return item, nil
 		}
 	case "POST", "PUT", "DELETE":
 		u := user.Current(c)
 		if u == nil {
-			return nil, errors.New("Login Required.")
+			return nil, LoginError{}
 		}
 		switch r.Method {
 		case "POST", "PUT":
@@ -395,7 +395,7 @@ func Restful(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			return Dict{}, nil
 		}
 	}
-	return nil, errors.New("Undefined method.")
+	return nil, AppError{"Undefined method."}
 }
 
 type User user.User
@@ -410,21 +410,6 @@ func (u User) Write(c appengine.Context, w http.ResponseWriter) {
 	})
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	url, _ := user.LoginURL(c, "/")
-	http.Redirect(w, r, url, http.StatusFound)
-}
-
-func Logout(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	url, _ := user.LogoutURL(c, "/")
-	http.Redirect(w, r, url, http.StatusFound)
-}
-
 func init() {
-	http.HandleFunc("/api/login", Login)
-	http.HandleFunc("/api/login.html", Login)
-	http.HandleFunc("/api/logout", Logout)
 	http.HandleFunc("/api/", Json(Restful))
 }

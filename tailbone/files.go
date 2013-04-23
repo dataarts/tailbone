@@ -19,7 +19,6 @@ import (
 	"appengine/blobstore"
 	"appengine/image"
 	"encoding/json"
-	"errors"
 	"net/http"
 )
 
@@ -81,7 +80,7 @@ func Files(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 			}
 			return blobInfoList(blobs), nil
 		}
-		return nil, errors.New("You must make a GET call to /api/files to get a POST url.")
+		return nil, AppError{"You must make a GET call to /api/files to get a POST url."}
 	case "DELETE":
 		err = blobstore.Delete(c, appengine.BlobKey(id))
 		if err != nil {
@@ -89,7 +88,7 @@ func Files(c appengine.Context, r *http.Request) (ResponseWritable, error) {
 		}
 		return Dict{}, nil
 	}
-	return nil, errors.New("Undefined method.")
+	return nil, AppError{"Undefined method."}
 }
 
 func init() {

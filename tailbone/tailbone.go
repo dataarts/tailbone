@@ -16,9 +16,12 @@ package tailbone
 
 import (
 	"appengine"
+	"appengine/user"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 )
 
 type HttpHandler func(w http.ResponseWriter, r *http.Request)
@@ -30,6 +33,22 @@ type List []interface{}
 
 type ResponseWritable interface {
 	Write(c appengine.Context, w http.ResponseWriter)
+}
+
+type AppError struct {
+	What string
+}
+
+func (e AppError) Error() string {
+	return e.What
+}
+
+type LoginError struct {
+	AppError
+}
+
+func (e LoginError) Error() string {
+	return "Login Required."
 }
 
 func (d Dict) scoped() {
@@ -52,7 +71,6 @@ func (resp Dict) Write(c appengine.Context, w http.ResponseWriter) {
 
 func (resp DictList) Write(c appengine.Context, w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
-	c.Infof("WRITING")
 	for _, d := range resp {
 		d.scoped()
 	}
@@ -65,8 +83,51 @@ func Json(h RequestHandler) HttpHandler {
 		c := appengine.NewContext(r)
 		resp, err := h(c, r)
 		if err != nil {
-			resp = Dict{"type": "AppError", "message": err.Error()}
+			switch err.(type) {
+			case LoginError:
+				resp = Dict{
+					"type":    "LoginError",
+					"message": err.Error(),
+				}
+			case AppError:
+				resp = Dict{
+					"type":    "AppError",
+					"message": err.Error(),
+				}
+			}
 		}
 		resp.Write(c, w)
+	}
+}
+
+func Login(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	redirect := r.URL.Query().Get("redirect")
+	url, _ := user.LoginURL(c, redirect)
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	redirect := r.URL.Query().Get("redirect")
+	url, _ := user.LogoutURL(c, redirect)
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+var parseTestUrl = regexp.MustCompile("/api/test/(.*)")
+
+func serveJsTests(w http.ResponseWriter, r *http.Request) {
+	s := parseTestUrl.FindStringSubmatch(r.URL.Path)
+	if len(s) != 2 {
+		return
+	}
+	http.ServeFile(w, r, fmt.Sprintf("tailbone/test/%s.html", s[1]))
+}
+
+func init() {
+	http.HandleFunc("/api/login", Login)
+	http.HandleFunc("/api/logout", Logout)
+	if appengine.IsDevAppServer() {
+		http.HandleFunc("/api/test/", serveJsTests)
 	}
 }
