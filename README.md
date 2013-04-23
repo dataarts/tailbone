@@ -112,6 +112,28 @@ javascript application framework.
     GET /api/{modelname}/?filter={propertyname==somevalue}&order={propertyname}&projection={propertyname1,propertyname2}
       Query a type.
 
+### Nested resources:
+
+    POST /api/{parent_modelname}/{parent_id}/{modelname}/
+      Creates a (nested) object as child of a given parent model.
+      This will fail is the parent object does not exist
+
+    PUT or POST /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Updates an nested object, does a complete overwrite of the properites. This does not do a partial patch.
+      This will fail is the parent object does not exist
+
+    GET /api/{parent_modelname}/{parent_id}/{modelname}/
+      Get a list of child objects for a given parent object.
+      This will fail is the parent object does not exist
+
+    GET /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Get a specific nested object.
+
+    DELETE /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Deletes a specific nested object.
+      This will fail is the parent object does not exist
+
+
 Any `GET` request can take an optional list of properties to return, the query will use those to make a projection query which will only return those properties from the model. The format of the projection is a comma seperated list of properties: `projection=propertyname1,propertyname2,propertyname3`
 
 __N.B:__
