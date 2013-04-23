@@ -186,7 +186,22 @@ class TestCase(unittest.TestCase):
     todo_data = {"text": "example"}
     response, response_data = self.create('/api/projects/999999/todos/', todo_data)
     self.assertJsonResponseData(response, {u'message': u'No projects with id 999999.', u'error': u'AppError'})
-
+    
+  # now DELETE a nested resource BY ID
+    request = webapp2.Request.blank('/api/projects/'+str(proj_id)+'/todos/'+str(nested_todo_id_2))
+    request.headers["Content-Type"] = "application/json"
+    request.method = "DELETE"
+    response = request.get_response(restful.app)
+    self.assertEqual(response.status_int, 200)
+    self.assertJsonResponseData(response, {})
+    
+    # a nested GET should now return one object less
+    request = webapp2.Request.blank('/api/todos/')
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 2)  # was 3
+  
+  
   def test_query_all(self):
     num_items = 3
     data = {"text": "example"}

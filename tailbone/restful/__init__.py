@@ -417,6 +417,21 @@ class RestfulHandler(BaseHandler):
     else:
       return query(self, cls, extra_filter)
 
+  def _delete(self, model, id):
+    if not id:
+      raise AppError("Must provide an id.")
+    u = current_user(required=True)
+    if model == "users":
+      if id != "me" and id != u:
+        raise AppError("Id must be the current " +
+            "user_id or me. User {} tried to modify user {}.".format(u,id))
+      id = u
+    id = parse_id(id)
+    key = ndb.Key(model.lower(), id)
+    key.delete()
+    search.delete(key)
+    return {}
+
   @as_json
   def get(self, model, id):
     return self._get(model, id)
@@ -479,29 +494,33 @@ class RestfulHandler(BaseHandler):
     return self.set_or_create(model, id)
   @as_json
   def delete(self, model, id):
-    if not id:
-      raise AppError("Must provide an id.")
-    u = current_user(required=True)
-    if model == "users":
-      if id != "me" and id != u:
-        raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
-      id = u
-    id = parse_id(id)
-    key = ndb.Key(model.lower(), id)
-    key.delete()
-    search.delete(key)
-    return {}
+    return self._delete(model, id)
+
 
 class NestedRestfulHandler(RestfulHandler):
   @as_json
   def get(self, parent_model, parent_id, model, id):
     belongs_to_filter = "{}=={}".format(format_as_model_field(parent_model), format_as_model_reference(parent_id))
     return self._get(model, id, extra_filter=belongs_to_filter)
-
+  
   @as_json
   def post(self, parent_model, parent_id, model, id):
     return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def patch(self, parent_model, parent_id, model, id):
+    # TODO: implement this differently to do partial update
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def put(self, parent_model, parent_id, model, id):
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def delete(self, parent_model, parent_id, model, id):
+    parent_obj = self._get(parent_model, parent_id)
+    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
+    return super(NestedRestfulHandler, self)._delete(model,id)
 
 class LoginHandler(webapp2.RequestHandler):
   def get(self):
