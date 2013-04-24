@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="//code.jquery.com/qunit/qunit-git.js" type="text/javascript"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+var models = '/api/todos/';
+
+module('Authentication');
+asyncTest('Login', function() {
+  http.GET('/api/users/me', function(d) {
+    ok(d.Id !== undefined, 'Has Id, ' + d.Id);
+    ok(d.email !== undefined, 'Has email, ' + d.email);
+    start();
+  }, function(err) {
+    if(err.error !== 'LoginError') {
+      throw new Error('Fatal login error message is incorrect.')
+    }
+    var url = window.location.href;
+    window.location.href = '/api/login?continue=' + url;
+  });
+});
+
+module('Creating Models'); 
+asyncTest('String field', function() {
+  var todo = {text: 'stuff'};
+  http.POST(models, todo, function(d) {
+    ok(d.text == 'stuff', 'Created model with string property.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('Number field', function() {
+  var todo = {count: 33};
+  http.POST(models, todo, function(d) {
+    ok(d.count == 33, 'Saved number.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('Float field', function() {
+  var todo = {count: 33.233};
+  http.POST(models, todo, function(d) {
+    ok(d.count == 33.233, 'Saved float.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('Large text', function() {
+  var text = new Array(1000).join("loremipsum");
+  var todo = {text: text};
+  http.POST(models, todo, function(d) {
+    ok(d.text == text, 'Saved large text.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('Complex object', function() {
+  var todo = {obj: {text: 'stuff'}};
+  http.POST(models, todo, function(d) {
+    todo.owners = d.owners;
+    todo.viewers = d.viewers;
+    todo.Id = d.Id;
+    deepEqual(d, todo, 'Saved a complex object')
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('GeoPt', function() {
+  var todo = {pos: {lat: 33.3, lon: 44.4}};
+  http.POST(models, todo, function(d) {
+    deepEqual(d.pos, todo.pos, 'Saved GeoPt.')
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('Datetime', function() {
+  var todo = {date: new Date()};
+  http.POST(models, todo, function(d) {
+    deepEqual(d.date, todo.date, 'Saved datetime.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+
+module('Retrieving Models');
+asyncTest('Get by Id', function() {
+  var todo = {text: 'stuff'};
+  http.POST(models, todo, function(d) {
+    http.GET(models + d.Id, function(d) {
+      ok(d.text == 'stuff', 'Fetched model.');
+      http.DELETE(models + d.Id);
+      start();
+    });
+  });
+});
+
+module('Delete Models');
+asyncTest('Delete by Id', function() {
+  http.POST(models, {}, function(d) {
+    http.DELETE(models + d.Id, function(d) {
+      ok(d.error === undefined, "No errors.");
+      start();
+    });
+  });
+});
+
+module('Validation');
+
+  </script>
+  </body>
+</html>

@@ -22,8 +22,9 @@ from unittest import loader
 from unittest import runner
 
 for path in os.environ['PATH'].split(':'):
-  if 'dev_appserver.py' in os.listdir(path):
-    break
+  if os.path.exists(path):
+    if 'dev_appserver.py' in os.listdir(path):
+      break
 else:
   raise RuntimeError("Couldn't find dev_appserver.py")
 
@@ -37,9 +38,11 @@ current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.join(current, '..')
 sys.path.append(parent)
 
-import appcfg
-sys.path.extend(appcfg.EXTRA_PATHS)
-
+# import appcfg
+# sys.path.extend(appcfg.EXTRA_PATHS)
+# as of 1.7.7 fix path with dev_appserver
+import dev_appserver
+dev_appserver.fix_sys_path()
 
 """
 Some Ideas for what this util could be useful for besides testing

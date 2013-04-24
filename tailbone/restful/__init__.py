@@ -446,48 +446,7 @@ class RestfulHandler(BaseHandler):
     search.delete(key)
     return {}
 
-class LoginHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_login_url(
-          self.request.get("url", default_value="/")))
 
-class LogoutHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_logout_url(
-          self.request.get("url", default_value="/")))
-
-
-# Some Extra HTML handlers
-# ------------------------
-class LoginPopupHandler(webapp2.RequestHandler):
-  def get(self):
-    u = current_user()
-    if u:
-      m = users.get_by_id(u)
-      if not m:
-        m = users(key=ndb.Key('users', u))
-      msg = m.to_dict()
-    else:
-      msg = None
-    self.response.out.write("""
-<!doctype html>
-<html>
-<head>
-  <title></title>
-</head>
-<body>
-If this window does not close, please click <a id="origin">here</a> to refresh.
-<script type="text/javascript">
-  var targetOrigin = window.location.origin || ( window.location.protocol + "//" + window.location.host );
-  document.querySelector("#origin").href = targetOrigin;
-  window.opener.postMessage({}, targetOrigin);
-  window.close();
-</script>
-</body>
-</html>
-""".format({"type":"Login", "payload": msg}))
 
 # Load an optional validation.json
 # --------------------------------
@@ -512,10 +471,5 @@ except IOError:
   logging.info("validation.json doesn't exist no model validation will be preformed.")
 
 app = webapp2.WSGIApplication([
-  (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}login.html".format(PREFIX), LoginPopupHandler),
-  (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
-  ], debug=DEBUG)
-
-
+], debug=DEBUG)

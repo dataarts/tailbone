@@ -20,6 +20,10 @@ JSON.parse = function(json) {
     return value;
   });
 };
+if (jQuery !== undefined) {
+  jQuery.parseJSON = JSON.parse;
+  jQuery.ajaxSettings.converters["text json"] = JSON.parse;
+}
 
 // Since all of this is ajax there is a simple wrapper around $.ajax.
 // If you don't have jQuery already on your site you will need to install
