@@ -38,6 +38,14 @@ asyncTest('String field', function() {
     start();
   });
 });
+asyncTest('Boolean field', function() {
+  var todo = {text: true};
+  http.POST(models, todo, function(d) {
+    ok(d.text == true, 'Created model with boolean property.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
 asyncTest('Number field', function() {
   var todo = {count: 33};
   http.POST(models, todo, function(d) {
@@ -59,6 +67,17 @@ asyncTest('Large text', function() {
   var todo = {text: text};
   http.POST(models, todo, function(d) {
     ok(d.text == text, 'Saved large text.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
+asyncTest('List', function() {
+  var todo = {text: ['stuff','thing']};
+  http.POST(models, todo, function(d) {
+    todo.owners = d.owners;
+    todo.viewers = d.viewers;
+    todo.Id = d.Id;
+    deepEqual(d, todo, 'Saved a list')
     http.DELETE(models + d.Id);
     start();
   });
@@ -90,6 +109,29 @@ asyncTest('Datetime', function() {
     start();
   });
 });
+asyncTest('Combined', function() {
+  var todo = {
+    f: 333.000034,
+    i: 322332212,
+    list: ["stuff", "and", "things"],
+    pos: {lat: 33.3, lon: 44.4},
+    obj: {
+      word: "words",
+      num: 33.4
+    },
+    title: "title",
+    text: new Array(1000).join("loremipsum"),
+    date: new Date()
+  };
+  http.POST(models, todo, function(d) {
+    todo.owners = d.owners;
+    todo.viewers = d.viewers;
+    todo.Id = d.Id;
+    deepEqual(d, todo, 'Saved a combined complex object.');
+    http.DELETE(models + d.Id);
+    start();
+  });
+});
 
 module('Retrieving Models');
 asyncTest('Get by Id', function() {
@@ -102,6 +144,66 @@ asyncTest('Get by Id', function() {
     });
   });
 });
+asyncTest('Simple filters', function() {
+  var todo = {
+    f: 333.000034,
+    i: 322332212,
+    title: "title"
+  };
+  http.POST(models, todo, function(d) {
+    var counter = 9;
+    function done() { 
+      if (--counter <= 0) {
+        http.DELETE(models + d.Id);
+        start();
+      }
+    }
+    var expected = [d];
+    setTimeout(function() {
+      $.each(todo, function(k, v) {
+        var filter1 = k + '==' + v;
+        http.GET(models + '?filter=' + filter1, function(d) {
+          deepEqual(d, expected, 'Correctly queried with filter: ' + filter1);
+          done();
+        });
+        var filter2 = k + '<' + (v + 1);
+        http.GET(models + '?filter=' + filter2, function(d) {
+          deepEqual(d, expected, 'Correctly queried with filter: ' + filter2);
+          done();
+        });
+        var filter3 = k + '>' + (v + 1);
+        http.GET(models + '?filter=' + filter3, function(d) {
+          deepEqual(d, [], 'Correctly queried with filter: ' + filter3);
+          done();
+        });
+      });
+    }, 500);
+  });
+});
+asyncTest('Subobject', function() {
+  var todo = {
+    universe: {
+      ans: 42
+    }
+  };
+  http.POST(models, todo, function(d) {
+    var filter = 'universe.ans==42';
+    var expected = [d];
+    var id = d.Id;
+    setTimeout(function() {
+      http.GET(models + '?filter=' + filter, function(d) {
+        deepEqual(d, expected, 'Correctly queried with filter: ' + filter);
+        http.DELETE(models + id);
+        start();
+      });
+    }, 500);
+  });
+});
+// asyncTest('AND filter', function() {});
+// asyncTest('OR filter', function() {});
+// asyncTest('projection', function() {});
+// asyncTest('order', function() {});
+// asyncTest('By params JSON string', function() {});
 
 module('Delete Models');
 asyncTest('Delete by Id', function() {
@@ -112,6 +214,8 @@ asyncTest('Delete by Id', function() {
     });
   });
 });
+
+module('Users');
 
 module('Validation');
 
