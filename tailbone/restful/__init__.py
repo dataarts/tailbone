@@ -56,17 +56,10 @@ from tailbone import search
 import datetime
 import json
 import logging
-import os
 import re
-import sys
-import time
-import urllib
 import webapp2
-import yaml
-from webapp2_extras import routes
 
 from google.appengine import api
-from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 
 
@@ -547,19 +540,6 @@ except IOError:
   logging.info("validation.json doesn't exist no model validation will be performed.")
 
 app = webapp2.WSGIApplication([
-<<<<<<< HEAD
+  (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
 ], debug=DEBUG)
-=======
-                                (r"{}login".format(PREFIX), LoginHandler),
-                                (r"{}login.html".format(PREFIX), LoginPopupHandler),
-                                (r"{}logout" .format(PREFIX), LogoutHandler),
-                                # nested resources /PREFIX/<parent_model>/<parent_id)/<model>/<id>
-                                (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),
-                                # the nested route should be before the simple resource path
-                                (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
-                                ], debug=DEBUG)
-
-
-
->>>>>>> 0f1061c679ae4c90fc19c75a95224057934a60eb
