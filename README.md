@@ -53,7 +53,7 @@ necessarily rely on that part just yet.
 
 This is a side project made out of past experiences. That being said there are a few rough edges.
 Also working on a `Go` branch with the same api. If you want to contribute please add a test for any fix or feature before you file a pull request.
-For the testing you need to start the dev server by running `dev_appserver.py .` and
+For the testing you need to start the dev server by running `dev_appserver.py --clear_datastore=yes .` and
 browsing to `http://localhost:8080/api/test/(testname)` for example `http://localhost:8080/api/test/restful`. These are [QUnit](http://qunitjs.com/) JavaScript tests and should be the
 same in either go, python or any future language to support consistency of
 any implementation of the api. Note, these tests modify the `db`, and can only be run locally.
@@ -132,6 +132,7 @@ javascript application framework.
       Deletes a specific nested object.
       This will fail is the parent object does not exist
 
+Note: this method of creating nested resources creates seperate models for the nested resource, because it is a document store, if you only have a few items to be nested (for example list of mailing addresses for a contact) you can just include them in your model directly as a list of objects.
 
 Any `GET` request can take an optional list of properties to return, the query will use those to make a projection query which will only return those properties from the model. The format of the projection is a comma seperated list of properties: `projection=propertyname1,propertyname2,propertyname3`
 
@@ -166,6 +167,8 @@ JSON.parse = function(json) {
   });
 };
 ```
+
+Note: this is available in `/tailbone.base.js`.
 
 ### Access Control:
 
