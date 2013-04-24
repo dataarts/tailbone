@@ -70,11 +70,14 @@ re_type = type(re_public)
 MODELREF_PREFIX = "R_"
 MODELKEY_PREFIX = "BELONGS_TO_"
 
+
 def format_as_model_field(model_name):
   return "{}{}".format(MODELKEY_PREFIX, model_name)
 
+
 def format_as_model_reference(model_id):
   return "{}{}".format(MODELREF_PREFIX, model_id)
+
 
 # Model
 # -----
@@ -106,7 +109,6 @@ class ScopedExpando(ndb.Expando):
     if u and (u in owners or u in viewers):
       return True
     return False
-
 
   def to_dict(self, *args, **kwargs):
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
@@ -149,9 +151,10 @@ class users(ndb.Expando):
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
 
+
 def reflective_create(cls, data):
   m = cls()
-  for k,v in data.iteritems():
+  for k, v in data.iteritems():
     m._default_indexed = True
     t = type(v)
     if t in [unicode, str]:
@@ -160,7 +163,7 @@ def reflective_create(cls, data):
       elif _reISO.match(v):
         try:
           values = map(int, re.split('[^\d]', v)[:-1])
-          values[-1] *= 1000 # to account for python using microseconds vs js milliseconds
+          values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
           v = datetime.datetime(*values)
         except ValueError as e:
           logging.info("{} key:'{}' value:{}".format(e, k, v))
@@ -197,13 +200,14 @@ def clean_data(data):
       del data[key]
   return data
 
+
 # Parse the id either given or extracted from the data.
 def parse_id(id, data_id=None):
   try:
     id = int(id)
   except:
     pass
-  if data_id != None:
+  if not data_id:
     if id:
       if data_id != id:
         raise AppError("Url id {%s} must match object id {%s}" % (id, data_id))
@@ -214,6 +218,7 @@ def parse_id(id, data_id=None):
 re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
+
 
 # Convert a value to its inferred python type. Note all numbers are stored as floats which by cause
 # precision issues in odd cases.
@@ -232,6 +237,7 @@ def xconvert_value(value):
         pass
   return value
 
+
 def convert_value(value):
   if value == "true":
     value = True
@@ -244,10 +250,12 @@ def convert_value(value):
       pass
   return value
 
+
 def convert_opsymbol(opsymbol):
   if opsymbol == "==":
     opsymbol = "="
   return opsymbol
+
 
 # Construct an ndb filter from the query args. Example:
 #
@@ -268,6 +276,7 @@ def construct_filter(filter_str):
     return construct_filter("AND({})".format(filter_str))
   raise AppError("Filter format is unsupported: {}".format(filter_str))
 
+
 # Construct an ndb order from the query args.
 def construct_order(cls, o):
   neg = True if o[0] == "-" else False
@@ -278,15 +287,16 @@ def construct_order(cls, o):
     p = ndb.GenericProperty(o)
   return -p if neg else p
 
+
 # Construct the filter from a json object.
 def construct_filter_json(f):
   t = type(f)
   if t == list:
     if f[0] == "AND":
-      filters = [construct_filter_json(f) for f in f[1:]]
+      filters = [construct_filter_json(x) for x in f[1:]]
       return ndb.query.AND(*filters)
     elif f[0] == "OR":
-      filters = [construct_filter_json(f) for f in f[1:]]
+      filters = [construct_filter_json(x) for x in f[1:]]
       return ndb.query.OR(*filters)
     else:
       name, opsymbol, value = f
@@ -294,22 +304,25 @@ def construct_filter_json(f):
   else:
     return f
 
+
 # Construct a query from a json object which includes the filter and order parameters
 def construct_query_from_json(cls, filters, orders):
   q = cls.query()
   if filters:
     q = q.filter(construct_filter_json(filters))
   if orders:
-    q = q.order(*[construct_order(cls,o) for o in orders])
+    q = q.order(*[construct_order(cls, o) for o in orders])
   return q
+
 
 # Construct a query from url args
 def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
   # TODO(doug) correctly auto append orders when necessary like on a multiselect/OR
-  q = q.order(*[construct_order(cls,o) for oo in orders for o in re_split.split(oo)])
+  q = q.order(*[construct_order(cls, o) for oo in orders for o in re_split.split(oo)])
   return q
+
 
 # Determine which kind of query parameters are passed in and construct the query.
 # Includes paginated results in the response Headers for "More", "Next-Cursor", and "Reverse-Cursor"
@@ -350,6 +363,7 @@ def query(self, cls, extra_filter=None):
     self.response.headers["Reverse-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
 
+
 # Helper function to validate the date recursively if needed.
 def _validate(validator, data, ignored=None):
   if isinstance(validator, re_type):
@@ -366,10 +380,11 @@ def _validate(validator, data, ignored=None):
   else:
     raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
 
+
 # This validates the data see validation.template.json for an example.
 # Must create a validation.json in the root of your application.
 def validate(cls_name, data):
-  properties = data.keys()
+  # properties = data.keys()
   # confirm the format of any tailbone specific types
   for name in ["owners", "viewers"]:
     val = data.get(name)
@@ -382,6 +397,7 @@ def validate(cls_name, data):
     if not validations:
       raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
     _validate(validations, data, ["owners", "viewers"])
+
 
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
@@ -417,7 +433,7 @@ class RestfulHandler(BaseHandler):
     if model == "users":
       if id != "me" and id != u:
         raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
+                       "user_id or me. User {} tried to modify user {}.".format(u, id))
       id = u
     id = parse_id(id)
     key = ndb.Key(model.lower(), id)
@@ -434,7 +450,7 @@ class RestfulHandler(BaseHandler):
     if model == "users":
       if not (id == "me" or id == "" or id == u):
         raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
+                       "user_id or me. User {} tried to modify user {}.".format(u, id))
       id = u
       cls = users
     else:
@@ -470,21 +486,23 @@ class RestfulHandler(BaseHandler):
     return m.to_dict()
 
   def nested_set_or_create(self, model, id, parent_model, parent_id):
-    parent_obj = self._get(parent_model, parent_id)
+    self._get(parent_model, parent_id)
     # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
-    return self.set_or_create(model,id, parent_model, parent_id)
-
+    return self.set_or_create(model, id, parent_model, parent_id)
 
   @as_json
   def post(self, model, id):
     return self.set_or_create(model, id)
+
   @as_json
   def patch(self, model, id):
     # TODO: implement this differently to do partial update
     return self.set_or_create(model, id)
+
   @as_json
   def put(self, model, id):
     return self.set_or_create(model, id)
+
   @as_json
   def delete(self, model, id):
     return self._delete(model, id)
@@ -495,26 +513,25 @@ class NestedRestfulHandler(RestfulHandler):
   def get(self, parent_model, parent_id, model, id):
     belongs_to_filter = "{}=={}".format(format_as_model_field(parent_model), format_as_model_reference(parent_id))
     return self._get(model, id, extra_filter=belongs_to_filter)
-  
+
   @as_json
   def post(self, parent_model, parent_id, model, id):
     return self.nested_set_or_create(model, id, parent_model, parent_id)
-  
+
   @as_json
   def patch(self, parent_model, parent_id, model, id):
     # TODO: implement this differently to do partial update
     return self.nested_set_or_create(model, id, parent_model, parent_id)
-  
+
   @as_json
   def put(self, parent_model, parent_id, model, id):
     return self.nested_set_or_create(model, id, parent_model, parent_id)
-  
+
   @as_json
   def delete(self, parent_model, parent_id, model, id):
-    parent_obj = self._get(parent_model, parent_id)
+    self._get(parent_model, parent_id)
     # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
-    return super(NestedRestfulHandler, self)._delete(model,id)
-
+    return super(NestedRestfulHandler, self)._delete(model, id)
 
 
 # Load an optional validation.json
