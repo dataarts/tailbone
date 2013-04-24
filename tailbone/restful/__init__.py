@@ -63,6 +63,7 @@ import time
 import urllib
 import webapp2
 import yaml
+from webapp2_extras import routes
 
 from google.appengine import api
 from google.appengine.ext import deferred
@@ -71,6 +72,16 @@ from google.appengine.ext import ndb
 
 re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
+
+# mark all references to other models by this prefix
+MODELREF_PREFIX = "R_"
+MODELKEY_PREFIX = "BELONGS_TO_"
+
+def format_as_model_field(model_name):
+  return "{}{}".format(MODELKEY_PREFIX, model_name)
+
+def format_as_model_reference(model_id):
+  return "{}{}".format(MODELREF_PREFIX, model_id)
 
 # Model
 # -----
@@ -173,8 +184,10 @@ def reflective_create(cls, data):
       if recurse:
         subcls = unicode.encode(k, "ascii", errors="ignore")
         v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
-    elif t in [int, float]:
+    elif t == float:
       v = float(v)
+    elif t == int:
+      v = float(v)  # should we do this !?? int(v)
     setattr(m, k, v)
   return m
 
@@ -210,7 +223,22 @@ re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
 # Convert a value to its inferred python type. Note all numbers are stored as floats which by cause
-# percision issues in odd cases.
+# precision issues in odd cases.
+def xconvert_value(value):
+  if value == "true":
+    value = True
+  elif value == "false":
+    value = False
+  else:
+    try:
+      value = int(value)
+    except:
+      try:
+        value = float(value)
+      except:
+        pass
+  return value
+
 def convert_value(value):
   if value == "true":
     value = True
@@ -292,7 +320,7 @@ def construct_query_from_url_args(cls, filters, orders):
 
 # Determine which kind of query parameters are passed in and construct the query.
 # Includes paginated results in the response Headers for "More", "Next-Cursor", and "Reverse-Cursor"
-def query(self, cls):
+def query(self, cls, extra_filter=None):
   params = self.request.get("params")
   if params:
     params = json.loads(params)
@@ -308,6 +336,8 @@ def query(self, cls):
     projection = self.request.get("projection")
     projection = projection.split(",") if projection else None
     filters = self.request.get_all("filter")
+    if extra_filter:
+      filters.append(unicode(extra_filter))
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
   cursor = ndb.Cursor.from_websafe_string(cursor) if cursor else None
@@ -363,8 +393,7 @@ def validate(cls_name, data):
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
-  @as_json
-  def get(self, model, id):
+  def _get(self, model, id, extra_filter=None):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
@@ -386,8 +415,28 @@ class RestfulHandler(BaseHandler):
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
     else:
-      return query(self, cls)
-  def set_or_create(self, model, id):
+      return query(self, cls, extra_filter)
+
+  def _delete(self, model, id):
+    if not id:
+      raise AppError("Must provide an id.")
+    u = current_user(required=True)
+    if model == "users":
+      if id != "me" and id != u:
+        raise AppError("Id must be the current " +
+            "user_id or me. User {} tried to modify user {}.".format(u,id))
+      id = u
+    id = parse_id(id)
+    key = ndb.Key(model.lower(), id)
+    key.delete()
+    search.delete(key)
+    return {}
+
+  @as_json
+  def get(self, model, id):
+    return self._get(model, id)
+
+  def set_or_create(self, model, id, parent_model=None, parent_id=None):
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
@@ -405,6 +454,12 @@ class RestfulHandler(BaseHandler):
       old_model = cls.get_by_id(id)
       if old_model and not old_model.can_write(u):
         raise AppError("You do not have sufficient privileges.")
+
+    if parent_model and parent_id:
+      # generated IDs are LONGs of we store them as floats we mis precision for later reference
+      # therefore we force the datatype to be a STRING
+      data[format_as_model_field(parent_model)] = format_as_model_reference(parent_id)
+
     m = reflective_create(cls, data)
     if id:
       m.key = ndb.Key(model, id)
@@ -417,9 +472,16 @@ class RestfulHandler(BaseHandler):
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)
-      raise BreakError()
+      # raise BreakError() # why is this here ??
       return
     return m.to_dict()
+
+  def nested_set_or_create(self, model, id, parent_model, parent_id):
+    parent_obj = self._get(parent_model, parent_id)
+    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
+    return self.set_or_create(model,id, parent_model, parent_id)
+
+
   @as_json
   def post(self, model, id):
     return self.set_or_create(model, id)
@@ -432,19 +494,33 @@ class RestfulHandler(BaseHandler):
     return self.set_or_create(model, id)
   @as_json
   def delete(self, model, id):
-    if not id:
-      raise AppError("Must provide an id.")
-    u = current_user(required=True)
-    if model == "users":
-      if id != "me" and id != u:
-        raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
-      id = u
-    id = parse_id(id)
-    key = ndb.Key(model.lower(), id)
-    key.delete()
-    search.delete(key)
-    return {}
+    return self._delete(model, id)
+
+
+class NestedRestfulHandler(RestfulHandler):
+  @as_json
+  def get(self, parent_model, parent_id, model, id):
+    belongs_to_filter = "{}=={}".format(format_as_model_field(parent_model), format_as_model_reference(parent_id))
+    return self._get(model, id, extra_filter=belongs_to_filter)
+  
+  @as_json
+  def post(self, parent_model, parent_id, model, id):
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def patch(self, parent_model, parent_id, model, id):
+    # TODO: implement this differently to do partial update
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def put(self, parent_model, parent_id, model, id):
+    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  
+  @as_json
+  def delete(self, parent_model, parent_id, model, id):
+    parent_obj = self._get(parent_model, parent_id)
+    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
+    return super(NestedRestfulHandler, self)._delete(model,id)
 
 
 
@@ -468,8 +544,22 @@ try:
 except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
-  logging.info("validation.json doesn't exist no model validation will be preformed.")
+  logging.info("validation.json doesn't exist no model validation will be performed.")
 
 app = webapp2.WSGIApplication([
+<<<<<<< HEAD
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
 ], debug=DEBUG)
+=======
+                                (r"{}login".format(PREFIX), LoginHandler),
+                                (r"{}login.html".format(PREFIX), LoginPopupHandler),
+                                (r"{}logout" .format(PREFIX), LogoutHandler),
+                                # nested resources /PREFIX/<parent_model>/<parent_id)/<model>/<id>
+                                (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),
+                                # the nested route should be before the simple resource path
+                                (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
+                                ], debug=DEBUG)
+
+
+
+>>>>>>> 0f1061c679ae4c90fc19c75a95224057934a60eb

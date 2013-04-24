@@ -22,7 +22,7 @@ all for free. It even supports large file uploads and serving via the [Google Bl
 ### An Overview of an Example Use Case
 
 Draw an image with `canvas` via JavaScript. Upload it via `ajax` and serve variable
-sized thumbnails efficiently of that image. There is a simple example in the [QUnit tests](https://github.com/dataarts/tailbone/blob/master/tailbone/js/test_restful.html).
+sized thumbnails efficiently of that image. There is a simple example in the [QUnit tests](https://github.com/dataarts/tailbone/blob/master/tailbone/test).
 It also has experimental support for model validation and full text search.
 
 ### A Word About Tailbone.js
@@ -53,9 +53,8 @@ necessarily rely on that part just yet.
 
 This is a side project made out of past experiences. That being said there are a few rough edges.
 Also working on a `Go` branch with the same api. If you want to contribute please add a test for any fix or feature before you file a pull request.
-Tests can be run by calling ./tailbone/util test to run with the python stubby calls.
-For the testing of js code you need to start the dev server by running `dev_appserver.py .` and
-browsing to `http://localhost:8080/_test`. These are [QUnit](http://qunitjs.com/) JavaScript tests and should be the
+For the testing you need to start the dev server by running `dev_appserver.py .` and
+browsing to `http://localhost:8080/api/test/(testname)` for example `http://localhost:8080/api/test/restful`. These are [QUnit](http://qunitjs.com/) JavaScript tests and should be the
 same in either go, python or any future language to support consistency of
 any implementation of the api. Note, these tests modify the `db`, and can only be run locally.
 
@@ -111,6 +110,28 @@ javascript application framework.
 
     GET /api/{modelname}/?filter={propertyname==somevalue}&order={propertyname}&projection={propertyname1,propertyname2}
       Query a type.
+
+### Nested resources:
+
+    POST /api/{parent_modelname}/{parent_id}/{modelname}/
+      Creates a (nested) object as child of a given parent model.
+      This will fail is the parent object does not exist
+
+    PUT or POST /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Updates an nested object, does a complete overwrite of the properites. This does not do a partial patch.
+      This will fail is the parent object does not exist
+
+    GET /api/{parent_modelname}/{parent_id}/{modelname}/
+      Get a list of child objects for a given parent object.
+      This will fail is the parent object does not exist
+
+    GET /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Get a specific nested object.
+
+    DELETE /api/{parent_modelname}/{parent_id}/{modelname}/{id}
+      Deletes a specific nested object.
+      This will fail is the parent object does not exist
+
 
 Any `GET` request can take an optional list of properties to return, the query will use those to make a projection query which will only return those properties from the model. The format of the projection is a comma seperated list of properties: `projection=propertyname1,propertyname2,propertyname3`
 
