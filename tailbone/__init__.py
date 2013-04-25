@@ -18,38 +18,47 @@ import json
 import logging
 import os
 import re
-import string
-import time
+try:
+  import traceback
+except:
+  pass
 import webapp2
 
 from google.appengine import api
 from google.appengine.ext import ndb
-from google.appengine.ext import testbed
 
 PREFIX = "/api/"
 NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
+JSONP = os.environ.get("JSONP", "false")
+
 
 # Custom Exceptions
 class AppError(Exception):
   pass
 
+
 class BreakError(Exception):
   pass
+
 
 class LoginError(Exception):
   pass
 
+
 # Extensions to the jsonifying of python results
 def json_extras(obj):
   """Extended json processing of types."""
-  if hasattr(obj, "get_result"): # RPC
+  if hasattr(obj, "get_result"):  # RPC
     return obj.get_result()
-  if hasattr(obj, "strftime"): # datetime
+  if hasattr(obj, "strftime"):  # datetime
     return obj.strftime("%Y-%m-%dT%H:%M:%S.") + str(obj.microsecond / 1000) + "Z"
   if isinstance(obj, ndb.GeoPt):
     return {"lat": obj.lat, "lon": obj.lon}
+  if isinstance(obj, ndb.Key):
+    return obj.urlsafe()
   return None
+
 
 # Decorator to return the result of a function as json. It supports jsonp by default.
 def as_json(func):
@@ -65,7 +74,7 @@ def as_json(func):
       api.namespace_manager.set_namespace(NAMESPACE)
     try:
       resp = func(self, *args, **kwargs)
-      if resp == None:
+      if resp is None:
         resp = {}
     except BreakError as e:
       return
@@ -77,29 +86,28 @@ def as_json(func):
         "message": e.message,
         "url": url
       }
-      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
-        logging.error(str(e))
     except (AppError, api.datastore_errors.BadArgumentError,
-        api.datastore_errors.BadRequestError) as e:
+            api.datastore_errors.BadRequestError) as e:
       self.response.set_status(400)
-      resp = { "error": e.__class__.__name__, "message": e.message }
-      if api.app_identity.get_application_id() != testbed.DEFAULT_APP_ID:
-        logging.error(str(e))
+      resp = {"error": e.__class__.__name__, "message": e.message}
     if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
-    # # UNCOMMENT TO ENABLE JSONP
-    # callback = self.request.get("callback")
-    # if callback:
-    #   self.response.headers["Content-Type"] = "text/javascript"
-    #   resp = "%s(%s);" % (_callback, resp)
+    if JSONP == "true":
+      callback = self.request.get("callback")
+      if callback:
+        self.response.headers["Content-Type"] = "text/javascript"
+        resp = "%s(%s);".format(callback, resp)
     self.response.out.write(resp)
   return wrapper
+
 
 # BaseHandler for error handling
 class BaseHandler(webapp2.RequestHandler):
   def handle_exception(self, exception, debug):
     # Log the error.
     logging.error(exception)
+    if traceback:
+      logging.error(traceback.format_exc())
 
     # If the exception is a HTTPException, use its error code.
     # Otherwise use a generic 500 error code.
@@ -108,9 +116,11 @@ class BaseHandler(webapp2.RequestHandler):
     else:
       self.response.set_status(500)
 
-    return {"error": str(exception)}
+    msg = {"error": exception.__class__.__name__, "message": str(exception)}
+    self.response.out.write(json.dumps(msg))
 
 re_json = re.compile(r"^application/json", re.IGNORECASE)
+
 
 # Parse the body of an upload based on the type if you are trying to post a cgi.FieldStorage object
 # you should instead upload those blob separately via the special /api/files url.
@@ -119,7 +129,7 @@ def parse_body(self):
     data = json.loads(self.request.body)
   else:
     data = {}
-    for k,v in self.request.POST.items():
+    for k, v in self.request.POST.items():
       if isinstance(v, cgi.FieldStorage):
         raise AppError("Files should be uploaded separately as their own form to /api/files/ and \
             then their ids should be uploaded and stored with the object.")
@@ -130,51 +140,12 @@ def parse_body(self):
           pass
       # TODO(doug): Bug when loading multiple json lists with same key
       # TODO(doug): Bug when loading a number that should be a string representation of said number
-      if data.has_key(k):
+      if k in data:
         current = data[k]
         if isinstance(current, list):
           current.append(v)
         else:
-          data[k] = [current,v]
+          data[k] = [current, v]
       else:
         data[k] = v
   return data or {}
-
-# converting numbers to strings so that the user id is represented more consistently
-def convert_num_to_str(num):
-  s = ""
-  num = str(num)
-  i = 0
-  l = len(num)
-  letters = string.ascii_letters
-  while True:
-    if i == l-1:
-      s += letters[int(num[i])]
-      break
-    if i >= l:
-      break
-    x = num[i]
-    n = int(x+num[i+1])
-    if n < 52:
-      s += letters[n]
-      i += 2
-    else:
-      s += letters[int(x)]
-      i += 1
-  return s
-
-def convert_str_to_num(s):
-  num = ""
-  for x in s:
-    num += str(string.ascii_letters.index(x))
-  return num
-
-# Fetch the current user id or None
-def current_user(required=False):
-  u = api.users.get_current_user()
-  if u:
-    return convert_num_to_str(u.user_id())
-  if required:
-    raise LoginError("User must be logged in.")
-  return None
-

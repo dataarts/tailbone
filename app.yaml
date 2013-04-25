@@ -5,22 +5,35 @@ api_version: 1
 threadsafe: true
 
 includes:
-  - tailbone/admin
+  ## Qunit tests (only works when running locally)
+  - tailbone/test
+  ## Basic App Engine authentication
+  - tailbone/auth_gae
+  ## Extra admin commands and interfaces (not done yet)
+  # - tailbone/admin
+  ## Upload files to blobstore (TODO: also allow cloud storage)
   - tailbone/files
-  - tailbone/events
+  ## Listen to and bind to global events with javascript and the channel api
+  # - tailbone/events
+  ## Send direct messages between clients with the channel api
+  # - tailbone/messages
+  ## Javascript helper libraries
   - tailbone/js
+  ## Full text search must provide a searchable.json at the root level
   - tailbone/search
-  # # Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
-  # # will cost you bandwidth and has no auth)
+  ## Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
+  ## will cost you bandwidth and has no auth)
   # - tailbone/proxy
-  # Order in this list is important for restful and pathrewrite, they must be last.
+  ## Order in this list is important for restful and pathrewrite, they must be last.
+  ## Restful resources
   - tailbone/restful
-  # # Any path without a file extension not in /api gets the app/client/index.html text. Useful for
-  # # html5 applications that use the history api to write their paths.
+  ## Any path without a file extension not in /api gets the app/client/index.html text. Useful for
+  ## html5 applications that use the history api to write their paths.
   # - tailbone/pathrewrite
 
 env_variables:
   NAMESPACE: '' # The datastore namespace, '' for default
+  JSONP: 'false' # Set to true to enable jsonp
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

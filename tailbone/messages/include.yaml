@@ -13,9 +13,6 @@
 # limitations under the License.
 
 handlers:
-  # use this javascript file if you want the evented databinding abilities
-  - url: /tailbone.(.*).js
-    static_files: tailbone/js/tailbone.\1.js
-    upload: tailbone/js/tailbone.(.*).js
-  - url: /_test
-    script: tailbone.js.app
+  - url: /api/messages/?.*
+    script: tailbone.messages.app
+

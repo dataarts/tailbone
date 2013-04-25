@@ -56,12 +56,12 @@ class TestCase(unittest.TestCase):
 
   def setCurrentUser(self, email, user_id, is_admin=False):
     self.testbed.setup_env(
-        APP_ID = "testbed",
-        USER_EMAIL = email or '',
-        USER_ID = user_id or '',
-        USER_IS_ADMIN = '1' if is_admin else '0',
-        overwrite = True,
-        )
+      APP_ID = "testbed",
+      USER_EMAIL = email or '',
+      USER_ID = user_id or '',
+      USER_IS_ADMIN = '1' if is_admin else '0',
+      overwrite = True,
+      )
 
   def create(self, url, data):
     request = webapp2.Request.blank(url)
@@ -138,6 +138,70 @@ class TestCase(unittest.TestCase):
 
     self.assertJsonResponseData(response, data)
 
+  def test_nested_resources(self):
+    # create a NOT nested TODO 
+    todo_data = {"text": "example todo 1"}
+    response, response_data = self.create('/api/todos/', todo_data)
+    self.assertJsonResponseData(response, todo_data)
+    
+    # create a parent object (project)
+    proj_data = {"name": "testp"}
+    response, response_data = self.create('/api/projects/', proj_data)
+    self.assertJsonResponseData(response, proj_data)
+    proj_id = response_data.get('Id')
+    
+    # create a TODO for this project
+    nested_todo_data_1 = {"text": "example of nested resource"}
+    response, response_data = self.create('/api/projects/'+str(proj_id)+'/todos/', nested_todo_data_1)
+    # expect the result to have a reference to the parent object !
+    nested_todo_data_1['BELONGS_TO_projects'] = 'R_'+ str(proj_id);
+    self.assertJsonResponseData(response, nested_todo_data_1)
+    nested_todo_id_1 = response_data.get('Id')
+
+    # create a second TODO for this project
+    nested_todo_data_2 = {"text": "example2 of nested resource"}
+    response, response_data = self.create('/api/projects/'+str(proj_id)+'/todos/', nested_todo_data_2)
+    nested_todo_data_2['BELONGS_TO_projects'] = 'R_'+ str(proj_id);
+    self.assertJsonResponseData(response, nested_todo_data_2)
+    nested_todo_id_2 = response_data.get('Id')
+
+    # now GET the nested resource LIST
+    request = webapp2.Request.blank('/api/projects/'+str(proj_id)+'/todos/')
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 2)
+
+    # now GET the ALL todo's including the not nested ones as  LIST
+    request = webapp2.Request.blank('/api/todos/')
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 3)
+    
+    # now GET the nested resource BY ID
+    request = webapp2.Request.blank('/api/projects/'+str(proj_id)+'/todos/'+str(nested_todo_id_2))
+    response = request.get_response(restful.app)
+    self.assertJsonResponseData(response, nested_todo_data_2)
+    
+    # create a TODO for a non exsisting parent project: expect an error
+    todo_data = {"text": "example"}
+    response, response_data = self.create('/api/projects/999999/todos/', todo_data)
+    self.assertJsonResponseData(response, {u'message': u'No projects with id 999999.', u'error': u'AppError'})
+    
+  # now DELETE a nested resource BY ID
+    request = webapp2.Request.blank('/api/projects/'+str(proj_id)+'/todos/'+str(nested_todo_id_2))
+    request.headers["Content-Type"] = "application/json"
+    request.method = "DELETE"
+    response = request.get_response(restful.app)
+    self.assertEqual(response.status_int, 200)
+    self.assertJsonResponseData(response, {})
+    
+    # a nested GET should now return one object less
+    request = webapp2.Request.blank('/api/todos/')
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 2)  # was 3
+  
+  
   def test_query_all(self):
     num_items = 3
     data = {"text": "example"}
@@ -159,8 +223,8 @@ class TestCase(unittest.TestCase):
     response, response_data = self.create(self.model_url, data)
 
     params = {
-        "filter": ["text",">=",1]
-        }
+      "filter": ["text",">=",1]
+    }
     request = webapp2.Request.blank("{}?params={}".format(self.model_url, json.dumps(params)))
     response = request.get_response(restful.app)
     items = json.loads(response.body)
@@ -279,10 +343,10 @@ class TestCase(unittest.TestCase):
     response = request.get_response(restful.app)
     from tailbone import convert_num_to_str
     data = {
-        "Id": convert_num_to_str(self.user_id),
-        "email": "test@gmail.com",
-        "$unsaved": True,
-        }
+      "Id": convert_num_to_str(self.user_id),
+      "email": "test@gmail.com",
+      "$unsaved": True,
+      }
     self.assertJsonResponseData(response, data)
 
   def test_get_user_by_id(self):
@@ -315,9 +379,9 @@ class TestCase(unittest.TestCase):
     request.body = json.dumps(data)
     response = request.get_response(restful.app)
     self.assertJsonResponseData(response,
-        { "error": "AppError",
-          "message": "Id must be the current user_id or me. " +
-          "User h tried to modify user i."})
+                                { "error": "AppError",
+                                  "message": "Id must be the current user_id or me. " +
+                                             "User h tried to modify user i."})
 
   def test_user_query_all(self):
     num_items = 3
@@ -337,9 +401,9 @@ class TestCase(unittest.TestCase):
   def test_ownership(self):
     # create model
     data = {
-        "private_stuff": "thing",
-        "PublicStuff": "otherthing"
-        }
+      "private_stuff": "thing",
+      "PublicStuff": "otherthing"
+    }
     self.setCurrentUser("test@gmail.com", self.user_id, True)
     response, response_data = self.create(self.model_url, data)
     data["Id"] = 1
@@ -361,7 +425,7 @@ class TestCase(unittest.TestCase):
     self.assertJsonResponseData(response, {
       "error": "AppError",
       "message": "You do not have sufficient privileges."
-      })
+    })
 
   def test_create_with_url_encode(self):
     data = {"text": "new text"}
@@ -425,6 +489,25 @@ class TestCase(unittest.TestCase):
     response = request.get_response(restful.app)
     items = json.loads(response.body)
     self.assertEqual(len(items), 0)
+
+  def test_delete_not_owner(self):
+    data = {"text": "example"}
+    response, response_data = self.create(self.model_url, data)
+    self.setCurrentUser("baddie@test.com", "22323421234", False)
+
+    request = webapp2.Request.blank(self.model_url+str(response_data["Id"]))
+    data = {"text": "example"}
+    request.method = "DELETE"
+    request.headers["Content-Type"] = "application/json"
+    request.body = json.dumps(data)
+    response = request.get_response(restful.app)
+    response_data = json.loads(response.body)
+    self.assertEqual(json.dumps(response_data), json.dumps({"message": "You (wGIvxe) do not have permission to delete this model (1).", "error": "AppError"}))
+
+    request = webapp2.Request.blank(self.model_url)
+    response = request.get_response(restful.app)
+    items = json.loads(response.body)
+    self.assertEqual(len(items), 1)
 
   def test_put_to_create(self):
     pass

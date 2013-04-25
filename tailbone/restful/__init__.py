@@ -50,27 +50,33 @@
 #       save checks all listened queries for a matching one
 
 # shared resources and global variables
-from tailbone import *
+from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX
 from tailbone import search
 
 import datetime
 import json
 import logging
-import os
 import re
-import sys
-import time
-import urllib
 import webapp2
-import yaml
 
 from google.appengine import api
-from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 
 
 re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
+
+acl_attributes = [u"owners", u"viewers"]
+
+
+def current_user(required=False):
+  u = webapp2.get_request().environ.get("USER_ID")
+  if u:
+    return ndb.Key("users", u).urlsafe()
+  if required:
+    raise LoginError("User must be logged in.")
+  return None
+
 
 # Model
 # -----
@@ -103,7 +109,6 @@ class ScopedExpando(ndb.Expando):
       return True
     return False
 
-
   def to_dict(self, *args, **kwargs):
     result = super(ScopedExpando, self).to_dict(*args, **kwargs)
     if not self.can_read(current_user()):
@@ -111,8 +116,16 @@ class ScopedExpando(ndb.Expando):
       for k in result.keys():
         if not re_public.match(k):
           del result[k]
-    result["Id"] = self.key.id()
+    result["Id"] = self.key.urlsafe()
     return result
+
+  @classmethod
+  def _pre_delete_hook(cls, key):
+    m = key.get()
+    u = current_user(required=True)
+    if not m.can_write(u):
+      raise AppError("You ({}) do not have permission to delete this model ({}).".format(u, key.id()))
+
 
 # User
 # ----
@@ -121,13 +134,13 @@ class users(ndb.Expando):
   def to_dict(self, *args, **kwargs):
     result = super(users, self).to_dict(*args, **kwargs)
     u = current_user()
-    if u and u == self.key.id():
+    if u and u == self.key.urlsafe():
       pass
     else:
       for k in result.keys():
         if not re_public.match(k):
           del result[k]
-    result["Id"] = self.key.id()
+    result["Id"] = self.key.urlsafe()
     return result
 
 
@@ -136,10 +149,12 @@ class users(ndb.Expando):
 # future there may be a way to express what should be indexed or searchable, but not yet.
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
+_reKey = re.compile("^[a-zA-Z0-9\-]{10,500}$")
+
 
 def reflective_create(cls, data):
   m = cls()
-  for k,v in data.iteritems():
+  for k, v in data.iteritems():
     m._default_indexed = True
     t = type(v)
     if t in [unicode, str]:
@@ -148,9 +163,15 @@ def reflective_create(cls, data):
       elif _reISO.match(v):
         try:
           values = map(int, re.split('[^\d]', v)[:-1])
-          values[-1] *= 1000 # to account for python using microseconds vs js milliseconds
+          values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
           v = datetime.datetime(*values)
         except ValueError as e:
+          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
+      elif _reKey.match(v):
+        try:
+          v = ndb.Key(urlsafe=v)
+        except TypeError as e:
           logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
     elif t == dict:
@@ -165,7 +186,9 @@ def reflective_create(cls, data):
       if recurse:
         subcls = unicode.encode(k, "ascii", errors="ignore")
         v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
-    elif t in [int, float]:
+    elif t == float:
+      v = float(v)
+    elif t == int:  # currently all numbers are floats for purpose of quering TODO find better solution
       v = float(v)
     setattr(m, k, v)
   return m
@@ -183,31 +206,60 @@ def clean_data(data):
       del data[key]
   return data
 
+
 # Parse the id either given or extracted from the data.
-def parse_id(id, data_id=None):
-  try:
-    id = int(id)
-  except:
-    pass
-  if data_id != None:
+def parse_id(id, model, data_id=None):
+  if data_id:
     if id:
       if data_id != id:
         raise AppError("Url id {%s} must match object id {%s}" % (id, data_id))
     else:
       id = data_id
-  return id
+  if id:
+    key = ndb.Key(urlsafe=id)
+    if model != key.kind():
+      raise AppError("Key kind must match id kind: {} != {}.".format(model, key.kind()))
+    return key
+  return None
 
 re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
+
 # Convert a value to its inferred python type. Note all numbers are stored as floats which by cause
-# percision issues in odd cases.
+# precision issues in odd cases.
+def xconvert_value(value):
+  if value == "true":
+    value = True
+  elif value == "false":
+    value = False
+  elif _reKey.match(value):
+    try:
+      value = ndb.Key(urlsafe=value)
+    except TypeError:
+      pass
+  else:
+    try:
+      value = int(value)
+    except:
+      try:
+        value = float(value)
+      except:
+        pass
+  return value
+
+
 def convert_value(value):
   if value == "true":
     value = True
   elif value == "false":
     value = False
+  elif _reKey.match(value):
+    try:
+      value = ndb.Key(urlsafe=value)
+    except TypeError:
+      pass
   else:
     try:
       value = float(value)
@@ -215,10 +267,12 @@ def convert_value(value):
       pass
   return value
 
+
 def convert_opsymbol(opsymbol):
   if opsymbol == "==":
     opsymbol = "="
   return opsymbol
+
 
 # Construct an ndb filter from the query args. Example:
 #
@@ -239,6 +293,7 @@ def construct_filter(filter_str):
     return construct_filter("AND({})".format(filter_str))
   raise AppError("Filter format is unsupported: {}".format(filter_str))
 
+
 # Construct an ndb order from the query args.
 def construct_order(cls, o):
   neg = True if o[0] == "-" else False
@@ -249,15 +304,16 @@ def construct_order(cls, o):
     p = ndb.GenericProperty(o)
   return -p if neg else p
 
+
 # Construct the filter from a json object.
 def construct_filter_json(f):
   t = type(f)
   if t == list:
     if f[0] == "AND":
-      filters = [construct_filter_json(f) for f in f[1:]]
+      filters = [construct_filter_json(x) for x in f[1:]]
       return ndb.query.AND(*filters)
     elif f[0] == "OR":
-      filters = [construct_filter_json(f) for f in f[1:]]
+      filters = [construct_filter_json(x) for x in f[1:]]
       return ndb.query.OR(*filters)
     else:
       name, opsymbol, value = f
@@ -265,26 +321,29 @@ def construct_filter_json(f):
   else:
     return f
 
+
 # Construct a query from a json object which includes the filter and order parameters
 def construct_query_from_json(cls, filters, orders):
   q = cls.query()
   if filters:
     q = q.filter(construct_filter_json(filters))
   if orders:
-    q = q.order(*[construct_order(cls,o) for o in orders])
+    q = q.order(*[construct_order(cls, o) for o in orders])
   return q
+
 
 # Construct a query from url args
 def construct_query_from_url_args(cls, filters, orders):
   q = cls.query()
   q = q.filter(*[construct_filter(f) for f in filters])
   # TODO(doug) correctly auto append orders when necessary like on a multiselect/OR
-  q = q.order(*[construct_order(cls,o) for oo in orders for o in re_split.split(oo)])
+  q = q.order(*[construct_order(cls, o) for oo in orders for o in re_split.split(oo)])
   return q
+
 
 # Determine which kind of query parameters are passed in and construct the query.
 # Includes paginated results in the response Headers for "More", "Next-Cursor", and "Reverse-Cursor"
-def query(self, cls):
+def query(self, cls, *extra_filters):
   params = self.request.get("params")
   if params:
     params = json.loads(params)
@@ -297,20 +356,21 @@ def query(self, cls):
   else:
     page_size = int(self.request.get("page_size", default_value=100))
     cursor = self.request.get("cursor")
-    projection = self.request.get("projection")
-    projection = projection.split(",") if projection else None
+    projection = self.request.get_all("projection")
+    projection = [i for sublist in projection for i in sublist.split(",")] if projection else None
     filters = self.request.get_all("filter")
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
+  for f in extra_filters:
+    q = f(q)
   cursor = ndb.Cursor.from_websafe_string(cursor) if cursor else None
   if projection:
     # if asking for private variables and not specifing owners and viewers append them
     private = [p for p in projection if not re_public.match(p)]
-    acl_attributes = ["owners", "viewers"]
     if len(private) > 0:
       acl = [p for p in private if p in acl_attributes]
       if len(acl) == 0:
-        projection += acl_attributes
+        raise AppError("Requesting projection of private properties, but did not specify 'owners' or 'viewers' to verify access.")
   results, cursor, more = q.fetch_page(page_size, start_cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
@@ -318,6 +378,7 @@ def query(self, cls):
     # The Reverse-Cursor is used if you construct a query in the opposite direction
     self.response.headers["Reverse-Cursor"] = cursor.reversed().urlsafe()
   return [m.to_dict() for m in results]
+
 
 # Helper function to validate the date recursively if needed.
 def _validate(validator, data, ignored=None):
@@ -335,12 +396,13 @@ def _validate(validator, data, ignored=None):
   else:
     raise AppError("Unsupported validator type {} : {}".format(validator, type(validator)))
 
+
 # This validates the data see validation.template.json for an example.
 # Must create a validation.json in the root of your application.
 def validate(cls_name, data):
-  properties = data.keys()
+  # properties = data.keys()
   # confirm the format of any tailbone specific types
-  for name in ["owners", "viewers"]:
+  for name in acl_attributes:
     val = data.get(name)
     if val:
       # TODO(doug): validate list, can't be empty list, must contain id like objects
@@ -350,13 +412,13 @@ def validate(cls_name, data):
     validations = _validation.get(cls_name)
     if not validations:
       raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
-    _validate(validations, data, ["owners", "viewers"])
+    _validate(validations, data, acl_attributes)
+
 
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
-  @as_json
-  def get(self, model, id):
+  def _get(self, model, id, *extra_filters):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
@@ -365,41 +427,59 @@ class RestfulHandler(BaseHandler):
         if id == "me":
           me = True
           id = current_user(required=True)
-      id = parse_id(id)
-      m = cls.get_by_id(id)
+      key = parse_id(id, model)
+      m = key.get()
       if not m:
         if model == "users" and me:
-          u = api.users.get_current_user()
           m = users()
-          m.email = u.email()
-          m.key = ndb.Key("users", id)
+          m.key = key
           setattr(m, "$unsaved", True)
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
     else:
-      return query(self, cls)
-  def set_or_create(self, model, id):
+      return query(self, cls, *extra_filters)
+
+  def _delete(self, model, id):
+    if not id:
+      raise AppError("Must provide an id.")
+    u = current_user(required=True)
+    if model == "users":
+      if id != "me" and id != u:
+        raise AppError("Id must be the current " +
+                       "user_id or me. User {} tried to modify user {}.".format(u, id))
+      id = u
+    key = parse_id(id, model)
+    key.delete()
+    search.delete(key)
+    return {}
+
+  def set_or_create(self, model, id, parent_key=None):
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
         raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
+                       "user_id or me. User {} tried to modify user {}.".format(u, id))
       id = u
       cls = users
     else:
       cls = type(model.lower(), (ScopedExpando,), {})
     data = parse_body(self)
-    id = parse_id(id, data.get("Id"))
+    key = parse_id(id, model, data.get("Id"))
     clean_data(data)
     validate(cls.__name__, data)
-    if id and model != "users":
-      old_model = cls.get_by_id(id)
+    if key and model != "users":
+      old_model = key.get()
       if old_model and not old_model.can_write(u):
         raise AppError("You do not have sufficient privileges.")
+
+    # TODO: might want to add this post creation since you already have the key
+    if parent_key:
+      data[parent_key.kind()] = parent_key.urlsafe()
+
     m = reflective_create(cls, data)
-    if id:
-      m.key = ndb.Key(model, id)
+    if key:
+      m.key = key
     if model != "users":
       if len(m.owners) == 0:
         m.owners.append(u)
@@ -409,77 +489,60 @@ class RestfulHandler(BaseHandler):
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)
+      # Raising break error to avoid header and body writes from @as_json decorator since we override as a redirect
       raise BreakError()
-      return
     return m.to_dict()
+
   @as_json
-  def post(self, model, id):
-    return self.set_or_create(model, id)
+  def get(self, model, id):
+    return self._get(model, id)
+
   @as_json
-  def patch(self, model, id):
+  def post(self, *args):
+    return self.set_or_create(*args)
+
+  @as_json
+  def patch(self, *args):
     # TODO: implement this differently to do partial update
-    return self.set_or_create(model, id)
+    return self.set_or_create(*args)
+
   @as_json
-  def put(self, model, id):
-    return self.set_or_create(model, id)
+  def put(self, *args):
+    return self.set_or_create(*args)
+
   @as_json
-  def delete(self, model, id):
-    if not id:
-      raise AppError("Must provide an id.")
-    if model == "users":
-      u = current_user(required=True)
-      if id != "me" and id != u:
-        raise AppError("Id must be the current " +
-            "user_id or me. User {} tried to modify user {}.".format(u,id))
-      id = u
-    id = parse_id(id)
-    key = ndb.Key(model.lower(), id)
-    key.delete()
-    search.delete(key)
-    return {}
-
-class LoginHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_login_url(
-          self.request.get("url", default_value="/")))
-
-class LogoutHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_logout_url(
-          self.request.get("url", default_value="/")))
+  def delete(self, *args):
+    return self._delete(*args)
 
 
-# Some Extra HTML handlers
-# ------------------------
-class LoginPopupHandler(webapp2.RequestHandler):
-  def get(self):
-    u = current_user()
-    if u:
-      m = users.get_by_id(u)
-      if not m:
-        m = users(key=ndb.Key('users', u))
-      msg = m.to_dict()
-    else:
-      msg = None
-    self.response.out.write("""
-<!doctype html>
-<html>
-<head>
-  <title></title>
-</head>
-<body>
-If this window does not close, please click <a id="origin">here</a> to refresh.
-<script type="text/javascript">
-  var targetOrigin = window.location.origin || ( window.location.protocol + "//" + window.location.host );
-  document.querySelector("#origin").href = targetOrigin;
-  window.opener.postMessage({}, targetOrigin);
-  window.close();
-</script>
-</body>
-</html>
-""".format({"type":"Login", "payload": msg}))
+class NestedRestfulHandler(RestfulHandler):
+  def get_parent(parent_model, parent_id):
+    parent_key = ndb.Key(parent_model, parent_id)
+    parent = parent_key.get()
+    if not parent:
+      raise AppError("Parent model {}:{} does not exists.".format(parent_model, parent_id))
+    return parent
+
+  @as_json
+  def get(self, parent_model, parent_id, model, id):
+    parent = self.get_parent(parent_model, parent_id)
+    parent_key = parent.key
+
+    def belongs_to_filter(q):
+      cls = type(parent_model.lower(), (ScopedExpando,), {})
+      field = getattr(cls, parent_model)
+      return q.filter(field == parent_key)
+    return self._get(model, id, belongs_to_filter)
+
+  def set_or_create(self, parent_model, parent_id, model, id):
+    parent = self.get_parent(parent_model, parent_id)
+    s = super(NestedRestfulHandler, self)
+    s.set_or_create(model, id, parent.key)
+
+  def _delete(self, parent_model, parent_id, model, id):
+    self.get_parent(parent_model, parent_id)
+    return super(NestedRestfulHandler, self)._delete(model, id)
+
 
 # Load an optional validation.json
 # --------------------------------
@@ -501,13 +564,9 @@ try:
 except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
-  logging.info("validation.json doesn't exist no model validation will be preformed.")
+  logging.info("validation.json doesn't exist no model validation will be performed.")
 
 app = webapp2.WSGIApplication([
-  (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}login.html".format(PREFIX), LoginPopupHandler),
-  (r"{}logout" .format(PREFIX), LogoutHandler),
+  (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
-  ], debug=DEBUG)
-
-
+], debug=DEBUG)

@@ -27,6 +27,7 @@ from google.appengine.ext import testbed
 from google.appengine.api.blobstore import file_blob_storage
 from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.api.files import file_service_stub
+from google.appengine.api.search import simple_search_stub 
 import itertools
 import logging
 import mimetools
@@ -47,7 +48,9 @@ class TestCase(unittest.TestCase):
     self.testbed.init_taskqueue_stub()
     self.testbed.init_user_stub()
     # TODO: Search stub does not exist
-    self.testbed.init_search_stub()
+    # self.testbed.init_search_stub()
+    search_stub = simple_search_stub.SearchServiceStub()
+    self.testbed._register_stub("search", search_stub)
     self.model_url = "/api/todos/"
     self.user_url = "/api/users/"
     self.user_id = "118124022271294486125"
@@ -76,6 +79,15 @@ class TestCase(unittest.TestCase):
     response_data = json.loads(response.body)
     return response, response_data
 
+  def search(self, params, index_name=""):
+    request = webapp2.Request.blank("/api/search/"+index_name+"?"+urllib.urlencode(params))
+    request.method = "GET"
+    request.headers["Content-Type"] = "application/json"
+    response = request.get_response(restful.app)
+    self.assertEqual(response.headers["Content-Type"], "application/json")
+    response_data = json.loads(response.body)
+    return response, response_data
+
   def assertJsonResponseData(self, response, data):
     self.assertEqual(response.headers["Content-Type"], "application/json")
     response_data = json.loads(response.body)
@@ -93,15 +105,20 @@ class TestCase(unittest.TestCase):
         del data[ignored]
     self.assertEqual(data, response_data)
 
-  # TODO: need search stub
-  # def test_search(self):
-  #   test_search = r"""{
-  #   "todos": {
-  #     "text": "TextField"
-  #   }}"""
-  #   search._searchable = search.compile_searchable(json.loads(test_search))
-  #   data = {"text": "example"}
-  #   response, response_data = self.create(self.model_url, data)
-  #   logging.error(response, response_data)
-  #   self.assertJsonResponseData(response, data)
-  #   search._searchable = None
+  def test_search(self):
+    test_search = r"""{
+    "todos": {
+      "Item": "TextField",
+      "Place": "GeoField"
+    }}"""
+    search._searchable = search.compile_searchable(json.loads(test_search))
+    data = {"Item": "example"}
+    response, response_data = self.create(self.model_url, data)
+    self.assertJsonResponseData(response, data)
+    response, response_data = self.search({"q":"example"})
+    # TODO: Search service stub not yet ready
+    # data["Kind"] = "todos"
+    # data["Id"] = 1
+    # self.assertEqual(len(response_data), 1)
+    # self.assertEqual(response_data, [data])
+    # search._searchable = None
