@@ -17,6 +17,8 @@ includes:
   # - tailbone/events
   ## Send direct messages between clients with the channel api
   # - tailbone/messages
+  ## Add the users location in headers via geoip lookup
+  # - tailbone/geoip
   ## Javascript helper libraries
   - tailbone/js
   ## Full text search must provide a searchable.json at the root level
