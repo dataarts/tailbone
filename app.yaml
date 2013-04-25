@@ -5,8 +5,8 @@ api_version: 1
 threadsafe: true
 
 includes:
-  ## Base handler for Authentication and tests (when running locally)
-  - tailbone
+  ## Qunit tests (only works when running locally)
+  - tailbone/test
   ## Basic App Engine authentication
   - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
