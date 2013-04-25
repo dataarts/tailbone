@@ -37,7 +37,9 @@ class Middleware(object):
     self.app = app
 
   def __call__(self, environ, start_response):
-    environ["USER_ID"] = api.users.get_current_user().user_id()
+    u = api.users.get_current_user()
+    if u:
+      environ["USER_ID"] = u.user_id()
     req = webapp2.Request(environ)
     resp = req.get_response(self.app)
     return resp(environ, start_response)
