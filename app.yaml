@@ -7,6 +7,8 @@ threadsafe: true
 includes:
   ## Base handler for Authentication and tests (when running locally)
   - tailbone
+  ## Basic App Engine authentication
+  - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
   # - tailbone/admin
   ## Upload files to blobstore (TODO: also allow cloud storage)

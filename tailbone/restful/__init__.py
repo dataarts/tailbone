@@ -50,7 +50,7 @@
 #       save checks all listened queries for a matching one
 
 # shared resources and global variables
-from tailbone import *
+from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX
 from tailbone import search
 
 import datetime
@@ -67,6 +67,16 @@ re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
+
+
+def current_user(required=False):
+  u = webapp2.get_request().environ.get("USER_ID")
+  if u:
+    return ndb.Key("users", u).urlsafe()
+  if required:
+    raise LoginError("User must be logged in.")
+  return None
+
 
 # Model
 # -----
@@ -140,6 +150,7 @@ class users(ndb.Expando):
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
 _reKey = re.compile("^[a-zA-Z0-9\-]{10,500}$")
+
 
 def reflective_create(cls, data):
   m = cls()
@@ -420,9 +431,7 @@ class RestfulHandler(BaseHandler):
       m = key.get()
       if not m:
         if model == "users" and me:
-          u = api.users.get_current_user()
           m = users()
-          m.email = u.email()
           m.key = key
           setattr(m, "$unsaved", True)
         else:
