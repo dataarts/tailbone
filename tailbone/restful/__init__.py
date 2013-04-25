@@ -434,6 +434,10 @@ class RestfulHandler(BaseHandler):
           m = users()
           m.key = key
           setattr(m, "$unsaved", True)
+          environ = webapp2.get_request().environ
+          for k, v in environ.iteritems():
+            if k[:5] == "USER_" and v:
+              setattr(m, k[5:].lower(), v)
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()

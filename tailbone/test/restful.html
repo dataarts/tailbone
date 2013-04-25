@@ -30,6 +30,7 @@ module('Authentication');
 asyncTest('Login', function() {
   http.GET('/api/users/me', function(d) {
     ok(d.Id !== undefined, 'Has Id, ' + d.Id);
+    ok(d.email !== undefined, 'Has email, ' + d.email);
     start();
   }, function(err) {
     if(err.error !== 'LoginError') {
