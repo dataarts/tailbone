@@ -70,7 +70,7 @@ acl_attributes = [u"owners", u"viewers"]
 
 
 def current_user(required=False):
-  u = webapp2.get_request().environ.get("USER_ID")
+  u = webapp2.get_request().environ.get("TAILBONE_USER_ID")
   if u:
     return ndb.Key("users", u).urlsafe()
   if required:
@@ -436,8 +436,8 @@ class RestfulHandler(BaseHandler):
           setattr(m, "$unsaved", True)
           environ = webapp2.get_request().environ
           for k, v in environ.iteritems():
-            if k[:5] == "USER_" and k != "USER_ID" and v:
-              setattr(m, k[5:].lower(), v)
+            if k[:14] == "TAILBONE_USER_" and k != "TAILBONE_USER_ID" and v:
+              setattr(m, k[14:].lower(), v)
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()

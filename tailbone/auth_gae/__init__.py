@@ -40,11 +40,11 @@ class Middleware(object):
     u = api.users.get_current_user()
     if u:
       # USER_ID is the only required var for authentication middleware complience
-      environ["USER_ID"] = u.user_id()
-      environ["USER_EMAIL"] = u.email()
-      environ["USER_NICKNAME"] = u.nickname()
-      environ["USER_FEDERATED_IDENTITY"] = u.federated_identity()
-      environ["USER_FEDERATED_PROVIDER"] = u.federated_provider()
+      environ["TAILBONE_USER_ID"] = u.user_id()
+      environ["TAILBONE_USER_EMAIL"] = u.email()
+      environ["TAILBONE_USER_NICKNAME"] = u.nickname()
+      environ["TAILBONE_USER_FEDERATED_IDENTITY"] = u.federated_identity()
+      environ["TAILBONE_USER_FEDERATED_PROVIDER"] = u.federated_provider()
     req = webapp2.Request(environ)
     resp = req.get_response(self.app)
     return resp(environ, start_response)
