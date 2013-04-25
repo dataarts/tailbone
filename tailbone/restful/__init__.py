@@ -436,7 +436,7 @@ class RestfulHandler(BaseHandler):
           setattr(m, "$unsaved", True)
           environ = webapp2.get_request().environ
           for k, v in environ.iteritems():
-            if k[:5] == "USER_" and v:
+            if k[:5] == "USER_" and k != "USER_ID" and v:
               setattr(m, k[5:].lower(), v)
         else:
           raise AppError("No {} with id {}.".format(model, id))
