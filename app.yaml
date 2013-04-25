@@ -31,6 +31,7 @@ includes:
 
 env_variables:
   NAMESPACE: '' # The datastore namespace, '' for default
+  JSONP: 'false' # Set to true to enable jsonp
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

@@ -66,18 +66,6 @@ from google.appengine.ext import ndb
 re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
 
-# mark all references to other models by this prefix
-MODELREF_PREFIX = "R_"
-MODELKEY_PREFIX = "BELONGS_TO_"
-
-
-def format_as_model_field(model_name):
-  return "{}{}".format(MODELKEY_PREFIX, model_name)
-
-
-def format_as_model_reference(model_id):
-  return "{}{}".format(MODELREF_PREFIX, model_id)
-
 
 # Model
 # -----
@@ -117,7 +105,7 @@ class ScopedExpando(ndb.Expando):
       for k in result.keys():
         if not re_public.match(k):
           del result[k]
-    result["Id"] = self.key.id()
+    result["Id"] = self.key.urlsafe()
     return result
 
   @classmethod
@@ -135,13 +123,13 @@ class users(ndb.Expando):
   def to_dict(self, *args, **kwargs):
     result = super(users, self).to_dict(*args, **kwargs)
     u = current_user()
-    if u and u == self.key.id():
+    if u and u == self.key.urlsafe():
       pass
     else:
       for k in result.keys():
         if not re_public.match(k):
           del result[k]
-    result["Id"] = self.key.id()
+    result["Id"] = self.key.urlsafe()
     return result
 
 
@@ -150,7 +138,7 @@ class users(ndb.Expando):
 # future there may be a way to express what should be indexed or searchable, but not yet.
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
-
+_reKey = re.compile("^[a-zA-Z0-9\-]{10,500}$")
 
 def reflective_create(cls, data):
   m = cls()
@@ -168,6 +156,12 @@ def reflective_create(cls, data):
         except ValueError as e:
           logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
+      elif _reKey.match(v):
+        try:
+          v = ndb.Key(urlsafe=v)
+        except TypeError as e:
+          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
     elif t == dict:
       recurse = True
       if set(v.keys()) == _latlon:
@@ -182,8 +176,8 @@ def reflective_create(cls, data):
         v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
     elif t == float:
       v = float(v)
-    elif t == int:
-      v = float(v)  # should we do this !?? int(v)
+    elif t == int:  # currently all numbers are floats for purpose of quering TODO find better solution
+      v = float(v)
     setattr(m, k, v)
   return m
 
@@ -202,18 +196,19 @@ def clean_data(data):
 
 
 # Parse the id either given or extracted from the data.
-def parse_id(id, data_id=None):
-  try:
-    id = int(id)
-  except:
-    pass
-  if not data_id:
+def parse_id(id, model, data_id=None):
+  if data_id:
     if id:
       if data_id != id:
         raise AppError("Url id {%s} must match object id {%s}" % (id, data_id))
     else:
       id = data_id
-  return id
+  if id:
+    key = ndb.Key(urlsafe=id)
+    if model != key.kind():
+      raise AppError("Key kind must match id kind: {} != {}.".format(model, key.kind()))
+    return key
+  return None
 
 re_filter = re.compile(r"^([\w\-.]+)(!=|==|=|<=|>=|<|>)(.+)$")
 re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
@@ -227,6 +222,11 @@ def xconvert_value(value):
     value = True
   elif value == "false":
     value = False
+  elif _reKey.match(value):
+    try:
+      value = ndb.Key(urlsafe=value)
+    except TypeError:
+      pass
   else:
     try:
       value = int(value)
@@ -243,6 +243,11 @@ def convert_value(value):
     value = True
   elif value == "false":
     value = False
+  elif _reKey.match(value):
+    try:
+      value = ndb.Key(urlsafe=value)
+    except TypeError:
+      pass
   else:
     try:
       value = float(value)
@@ -326,7 +331,7 @@ def construct_query_from_url_args(cls, filters, orders):
 
 # Determine which kind of query parameters are passed in and construct the query.
 # Includes paginated results in the response Headers for "More", "Next-Cursor", and "Reverse-Cursor"
-def query(self, cls, extra_filter=None):
+def query(self, cls, *extra_filters):
   params = self.request.get("params")
   if params:
     params = json.loads(params)
@@ -342,10 +347,10 @@ def query(self, cls, extra_filter=None):
     projection = self.request.get("projection")
     projection = projection.split(",") if projection else None
     filters = self.request.get_all("filter")
-    if extra_filter:
-      filters.append(unicode(extra_filter))
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
+  for f in extra_filters:
+    q = f(q)
   cursor = ndb.Cursor.from_websafe_string(cursor) if cursor else None
   if projection:
     # if asking for private variables and not specifing owners and viewers append them
@@ -402,7 +407,7 @@ def validate(cls_name, data):
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
-  def _get(self, model, id, extra_filter=None):
+  def _get(self, model, id, *extra_filters):
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
     if id:
@@ -411,20 +416,20 @@ class RestfulHandler(BaseHandler):
         if id == "me":
           me = True
           id = current_user(required=True)
-      id = parse_id(id)
-      m = cls.get_by_id(id)
+      key = parse_id(id, model)
+      m = key.get()
       if not m:
         if model == "users" and me:
           u = api.users.get_current_user()
           m = users()
           m.email = u.email()
-          m.key = ndb.Key("users", id)
+          m.key = key
           setattr(m, "$unsaved", True)
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
     else:
-      return query(self, cls, extra_filter)
+      return query(self, cls, *extra_filters)
 
   def _delete(self, model, id):
     if not id:
@@ -435,17 +440,12 @@ class RestfulHandler(BaseHandler):
         raise AppError("Id must be the current " +
                        "user_id or me. User {} tried to modify user {}.".format(u, id))
       id = u
-    id = parse_id(id)
-    key = ndb.Key(model.lower(), id)
+    key = parse_id(id, model)
     key.delete()
     search.delete(key)
     return {}
 
-  @as_json
-  def get(self, model, id):
-    return self._get(model, id)
-
-  def set_or_create(self, model, id, parent_model=None, parent_id=None):
+  def set_or_create(self, model, id, parent_key=None):
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
@@ -456,22 +456,21 @@ class RestfulHandler(BaseHandler):
     else:
       cls = type(model.lower(), (ScopedExpando,), {})
     data = parse_body(self)
-    id = parse_id(id, data.get("Id"))
+    key = parse_id(id, model, data.get("Id"))
     clean_data(data)
     validate(cls.__name__, data)
-    if id and model != "users":
-      old_model = cls.get_by_id(id)
+    if key and model != "users":
+      old_model = key.get()
       if old_model and not old_model.can_write(u):
         raise AppError("You do not have sufficient privileges.")
 
-    if parent_model and parent_id:
-      # generated IDs are LONGs of we store them as floats we mis precision for later reference
-      # therefore we force the datatype to be a STRING
-      data[format_as_model_field(parent_model)] = format_as_model_reference(parent_id)
+    # TODO: might want to add this post creation since you already have the key
+    if parent_key:
+      data[parent_key.kind()] = parent_key.urlsafe()
 
     m = reflective_create(cls, data)
-    if id:
-      m.key = ndb.Key(model, id)
+    if key:
+      m.key = key
     if model != "users":
       if len(m.owners) == 0:
         m.owners.append(u)
@@ -481,56 +480,58 @@ class RestfulHandler(BaseHandler):
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)
-      # raise BreakError() # why is this here ??
-      return
+      # Raising break error to avoid header and body writes from @as_json decorator since we override as a redirect
+      raise BreakError()
     return m.to_dict()
 
-  def nested_set_or_create(self, model, id, parent_model, parent_id):
-    self._get(parent_model, parent_id)
-    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
-    return self.set_or_create(model, id, parent_model, parent_id)
+  @as_json
+  def get(self, model, id):
+    return self._get(model, id)
 
   @as_json
-  def post(self, model, id):
-    return self.set_or_create(model, id)
+  def post(self, *args):
+    return self.set_or_create(*args)
 
   @as_json
-  def patch(self, model, id):
+  def patch(self, *args):
     # TODO: implement this differently to do partial update
-    return self.set_or_create(model, id)
+    return self.set_or_create(*args)
 
   @as_json
-  def put(self, model, id):
-    return self.set_or_create(model, id)
+  def put(self, *args):
+    return self.set_or_create(*args)
 
   @as_json
-  def delete(self, model, id):
-    return self._delete(model, id)
+  def delete(self, *args):
+    return self._delete(*args)
 
 
 class NestedRestfulHandler(RestfulHandler):
+  def get_parent(parent_model, parent_id):
+    parent_key = ndb.Key(parent_model, parent_id)
+    parent = parent_key.get()
+    if not parent:
+      raise AppError("Parent model {}:{} does not exists.".format(parent_model, parent_id))
+    return parent
+
   @as_json
   def get(self, parent_model, parent_id, model, id):
-    belongs_to_filter = "{}=={}".format(format_as_model_field(parent_model), format_as_model_reference(parent_id))
-    return self._get(model, id, extra_filter=belongs_to_filter)
+    parent = self.get_parent(parent_model, parent_id)
+    parent_key = parent.key
 
-  @as_json
-  def post(self, parent_model, parent_id, model, id):
-    return self.nested_set_or_create(model, id, parent_model, parent_id)
+    def belongs_to_filter(q):
+      cls = type(parent_model.lower(), (ScopedExpando,), {})
+      field = getattr(cls, parent_model)
+      return q.filter(field == parent_key)
+    return self._get(model, id, belongs_to_filter)
 
-  @as_json
-  def patch(self, parent_model, parent_id, model, id):
-    # TODO: implement this differently to do partial update
-    return self.nested_set_or_create(model, id, parent_model, parent_id)
+  def set_or_create(self, parent_model, parent_id, model, id):
+    parent = self.get_parent(parent_model, parent_id)
+    s = super(NestedRestfulHandler, self)
+    s.set_or_create(model, id, parent.key)
 
-  @as_json
-  def put(self, parent_model, parent_id, model, id):
-    return self.nested_set_or_create(model, id, parent_model, parent_id)
-
-  @as_json
-  def delete(self, parent_model, parent_id, model, id):
-    self._get(parent_model, parent_id)
-    # if the parent object does not exist an error was raised so it is save to asume we have a parent_obj from here
+  def _delete(self, parent_model, parent_id, model, id):
+    self.get_parent(parent_model, parent_id)
     return super(NestedRestfulHandler, self)._delete(model, id)
 
 

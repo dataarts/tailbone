@@ -43,16 +43,17 @@ function errorWrapper(fn) {
     }
   }
 }
-http.GET = function(url, load, error) {
+http.GET = function(url, load, error, context) {
   $.ajax({
     type: 'GET',
     url: url,
     success: load,
     error: errorWrapper(error),
-    dataType: 'json'
+    dataType: 'json',
+    context: context
   });
 };
-http.POST = function(url, data, load, error) {
+http.POST = function(url, data, load, error, context) {
   $.ajax({
     type: 'POST',
     url: url,
@@ -60,16 +61,18 @@ http.POST = function(url, data, load, error) {
     success: load,
     error: errorWrapper(error),
     dataType: 'json',
-    contentType: 'application/json'
+    contentType: 'application/json',
+    context: context 
   });
 };
-http.DELETE = function(url, load, error) {
+http.DELETE = function(url, load, error, context) {
   $.ajax({
     type: 'DELETE',
     url: url,
     success: load,
     error: errorWrapper(error),
-    dataType: 'json'
+    dataType: 'json',
+    context: context
   });
 };
 
