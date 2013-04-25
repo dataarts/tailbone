@@ -14,6 +14,7 @@
 
 import urllib
 import webapp2
+from tailbone import DEBUG
 
 from google.appengine.api import urlfetch
 
