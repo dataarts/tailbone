@@ -66,6 +66,7 @@ from google.appengine.ext import ndb
 re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
 
+acl_attributes = [u"owners", u"viewers"]
 
 # Model
 # -----
@@ -344,8 +345,8 @@ def query(self, cls, *extra_filters):
   else:
     page_size = int(self.request.get("page_size", default_value=100))
     cursor = self.request.get("cursor")
-    projection = self.request.get("projection")
-    projection = projection.split(",") if projection else None
+    projection = self.request.get_all("projection")
+    projection = [i for sublist in projection for i in sublist.split(",")] if projection else None
     filters = self.request.get_all("filter")
     orders = self.request.get_all("order")
     q = construct_query_from_url_args(cls, filters, orders)
@@ -355,11 +356,10 @@ def query(self, cls, *extra_filters):
   if projection:
     # if asking for private variables and not specifing owners and viewers append them
     private = [p for p in projection if not re_public.match(p)]
-    acl_attributes = ["owners", "viewers"]
     if len(private) > 0:
       acl = [p for p in private if p in acl_attributes]
       if len(acl) == 0:
-        projection += acl_attributes
+        raise AppError("Requesting projection of private properties, but did not specify 'owners' or 'viewers' to verify access.")
   results, cursor, more = q.fetch_page(page_size, start_cursor=cursor, projection=projection)
   self.response.headers["More"] = "true" if more else "false"
   if cursor:
@@ -391,7 +391,7 @@ def _validate(validator, data, ignored=None):
 def validate(cls_name, data):
   # properties = data.keys()
   # confirm the format of any tailbone specific types
-  for name in ["owners", "viewers"]:
+  for name in acl_attributes:
     val = data.get(name)
     if val:
       # TODO(doug): validate list, can't be empty list, must contain id like objects
@@ -401,7 +401,7 @@ def validate(cls_name, data):
     validations = _validation.get(cls_name)
     if not validations:
       raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
-    _validate(validations, data, ["owners", "viewers"])
+    _validate(validations, data, acl_attributes)
 
 
 # This does all the simple restful handling that you would expect. There is a special catch for

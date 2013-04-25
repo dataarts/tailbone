@@ -278,18 +278,33 @@ asyncTest('Sort by order', function() {
   });
 });
 asyncTest('projection', function() {
+  expect(3);
   var models = this.models;
   var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
   http.POST(models, model, function(d) {
-    setTimeout(function() {
-      http.GET(models + '?projection=Need,secret', function(resp) {
-        delete model.ToBig;
-        model.Id = d.Id;
-        model.owners = d.owners;
-        model.viewers = d.viewers;
-        deepEqual(resp, model, 'Only returned the projected items.')
+    var done = startAfter(3, function() {
         http.DELETE(models + d.Id);
-        start();
+    });
+    setTimeout(function() {
+      http.GET(models + '?projection=Need', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        delete expected.secret;
+        expected.Id = d.Id;
+        deepEqual(resp, [expected], 'Only returned the projected items.')
+        done();
+      });
+      http.GET(models + '?projection=Need,secret', function() {}, function(resp) {
+        ok(resp.error != undefined, 'Recieved error ' + resp)
+        done();
+      });
+      http.GET(models + '?projection=Need,secret,owners', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        expected.Id = d.Id;
+        expected.owners = d.owners;
+        deepEqual(resp, [expected], 'Projected items plus owners.')
+        done();
       });
     }, WAIT);
   });
