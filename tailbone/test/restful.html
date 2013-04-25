@@ -278,11 +278,11 @@ asyncTest('Sort by order', function() {
   });
 });
 asyncTest('projection', function() {
-  expect(3);
+  expect(4);
   var models = this.models;
   var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
   http.POST(models, model, function(d) {
-    var done = startAfter(3, function() {
+    var done = startAfter(4, function() {
         http.DELETE(models + d.Id);
     });
     setTimeout(function() {
@@ -299,6 +299,14 @@ asyncTest('projection', function() {
         done();
       });
       http.GET(models + '?projection=Need,secret,owners', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        expected.Id = d.Id;
+        expected.owners = d.owners;
+        deepEqual(resp, [expected], 'Projected items plus owners.')
+        done();
+      });
+      http.GET(models + '?projection=Need&projection=secret,owners', function(resp) {
         var expected = $.extend(true, {}, model);
         delete expected.ToBig;
         expected.Id = d.Id;
