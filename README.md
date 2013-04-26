@@ -25,6 +25,14 @@ Draw an image with `canvas` via JavaScript. Upload it via `ajax` and serve varia
 sized thumbnails efficiently of that image. There is a simple example in the [QUnit tests](https://github.com/dataarts/tailbone/blob/master/tailbone/test).
 It also has experimental support for model validation and full text search.
 
+### Guiding Principles
+
+- Do as little as possible server side, if it can be done on the client do it there.
+- Be as modular as possible so people can mix and match how they choose.
+- Only need to edit the app.yaml or at most a few json config files.
+- Should work out of the box how most people plan to use it.
+- Be backend implementation agnostic, whether it is Go or Python or something else have a unified javascript interface.
+
 ### A Word About Tailbone.js
 
 Finally, for added capabilities, there is a JavaScript library served up which
