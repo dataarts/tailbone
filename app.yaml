@@ -61,6 +61,15 @@ admin_console:
   - name: Datastore Abuse
     url: /api/admin/abuse
 
+skip_files:
+  - ^(.*/)?index\.yaml
+  - ^(.*/)?index\.yml
+  - ^(.*/)?#.*#
+  - ^(.*/)?.*~
+  - ^(.*/)?.*\.py[co]
+  - ^(.*/)?.*/RCS/.*
+  - ^(.*/)?\..*
+
 pagespeed:
   # domains_to_rewrite:
   # - slowdomain.com
