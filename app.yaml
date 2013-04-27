@@ -5,8 +5,10 @@ api_version: 1
 threadsafe: true
 
 includes:
-  ## Base handler for Authentication and tests (when running locally)
-  - tailbone
+  ## Qunit tests (only works when running locally)
+  - tailbone/test
+  ## Basic App Engine authentication
+  - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
   # - tailbone/admin
   ## Upload files to blobstore (TODO: also allow cloud storage)
@@ -15,6 +17,8 @@ includes:
   # - tailbone/events
   ## Send direct messages between clients with the channel api
   # - tailbone/messages
+  ## Add the users location in headers via geoip lookup
+  # - tailbone/geoip
   ## Javascript helper libraries
   - tailbone/js
   ## Full text search must provide a searchable.json at the root level

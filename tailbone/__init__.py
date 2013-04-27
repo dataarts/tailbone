@@ -149,33 +149,3 @@ def parse_body(self):
       else:
         data[k] = v
   return data or {}
-
-
-# Fetch the current user id or None
-def current_user(required=False):
-  u = api.users.get_current_user()
-  if u:
-    return ndb.Key("users", u.user_id()).urlsafe()
-  if required:
-    raise LoginError("User must be logged in.")
-  return None
-
-
-class LoginHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_login_url(
-          self.request.get("continue", default_value="/")))
-
-
-class LogoutHandler(webapp2.RequestHandler):
-  def get(self):
-    self.redirect(
-        api.users.create_logout_url(
-          self.request.get("continue", default_value="/")))
-
-
-auth = webapp2.WSGIApplication([
-  (r"{}login".format(PREFIX), LoginHandler),
-  (r"{}logout" .format(PREFIX), LogoutHandler),
-], debug=DEBUG)

@@ -13,7 +13,5 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/log(in|out)
-    script: tailbone.auth
   - url: /api/test/(.*)
     script: tailbone.test.app
