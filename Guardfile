@@ -1,10 +1,13 @@
-# Guardfile
-# More info at https://github.com/guard/guard#readme
+#!/usr/bin/env python
 
-guard 'compass' do
-  watch(%r{client/app/.+\.(scss)})
-end
-guard 'livereload' do
-  watch(%r{client/app/.+\.(css|js|html)$})
-  watch(%r{tailbone/.+\.(py|js|html)$})
-end
+# Guardfile
+# More info at https://github.com/lepture/python-livereload
+
+from livereload.task import Task
+from livereload.compiler import shell
+import sys
+
+Task.add('client/app/*.scss', shell('sass --update', 'client/app', 'log'))
+
+Task.add('client/app/*')
+Task.add('tailbone/*')
