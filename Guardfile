@@ -5,9 +5,8 @@
 
 from livereload.task import Task
 from livereload.compiler import shell
-import sys
 
-Task.add('client/app/*.scss', shell('sass --update', 'client/app', 'log'))
+Task.add('client/app/*.scss', shell('sass --update', 'client/app'))
 
 Task.add('client/app/*')
 Task.add('tailbone/*')
