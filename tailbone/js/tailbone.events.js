@@ -152,6 +152,7 @@ function unbind(name, fn) {
 
 // Exports
 tailbone._client_id = client_id;
+tailbone.databinding = true;
 tailbone.trigger = function(name, payload) { ifConnected(trigger, name, payload); };
 tailbone.bind = function(name, fn) { ifConnected(bind, name, fn); };
 tailbone.unbind = function(name, fn) { ifConnected(unbind, name, fn); };

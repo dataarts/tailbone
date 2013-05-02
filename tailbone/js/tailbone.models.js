@@ -9,13 +9,6 @@ window.tailbone = !window.tailbone ? {} : window.tailbone;
 
 (function(window, document, undefined) {
 
-// We expose a global config object the only use at this point is to
-// enable the databinding feature which triggers and fetches updates
-// when other people modify one of the models you are querying.
-var config = {
-  databinding: true
-};
-
 
 // Quering and Filtering
 // ---------------------
@@ -87,7 +80,7 @@ var ModelFactory = function(type, opt_schema) {
       query.fetch(opt_callback);
     }, 0);
     // Bind to watch for changes to this model by others on the server.
-    if (config.databinding) {
+    if (tailbone.databinding) {
       tailbone.bind(type, function() { query.fetch() });
     }
     return query;
@@ -117,7 +110,7 @@ var ModelFactory = function(type, opt_schema) {
       if (fn) {
         fn(model);
       }
-      if (config.databinding) {
+      if (tailbone.databinding) {
         tailbone.trigger(type);
       }
     }, opt_error);
@@ -131,7 +124,7 @@ var ModelFactory = function(type, opt_schema) {
       if (fn) {
         fn();
       }
-      if (config.databinding) {
+      if (tailbone.databinding) {
         tailbone.trigger(type);
       }
     }, opt_error);
@@ -162,7 +155,10 @@ var ModelFactory = function(type, opt_schema) {
         _order = [],
         _page_size = 100,
         _more = false,
-        _dirty = false;
+        _reversed = false,
+        _cursor = undefined,
+        _query_cursor = undefined,
+        _reverse_cursor = undefined;
 
     // Provide a projection of desired properties to the query
     query.projection = [];
@@ -170,12 +166,41 @@ var ModelFactory = function(type, opt_schema) {
     // the onchange callback
     query.onchange = undefined;
 
-    query.next = function() {
-      return true;
+    function flip_order() {
+      if (_order.length == 0) {
+        _order = ['-key'];
+      } else {
+        for(var i=0,l=_order.length;i<l;++i) {
+          if (_order[i][0] == '-') {
+            _order[i] = _order[i].substring(1);
+          } else {
+            _order[i] = '-' + _order[i];
+          }
+        }
+      }
+    }
+
+    query.next = function(opt_callback) {
+      if(_reversed) {
+        flip_order();
+        _reversed = false;
+        _query_cursor = _reverse_cursor;
+      } else {
+        _query_cursor = _cursor;
+      }
+      return query.fetch(opt_callback);
     };
 
-    query.previous = function() {
-      return true;
+    query.previous = function(opt_callback) {
+      // TODO: need to reverse the order of the filters and user reverse-cursor
+      if(!_reversed) {
+        flip_order();
+        _reversed = true;
+        _query_cursor = _reverse_cursor;
+      } else {
+        _query_cursor = _cursor;
+      }
+      return query.fetch(opt_callback);
     };
 
     query.__defineGetter__('more', function() { return _more; });
@@ -185,7 +210,7 @@ var ModelFactory = function(type, opt_schema) {
     query.__defineSetter__('page_size',
         function(page_size) {
           _page_size = page_size;
-          _dirty = true;
+          query.fetch();
         });
 
     // Filter the query results. This can either be a constructed filter using one
@@ -229,6 +254,7 @@ var ModelFactory = function(type, opt_schema) {
       return JSON.stringify({
         filter: _filter,
         order: _order,
+        cursor: _query_cursor,
         projection: this.projection,
         page_size: _page_size
       });
@@ -238,16 +264,20 @@ var ModelFactory = function(type, opt_schema) {
     // automatically on a query so you shouldn't need this unless you want to
     // update the results this will fetch and update the current results.
     query.fetch = function(opt_callback) {
-      var query = this;
-      function callback(data) {
+      function callback(data, status, xhr) {
+        window.x = arguments[2];
+        _cursor = xhr.getResponseHeader('cursor');
+        _reverse_cursor = xhr.getResponseHeader('reverse-cursor');
+        _more = JSON.parse(xhr.getResponseHeader('more'));
         query.splice(0, query.length);
         query.push.apply(query, data);
         var fn = opt_callback || query.onchange;
         if (fn) {
           fn(query);
         }
+        console.log(query.serialize(), _more);
       }
-      http.GET('/api/' + type + '/?params=' + this.serialize(), callback);
+      http.GET('/api/' + type + '/?params=' + query.serialize(), callback);
     };
 
     return query;
@@ -262,33 +292,6 @@ var ModelFactory = function(type, opt_schema) {
 // additional functionality built in.
 var User = new ModelFactory('users');
 
-function authorizeCallback(opt_callback) {
-
-  function processToken(callback) {
-    return function(message) {
-      if (message.data.type != 'Login') {
-        return;
-      }
-      var localhost = false;
-      if (message.origin.substr(0, 17) == 'http://localhost:') {
-        localhost = true;
-      }
-      if (!localhost && message.origin !== window.location.origin) {
-        throw new Error('Origin does not match.');
-      } else {
-        removeEventListener('message', process, false);
-        if (callback) {
-          callback(message.data.payload);
-        }
-      }
-    };
-  }
-
-  var process = processToken(opt_callback);
-  addEventListener('message', process, false);
-
-}
-
 // Constructs a login url.
 User.logout_url = function(redirect_url) {
   return '/api/login?url=' + (redirect_url || '/');
@@ -297,45 +300,6 @@ User.logout_url = function(redirect_url) {
 User.login_url = function(redirect_url) {
   return '/api/login?url=' + (redirect_url || '/');
 };
-
-// Constructs a login url use this with target _blank and setting a link on your
-// site for the best experience on most devices.
-User.login_callback_url = function(opt_callback) {
-  authorizeCallback(opt_callback);
-  return User.login_url('/api/login.html');
-};
-
-User.logout = function(opt_callback) {
-  http.GET('/api/logout?url=/api/users/me', null, opt_callback);
-};
-
-// Does the login with a popup in javascript. There is a potential problem with
-// this on browsers that don't support popups like some latest chrome builds and
-// most mobile devices.
-User.login = function(opt_callback) {
-  var x, y;
-  if (window.screen.width) {
-    x = window.screenX + window.screen.width / 2.0;
-    y = window.screenY + window.screen.height / 2.0;
-  }
-
-  var pos = {
-    x: x,
-    y: y,
-    width: 1100,
-    height: 600
-  };
-
-  var prop = 'menubar=0, resizable=0, location=0, toolbar=0, ' +
-    'status=0, scrollbars=1, titlebar=0, left=' +
-    (pos.x - (pos.width / 2.0)) + ', top=' +
-    (pos.y - (pos.height / 2.0)) + ', width=' +
-    pos.width + ', height=' + pos.height;
-
-  window.open(User.login_callback_url(opt_callback), 'Auth', prop);
-};
-
-
 
 
 
@@ -347,6 +311,5 @@ tailbone.FILTER = FILTER;
 tailbone.ORDER = ORDER;
 tailbone.AND = AND;
 tailbone.OR = OR;
-tailbone.config = config;
 
 })(this, this.document);
