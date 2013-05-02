@@ -52,6 +52,7 @@
 # shared resources and global variables
 from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX
 from tailbone import search
+from counter import get_count, increment, decrement
 
 import datetime
 import json
@@ -424,6 +425,7 @@ class RestfulHandler(BaseHandler):
   def _delete(self, model, id):
     if not id:
       raise AppError("Must provide an id.")
+    model = model.lower()
     u = current_user(required=True)
     if model == "users":
       if id != "me" and id != u:
@@ -433,6 +435,7 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model)
     key.delete()
     search.delete(key)
+    decrement(model)
     return {}
 
   def set_or_create(self, model, id, parent_key=None):
@@ -449,10 +452,13 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model, data.get("Id"))
     clean_data(data)
     validate(cls.__name__, data)
-    if key and model != "users":
+    already_exists = False
+    if key:
       old_model = key.get()
-      if old_model and not old_model.can_write(u):
-        raise AppError("You do not have sufficient privileges.")
+      if old_model:
+        if model != "users" and not old_model.can_write(u):
+          raise AppError("You do not have sufficient privileges.")
+        already_exists = True
 
     # TODO: might want to add this post creation since you already have the key
     if parent_key:
@@ -465,6 +471,9 @@ class RestfulHandler(BaseHandler):
       if len(m.owners) == 0:
         m.owners.append(u)
     m.put()
+    # increment count
+    if not already_exists:
+      increment(model)
     # update indexes
     search.put(m)
     redirect = self.request.get("redirect")
@@ -473,6 +482,10 @@ class RestfulHandler(BaseHandler):
       # Raising break error to avoid header and body writes from @as_json decorator since we override as a redirect
       raise BreakError()
     return m.to_dict()
+
+  # Metadata including the count in the response header
+  def head(self, model, id):
+    self.reponse.headers["Count"] = get_count(model)
 
   @as_json
   def get(self, model, id):
