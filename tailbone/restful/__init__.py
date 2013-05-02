@@ -227,29 +227,6 @@ re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
 
-# Convert a value to its inferred python type. Note all numbers are stored as floats which by cause
-# precision issues in odd cases.
-def xconvert_value(value):
-  if value == "true":
-    value = True
-  elif value == "false":
-    value = False
-  elif _reKey.match(value):
-    try:
-      value = ndb.Key(urlsafe=value)
-    except TypeError:
-      pass
-  else:
-    try:
-      value = int(value)
-    except:
-      try:
-        value = float(value)
-      except:
-        pass
-  return value
-
-
 def convert_value(value):
   if value == "true":
     value = True
