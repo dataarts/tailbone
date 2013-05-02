@@ -265,7 +265,6 @@ var ModelFactory = function(type, opt_schema) {
     // update the results this will fetch and update the current results.
     query.fetch = function(opt_callback) {
       function callback(data, status, xhr) {
-        window.x = arguments[2];
         _cursor = xhr.getResponseHeader('cursor');
         _reverse_cursor = xhr.getResponseHeader('reverse-cursor');
         _more = JSON.parse(xhr.getResponseHeader('more'));
@@ -275,7 +274,6 @@ var ModelFactory = function(type, opt_schema) {
         if (fn) {
           fn(query);
         }
-        console.log(query.serialize(), _more);
       }
       http.GET('/api/' + type + '/?params=' + query.serialize(), callback);
     };
