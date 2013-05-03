@@ -36,6 +36,7 @@ includes:
 env_variables:
   NAMESPACE: '' # The datastore namespace, '' for default
   JSONP: 'false' # Set to true to enable jsonp
+  METADATA: 'true' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

@@ -30,7 +30,7 @@ from google.appengine.ext import ndb
 PREFIX = "/api/"
 NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
-JSONP = os.environ.get("JSONP", "false")
+JSONP = os.environ.get("JSONP", "false") == "true"
 
 
 # Custom Exceptions
@@ -92,7 +92,7 @@ def as_json(func):
       resp = {"error": e.__class__.__name__, "message": e.message}
     if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
-    if JSONP == "true":
+    if JSONP:
       callback = self.request.get("callback")
       if callback:
         self.response.headers["Content-Type"] = "text/javascript"

@@ -57,6 +57,7 @@ from counter import get_count, increment, decrement
 import datetime
 import json
 import logging
+import os
 import re
 import webapp2
 
@@ -68,6 +69,8 @@ re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
+
+store_metadata = os.environ.get("METADATA","true") == "true"
 
 
 def current_user(required=False):
@@ -435,7 +438,8 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model)
     key.delete()
     search.delete(key)
-    decrement(model)
+    if store_metadata:
+      decrement(model)
     return {}
 
   def set_or_create(self, model, id, parent_key=None):
@@ -472,7 +476,7 @@ class RestfulHandler(BaseHandler):
         m.owners.append(u)
     m.put()
     # increment count
-    if not already_exists:
+    if not already_exists and store_metadata:
       increment(model)
     # update indexes
     search.put(m)
@@ -485,7 +489,12 @@ class RestfulHandler(BaseHandler):
 
   # Metadata including the count in the response header
   def head(self, model, id):
-    self.reponse.headers["Count"] = get_count(model)
+    if store_metadata:
+      model = model.lower()
+      metadata = {
+        "total": get_count(model)
+      }
+      self.response.headers["Metadata"] = json.dumps(metadata)
 
   @as_json
   def get(self, model, id):

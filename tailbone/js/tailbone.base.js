@@ -43,6 +43,15 @@ function errorWrapper(fn) {
     }
   }
 }
+http.HEAD = function(url, load, error, context) {
+  $.ajax({
+    type: 'HEAD',
+    url: url,
+    success: load,
+    error: errorWrapper(error),
+    context: context
+  });
+};
 http.GET = function(url, load, error, context) {
   $.ajax({
     type: 'GET',
