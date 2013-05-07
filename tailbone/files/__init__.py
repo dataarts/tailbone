@@ -29,11 +29,13 @@ from tailbone.restful import query
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
 
+
 class BlobInfo(blobstore.BlobInfo):
   def to_dict(self, *args, **kwargs):
     result = super(BlobInfo, self).to_dict(*args, **kwargs)
     result["Id"] = str(self.key())
     return result
+
 
 def blob_info_to_dict(blob_info):
   d = {}
@@ -45,17 +47,19 @@ def blob_info_to_dict(blob_info):
   d["Id"] = str(key)
   return d
 
+
 class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
+
   @as_json
   def get(self, key):
-    if key == "": # query
+    if key == "":  # query
       if not users.is_current_user_admin():
         raise AppError("User must be administrator.")
       return query(self, BlobInfo)
     elif key == "create":
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
-          }
+      }
     key = str(urllib.unquote(key))
     blob_info = bs.BlobInfo.get(key)
     if blob_info:
@@ -88,6 +92,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
       self.error(404)
       return {"error": "File not found with key " + key}
 
+
 class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
   @as_json
   def post(self):
@@ -97,6 +102,4 @@ class FilesUploadHandler(blobstore_handlers.BlobstoreUploadHandler):
 app = webapp2.WSGIApplication([
   (r"{}files/upload".format(PREFIX), FilesUploadHandler),
   (r"{}files/?(.*)".format(PREFIX), FilesHandler),
-  ], debug=DEBUG)
-
-
+], debug=DEBUG)

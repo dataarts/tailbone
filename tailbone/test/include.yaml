@@ -13,5 +13,7 @@
 # limitations under the License.
 
 handlers:
+  - url: /api/test/extras
+    static_dir: tailbone/test/extras
   - url: /api/test/(.*)
     script: tailbone.test.app
