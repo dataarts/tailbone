@@ -28,7 +28,6 @@ from google.appengine import api
 from google.appengine.ext import ndb
 
 PREFIX = "/api/"
-NAMESPACE = os.environ.get("NAMESPACE", "")
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 JSONP = os.environ.get("JSONP", "false") == "true"
 
@@ -70,8 +69,6 @@ def as_json(func):
       self.response.headers["Access-Control-Allow-Origin"] = "*"
       self.response.headers["Access-Control-Allow-Methods"] = "POST,GET,PUT,PATCH,HEAD,OPTIONS"
       self.response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    else:
-      api.namespace_manager.set_namespace(NAMESPACE)
     try:
       resp = func(self, *args, **kwargs)
       if resp is None:
