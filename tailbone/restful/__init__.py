@@ -170,13 +170,13 @@ def reflective_create(cls, data):
           values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
           v = datetime.datetime(*values)
         except ValueError as e:
-          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          # logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
       elif _reKey.match(v):
         try:
           v = ndb.Key(urlsafe=v)
-        except TypeError as e:
-          logging.info("{} key:'{}' value:{}".format(e, k, v))
+        except Exception as e:
+          # logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
     elif t == dict:
       recurse = True
