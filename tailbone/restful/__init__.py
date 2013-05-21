@@ -70,7 +70,7 @@ re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
 
-store_metadata = os.environ.get("METADATA","true") == "true"
+store_metadata = os.environ.get("METADATA", "true") == "true"
 
 
 def current_user(required=False):
@@ -519,7 +519,7 @@ class RestfulHandler(BaseHandler):
 
 
 class NestedRestfulHandler(RestfulHandler):
-  def get_parent(parent_model, parent_id):
+  def get_parent(self, parent_model, parent_id):
     parent_key = ndb.Key(parent_model, parent_id)
     parent = parent_key.get()
     if not parent:
