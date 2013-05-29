@@ -37,9 +37,10 @@ class Middleware(object):
     self.app = app
 
   def __call__(self, environ, start_response):
+    environ["TAILBONE_AUTH"] = "true"
     u = api.users.get_current_user()
     if u:
-      # USER_ID is the only required var for authentication middleware complience
+      # USER_ID is the only required var for authentication middleware compliance
       environ["TAILBONE_USER_ID"] = u.user_id()
       environ["TAILBONE_USER_EMAIL"] = u.email()
       environ["TAILBONE_USER_NICKNAME"] = u.nickname()
