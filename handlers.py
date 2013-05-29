@@ -36,8 +36,8 @@ jinja_environment = jinja2.Environment(
 
 
 decorator = OAuth2Decorator(
-    client_id = '191237637679.apps.googleusercontent.com',
-    client_secret = 'zjwQ7fvG6Rbii6uEV4weS-oP',
+    client_id = '858095213682.apps.googleusercontent.com',
+    client_secret = 'VIRXEJMDObDHOBJUOqbRe9jI',
     scope=ComputeEngineController.SCOPE,
     user_agent='load-balance-compute-engine/1.0')
 
