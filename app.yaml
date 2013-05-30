@@ -62,14 +62,6 @@ inbound_services:
   - warmup
   - channel_presence
 
-admin_console:
-  pages:
-  - name: Datastore Abuse
-    url: /admin/abuse
-  pages:
-  - name: Mesh Network
-    url: /admin/mesh
-
 skip_files:
   - ^(.*/)?index\.yaml
   - ^(.*/)?index\.yml

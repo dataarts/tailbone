@@ -16,9 +16,13 @@ handlers:
   - url: /api/admin/?.*
     script: tailbone.admin.app
     login: admin
+  - url: /admin/abuse
+  	static_files: tailbone/admin/abuse.html
+  	upload: tailbone/admin/abuse.html
+    login: admin
 
 admin_console:
   pages:
   - name: Datastore Abuse
-    url: /api/admin/abuse
+    url: /admin/abuse
 

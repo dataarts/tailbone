@@ -15,3 +15,12 @@
 handlers:
   - url: /api/mesh/?.*
     script: tailbone.mesh.app
+  - url: /admin/mesh
+  	static_files: tailbone/compute_engine/mesh/admin.html
+  	upload: tailbone/compute_engine/mesh/admin.html
+  	login: admin
+
+admin_console:
+  pages:
+  - name: Mesh Network
+    url: /admin/mesh
