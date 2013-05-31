@@ -12,17 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-handlers:
-  - url: /api/admin/?.*
-    script: tailbone.admin.app
-    login: admin
-  - url: /admin/abuse
-  	static_files: tailbone/admin/abuse.html
-  	upload: tailbone/admin/abuse.html
-    login: admin
+# shared resources and global variables
+from tailbone import *
 
-admin_console:
-  pages:
-  - name: Datastore Abuse
-    url: /admin/abuse
-
+import json
+import logging
+import random
+import webapp2

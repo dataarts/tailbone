@@ -13,16 +13,14 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/admin/?.*
-    script: tailbone.admin.app
-    login: admin
-  - url: /admin/abuse
-  	static_files: tailbone/admin/abuse.html
-  	upload: tailbone/admin/abuse.html
-    login: admin
+  - url: /api/mesh/?.*
+    script: tailbone.mesh.app
+  - url: /admin/mesh
+  	static_files: tailbone/compute_engine/mesh/admin.html
+  	upload: tailbone/compute_engine/mesh/admin.html
+  	login: admin
 
 admin_console:
   pages:
-  - name: Datastore Abuse
-    url: /admin/abuse
-
+  - name: Mesh Network
+    url: /admin/mesh
