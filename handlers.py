@@ -235,16 +235,16 @@ class GameSetupHandler(webapp2.RequestHandler):
 
 app = webapp2.WSGIApplication(
     [
-        ('/getip.json', FrontendHandler),
-        ('/stats', AdminUiHandler),
-        ('/stats.json', StatsJsonHandler),
-        ('/stats-user.json', StatsUserJsonHandler),
-        ('/startup', StartUpHandler),
-        ('/teardown', TearDownHandler),
-        ('/register', RegisterHandler),
-        ('/load', LoadMonitorHandler),
-        ('/check-load', LoadCheckerHandler),
-        ('/setup-and-start-game', GameSetupHandler),
+        ('/ws/getip.json', FrontendHandler),
+        ('/ws/stats', AdminUiHandler),
+        ('/ws/stats.json', StatsJsonHandler),
+        ('/ws/stats-user.json', StatsUserJsonHandler),
+        ('/ws/startup', StartUpHandler),
+        ('/ws/teardown', TearDownHandler),
+        ('/ws/register', RegisterHandler),
+        ('/ws/load', LoadMonitorHandler),
+        ('/ws/check-load', LoadCheckerHandler),
+        ('/ws/setup-and-start-game', GameSetupHandler),
         (decorator.callback_path, decorator.callback_handler()),
     ],
     debug=True)

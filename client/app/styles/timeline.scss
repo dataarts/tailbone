@@ -1,0 +1,171 @@
+@import "bourbon/bourbon";
+
+.timeline, .timeline * {
+  margin: 0;
+  padding: 0;
+}
+
+.timeline {
+
+  $font-size: 10px;
+  $line-height: 20px;
+
+  $sidebar-width: 20%;
+
+  $black: #333;
+  $red: red;
+  $white: #fff;
+  $background-color: rgb(89, 89, 89);
+  $border-color: rgba(0, 0, 0, 0.1);;
+  $veil-color: rgba(255, 255, 255, 0.1);
+  $font-color: rgb(240, 240, 240);
+  $active-color: rgb(250, 150, 0);
+
+  font-family: 'Lucida Grande', sans-serif;
+  font-size: $font-size;
+  line-height: $line-height;
+  color: $font-color;
+  background: $background-color;
+  border: 1px solid $black;
+  width: 100%;
+  text-shadow: 1px 1px 1px $black;
+
+  .wrapper {
+    position: relative;
+  }
+
+  .sidebar {
+
+    width: $sidebar-width; // This will be hard-coded in JavaScript
+    border-right: 1px solid $black;
+
+    .controls {
+      text-align: center;
+      & > * {
+        min-width: 20%;
+        max-width: 25%;
+        &:hover {
+          color: $white;
+        }
+      }
+    }
+
+    .item {
+
+      ul {
+        display: none;
+      }
+
+      &.open {
+        ul {
+          display: block;
+        }
+        .object:before {
+          content: "▾";
+        }
+      }
+
+      .object {
+        &:before {
+          padding: 0 $font-size / 2;
+          content: "‣";
+        }
+      }
+
+    }
+    .property {
+      text-align: center;
+      @include inline-block;
+      width: 25%;
+      overflow: hidden;
+    }
+    .value {
+      @include inline-block;
+      width: 50%;
+      text-align: right;
+      overflow: hidden;
+    }
+  }
+
+  .viewport {
+
+    position: absolute;
+    width: 100% - $sidebar-width;
+    height: 100%;
+    top: 0;
+    left: $sidebar-width;
+    overflow-x: hidden;
+    overflow-y: visible;
+
+    .time {
+      position: relative;
+      width: 100%;
+      height: $line-height;
+      background: $veil-color;
+    }
+
+    .timespan {
+      position: absolute;
+      top: 50%;
+      left: 25px; // Defined in JavaScript
+      height: 33%;
+      width: 50%; // Defined in JavaScript
+      margin-top: - $line-height / 6;
+      $border-width: $font-size;
+      margin-left: - $border-width;
+      background: tint($black, 5%);
+      border-right: $border-width solid $active-color;
+      border-left: $border-width solid $active-color;
+      border-radius: $border-width;
+      cursor: ew-resize;
+    }
+
+    .needle {
+      position: absolute;
+      top: 0;
+      left: 33%;    // Defined in JavaScript
+      height: 100%; // Could be defined by JavaScript
+      border-right: 1px solid $red;
+      cursor: ew-resize;
+    }
+
+  }
+
+  .item,
+  li {
+    &:not(:last-child) {
+      border-bottom: 1px solid $black;
+    }
+    background: $border-color;
+  }
+
+  button, input {
+    font-size: $font-size;
+    line-height: $line-height;
+  }
+
+  button {
+    color: $font-color;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  input {
+    // @include inline-block;
+    display: inline;
+    color: $active-color;
+    background: transparent;
+    border: none;
+    outline: none;
+    background: $veil-color;
+    padding: 0 $font-size / 2;
+    &:hover {
+      color: tint($active-color, 33%);
+    }
+    &:focus {
+      color: tint($active-color, 100%);
+    }
+  }
+
+}

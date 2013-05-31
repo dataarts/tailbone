@@ -1,0 +1,19 @@
+<script src="../../mdv.js"></script>
+
+<h1>Conditional Template</h1>
+
+<ul>
+<template id="example" bind>
+  <span>Show?: <input type="checkbox" checked="{{ show }}"></span>
+  <template bind if="{{ show }}">
+  	<span>Yay! I'm shown</span>
+  </template>
+</template>
+</ul>
+
+<script>
+var t = document.getElementById('example');
+t.model = {
+  show: true
+};
+</script>

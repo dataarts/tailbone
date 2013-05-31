@@ -24,8 +24,14 @@ handlers:
   script: handlers.app
   login: admin
 
-- url: .*
+- url: /ws/.*
   script: handlers.app
+
+- url: (/?.*)/
+  static_files: client/app\1/index.html
+  upload: client/app(.*)/index.html
+- url: /
+  static_dir: client/app
 
 
 libraries:

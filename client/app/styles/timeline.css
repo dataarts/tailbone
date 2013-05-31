@@ -1,0 +1,112 @@
+@charset "UTF-8";
+.timeline, .timeline * {
+  margin: 0;
+  padding: 0; }
+
+.timeline {
+  font-family: "Lucida Grande", sans-serif;
+  font-size: 10px;
+  line-height: 20px;
+  color: #f0f0f0;
+  background: #595959;
+  border: 1px solid #333333;
+  width: 100%;
+  text-shadow: 1px 1px 1px #333333; }
+  .timeline .wrapper {
+    position: relative; }
+  .timeline .sidebar {
+    width: 20%;
+    border-right: 1px solid #333333; }
+    .timeline .sidebar .controls {
+      text-align: center; }
+      .timeline .sidebar .controls > * {
+        min-width: 20%;
+        max-width: 25%; }
+        .timeline .sidebar .controls > *:hover {
+          color: white; }
+    .timeline .sidebar .item ul {
+      display: none; }
+    .timeline .sidebar .item.open ul {
+      display: block; }
+    .timeline .sidebar .item.open .object:before {
+      content: "▾"; }
+    .timeline .sidebar .item .object:before {
+      padding: 0 5px;
+      content: "‣"; }
+    .timeline .sidebar .property {
+      text-align: center;
+      display: inline-block;
+      vertical-align: baseline;
+      zoom: 1;
+      *display: inline;
+      *vertical-align: auto;
+      width: 25%;
+      overflow: hidden; }
+    .timeline .sidebar .value {
+      display: inline-block;
+      vertical-align: baseline;
+      zoom: 1;
+      *display: inline;
+      *vertical-align: auto;
+      width: 50%;
+      text-align: right;
+      overflow: hidden; }
+  .timeline .viewport {
+    position: absolute;
+    width: 80%;
+    height: 100%;
+    top: 0;
+    left: 20%;
+    overflow-x: hidden;
+    overflow-y: visible; }
+    .timeline .viewport .time {
+      position: relative;
+      width: 100%;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.1); }
+    .timeline .viewport .timespan {
+      position: absolute;
+      top: 50%;
+      left: 25px;
+      height: 33%;
+      width: 50%;
+      margin-top: -3.33333px;
+      margin-left: -10px;
+      background: #3d3d3d;
+      border-right: 10px solid #fa9600;
+      border-left: 10px solid #fa9600;
+      border-radius: 10px;
+      cursor: ew-resize; }
+    .timeline .viewport .needle {
+      position: absolute;
+      top: 0;
+      left: 33%;
+      height: 100%;
+      border-right: 1px solid red;
+      cursor: ew-resize; }
+  .timeline .item,
+  .timeline li {
+    background: rgba(0, 0, 0, 0.1); }
+    .timeline .item:not(:last-child),
+    .timeline li:not(:last-child) {
+      border-bottom: 1px solid #333333; }
+  .timeline button, .timeline input {
+    font-size: 10px;
+    line-height: 20px; }
+  .timeline button {
+    color: #f0f0f0;
+    background: transparent;
+    border: none;
+    cursor: pointer; }
+  .timeline input {
+    display: inline;
+    color: #fa9600;
+    background: transparent;
+    border: none;
+    outline: none;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0 5px; }
+    .timeline input:hover {
+      color: #fbb854; }
+    .timeline input:focus {
+      color: white; }
