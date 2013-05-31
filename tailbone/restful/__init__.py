@@ -70,7 +70,7 @@ re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
 
-store_metadata = os.environ.get("METADATA","true") == "true"
+store_metadata = os.environ.get("METADATA", "true") == "true"
 
 
 def current_user(required=False):
@@ -170,13 +170,13 @@ def reflective_create(cls, data):
           values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
           v = datetime.datetime(*values)
         except ValueError as e:
-          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          # logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
       elif _reKey.match(v):
         try:
           v = ndb.Key(urlsafe=v)
-        except TypeError as e:
-          logging.info("{} key:'{}' value:{}".format(e, k, v))
+        except Exception as e:
+          # logging.info("{} key:'{}' value:{}".format(e, k, v))
           pass
     elif t == dict:
       recurse = True
@@ -518,33 +518,34 @@ class RestfulHandler(BaseHandler):
     return self._delete(*args)
 
 
-class NestedRestfulHandler(RestfulHandler):
-  def get_parent(parent_model, parent_id):
-    parent_key = ndb.Key(parent_model, parent_id)
-    parent = parent_key.get()
-    if not parent:
-      raise AppError("Parent model {}:{} does not exists.".format(parent_model, parent_id))
-    return parent
+def get_model(urlsafekey):
+  key = ndb.Key(urlsafe=urlsafekey)
+  # dynamic class defined if doesn't exists for reflective creation later
+  type(key.kind(), (ScopedExpando,), {})
+  m = key.get()
+  if not key:
+    raise AppError("Model {} does not exists.".format(urlsafekey))
+  return m
 
+
+class NestedRestfulHandler(RestfulHandler):
   @as_json
   def get(self, parent_model, parent_id, model, id):
-    parent = self.get_parent(parent_model, parent_id)
+    parent = get_model(parent_id)
     parent_key = parent.key
 
     def belongs_to_filter(q):
-      cls = type(parent_model.lower(), (ScopedExpando,), {})
-      field = getattr(cls, parent_model)
-      return q.filter(field == parent_key)
+      f = ndb.query.FilterNode(parent_key.kind(), "=", parent_key)
+      return q.filter(f)
     return self._get(model, id, belongs_to_filter)
 
   def set_or_create(self, parent_model, parent_id, model, id):
-    parent = self.get_parent(parent_model, parent_id)
-    s = super(NestedRestfulHandler, self)
-    s.set_or_create(model, id, parent.key)
+    parent = get_model(parent_id)
+    return RestfulHandler.set_or_create(self, model, id, parent.key)
 
   def _delete(self, parent_model, parent_id, model, id):
-    self.get_parent(parent_model, parent_id)
-    return super(NestedRestfulHandler, self)._delete(model, id)
+    get_model(parent_id)
+    return RestfulHandler._delete(self, model, id)
 
 
 # Load an optional validation.json
