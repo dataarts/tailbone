@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from tailbone import DEBUG, PREFIX
 
 import logging
 import random
@@ -19,10 +20,43 @@ import webapp2
 
 from google.appengine.ext import ndb
 
-class TailboneCEInstance(ndb.Expando):
-  pass
+# Static template configurations to be passed to start_instance
+CONFIGURATIONS = {
+  'WEBSOCKET': {
+    'kind': 'websocket',
+    'startup-script': 'tailbone/compute_engine/mesh/setup_and_run_ws.sh'
+  },
+  'TURN': {
+    'kind': 'turn',
+    'startup-script': 'tailbone/compute_engine/mesh/setup_and_run_turn.sh'
+  },
+}
 
-class LoadBalancer(object):
+class TailboneCEInstance(ndb.Expando):
+  kind = ndb.StringProperty()  # websocket, turn, etc
+  ip = ndb.StringProperty()
+  zone = ndb.StringProperty()
+  load = ndb.FloatProperty()
+
+class LoadBalancer(webapp2.RequestHandler):
   @classmethod
   def load():
+    """Return the current load."""
     pass
+
+  @classmethod
+  def start_instance(configuration):
+    """Start a new instance with a given configuration"""
+    pass
+
+  @classmethod
+  def stop_instance(instance_id):
+    pass
+
+  def get(self):
+    pass
+
+
+app = webapp2.WSGIApplication([
+  (r"{}compute_engine/?.*".format(PREFIX), LoadBalancer),
+], debug=DEBUG)
