@@ -25,14 +25,24 @@ from google.appengine.ext import ndb
 
 
 class TailboneMeshRoom(ndb.Model):
+  """TODO: add a taskqueue callback to be executed in the future to delete yourself
+  if a connection is not made to this room after x amount of time.
+  This should be executed in websocket.py when not in debug mode.
+  Similar callback from websocket.py must be created for both when someone first enters a room
+  and when the last person leaves."""
   ip = ndb.StringProperty()
+  created_at = ndb.DateTimeProperty(auto_now_add=True)
+  in_use = ndb.BooleanProperty(default=False)
 
 
-def create_room():
-  name = generate_word() + 'n' + generate_word()
-  # Test to confirm the generated name doesn't exist
-  room = TailboneMeshRoom.get_by_id(name)
+def create_room(name=None):
+  room = None
+  if not name:
+    name = generate_word() + '.' + generate_word()
+    # Test to confirm the generated name doesn't exist
+    room = TailboneMeshRoom.get_by_id(name)
   if not room:
+    # put the room creation in a transaction
     room = TailboneMeshRoom(id=name)
     room.put()
     return room
@@ -41,9 +51,9 @@ def create_room():
 
 def get_or_create_room(name):
   if name:
-    room = TailboneMeshRoom.get(name)
+    room = TailboneMeshRoom.get_by_id(name)
     if not room:
-      room = TailboneMeshRoom(id=name)
+      room = create_room(name)
     return room
   return create_room()
 
@@ -51,19 +61,20 @@ def get_or_create_room(name):
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    # find the best fitting
-    # turn = LoadBalancer.get('turn')
-    # ws = LoadBalancer.get('websocket')
     room = get_or_create_room(name)
+    if not room.ip:
+      room.ip = LoadBalancer.find(LoadBalancer.WEBSOCKET, self.request)
     return {
-      "ip": "localhost",
+      "ip": room.ip,
       "name": room.key.id(),
     }
 
   @as_json
   def delete(self, name):
     if not users.is_current_user_admin():
-      raise AppError('Unauthorized.')
+      raise AppError("Unauthorized.")
+    if not name:
+      raise AppError("Must provide name.")
 
 
 app = webapp2.WSGIApplication([

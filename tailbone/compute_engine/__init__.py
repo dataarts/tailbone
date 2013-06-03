@@ -32,28 +32,47 @@ CONFIGURATIONS = {
   },
 }
 
+
 class TailboneCEInstance(ndb.Expando):
   kind = ndb.StringProperty()  # websocket, turn, etc
   ip = ndb.StringProperty()
-  zone = ndb.StringProperty()
+  zone = ndb.GeoPtProperty()
   load = ndb.FloatProperty()
 
+
 class LoadBalancer(webapp2.RequestHandler):
-  @classmethod
+  # Supported instance types
+  WEBSOCKET = 'websocket'
+  TURN = 'turn'
+
+  @staticmethod
   def load():
     """Return the current load."""
     pass
 
-  @classmethod
+  @staticmethod
   def start_instance(configuration):
     """Start a new instance with a given configuration"""
     pass
 
-  @classmethod
+  @staticmethod
   def stop_instance(instance_id):
+    """Stop an instance with given instance_id"""
     pass
 
+  @staticmethod
+  def restart():
+    """Shutdown all instances and reboot, neccessary when
+    setup and run scripts change"""
+    pass
+
+  @staticmethod
+  def find(kind, request):
+    """Get the most appropriate kind of instance for the given request."""
+    return "localhost"
+
   def get(self):
+    """GET handler used by the taskqueue api to update the loadbalancer with the heartbeat"""
     pass
 
 
