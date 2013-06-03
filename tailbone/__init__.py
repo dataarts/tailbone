@@ -152,13 +152,17 @@ def parse_body(self):
 
 # Leave minification etc up to PageSpeed
 def compile_js(files, exports=None, closure=True):
-  js = "(function(this) {\n" if closure else ""
+  js = "(function(root) {\n" if closure else ""
   for fname in files:
     with open(fname) as f:
       js += f.read() + "\n"
   if exports:
     for public, private in exports:
-      js += "this['{}'] = {};\n".format(public, private)
+      submodules = public.split('.')[:-1]
+      i = 1
+      for submodule in submodules:
+        js += "root.{} = {} || {{}};\n".format(".".join(submodules[:i]), submodule)
+      js += "root.{} = {};\n".format(public, private)
   if closure:
     js += "})(this);\n"
 
