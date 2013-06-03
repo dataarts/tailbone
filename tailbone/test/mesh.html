@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="extras/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="extras/qunit-git.js" type="text/javascript"></script>
+  <script src="extras/jquery.min.js"></script>
+  <script src="/tailbone.mesh.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+var mesh = new tailbone.Mesh('roomname');
+mesh.bind('enter', function(user_id) {
+});
+mesh.bind('leave', function(user_id) {
+});
+mesh.bind('test', function(arg1, arg2) {
+  console.log('test', arg1, arg2);
+});
+mesh.trigger('test', 1, 2);
+mesh.unbind('test');
+
+test(function() {
+  ok(1 == 1, 'truth');
+});
+
+  </script>
+  </body>
+</html>

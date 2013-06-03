@@ -50,7 +50,7 @@
 #       save checks all listened queries for a matching one
 
 # shared resources and global variables
-from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX
+from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX, PROTECTED
 from tailbone import search
 from counter import get_count, increment, decrement
 
@@ -71,6 +71,8 @@ re_type = type(re_public)
 acl_attributes = [u"owners", u"viewers"]
 
 store_metadata = os.environ.get("METADATA", "true") == "true"
+
+ProtectedModelError = AppError("This is a protected Model.")
 
 
 def current_user(required=False):
@@ -400,8 +402,11 @@ def validate(cls_name, data):
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
   def _get(self, model, id, *extra_filters):
+    model = model.lower()
+    if model in PROTECTED:
+      raise ProtectedModelError
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
-    cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
+    cls = users if model == "users" else type(model, (ScopedExpando,), {})
     if id:
       me = False
       if model == "users":
@@ -429,6 +434,8 @@ class RestfulHandler(BaseHandler):
     if not id:
       raise AppError("Must provide an id.")
     model = model.lower()
+    if model in PROTECTED:
+      raise ProtectedModelError
     u = current_user(required=True)
     if model == "users":
       if id != "me" and id != u:
@@ -443,6 +450,9 @@ class RestfulHandler(BaseHandler):
     return {}
 
   def set_or_create(self, model, id, parent_key=None):
+    model = model.lower()
+    if model in PROTECTED:
+      raise ProtectedModelError
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
@@ -451,7 +461,7 @@ class RestfulHandler(BaseHandler):
       id = u
       cls = users
     else:
-      cls = type(model.lower(), (ScopedExpando,), {})
+      cls = type(model, (ScopedExpando,), {})
     data = parse_body(self)
     key = parse_id(id, model, data.get("Id"))
     clean_data(data)
@@ -491,6 +501,8 @@ class RestfulHandler(BaseHandler):
   def head(self, model, id):
     if store_metadata:
       model = model.lower()
+      if model in PROTECTED:
+        raise ProtectedModelError
       metadata = {
         "total": get_count(model)
       }
@@ -531,6 +543,10 @@ def get_model(urlsafekey):
 class NestedRestfulHandler(RestfulHandler):
   @as_json
   def get(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    if parent_model in PROTECTED:
+      raise ProtectedModelError
+
     parent = get_model(parent_id)
     parent_key = parent.key
 
@@ -540,10 +556,16 @@ class NestedRestfulHandler(RestfulHandler):
     return self._get(model, id, belongs_to_filter)
 
   def set_or_create(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    if parent_model in PROTECTED:
+      raise ProtectedModelError
     parent = get_model(parent_id)
     return RestfulHandler.set_or_create(self, model, id, parent.key)
 
   def _delete(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    if parent_model in PROTECTED:
+      raise ProtectedModelError
     get_model(parent_id)
     return RestfulHandler._delete(self, model, id)
 

@@ -31,6 +31,8 @@ PREFIX = "/api/"
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 JSONP = os.environ.get("JSONP", "false") == "true"
 
+PROTECTED = ["mesh", "users", "messages", "files", "events", "admin", "proxy"]
+
 
 # Custom Exceptions
 class AppError(Exception):
@@ -146,3 +148,27 @@ def parse_body(self):
       else:
         data[k] = v
   return data or {}
+
+
+# Leave minification etc up to PageSpeed
+def compile_js(files, exports=None, closure=True):
+  js = "(function(this) {\n" if closure else ""
+  for fname in files:
+    with open(fname) as f:
+      js += f.read() + "\n"
+  if exports:
+    for public, private in exports:
+      js += "this['{}'] = {};\n".format(public, private)
+  if closure:
+    js += "})(this);\n"
+
+  class JsHandler(webapp2.RequestHandler):
+    def get(self):
+      if not DEBUG:
+        # set cache-control public
+        self.response.headers["Cache-Control"] = "public, max-age=300"
+      self.response.headers["Content-Type"] = "text/javascript"
+      self.response.out.write(js)
+
+  return JsHandler
+

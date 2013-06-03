@@ -8,11 +8,11 @@ includes:
   ## Qunit tests (only works when running locally)
   - tailbone/test
   ## Basic App Engine authentication
-  - tailbone/auth_gae
+  # - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
   # - tailbone/admin
   ## Upload files to blobstore (TODO: also allow cloud storage)
-  - tailbone/files
+  # - tailbone/files
   ## Listen to and bind to global events with javascript and the channel api
   # - tailbone/events
   ## Send direct messages between clients with the channel api
@@ -20,9 +20,9 @@ includes:
   ## Add the users location in headers via geoip lookup
   # - tailbone/geoip
   ## Javascript helper libraries
-  - tailbone/js
+  # - tailbone/js
   ## Full text search must provide a searchable.json at the root level
-  - tailbone/search
+  # - tailbone/search
   ## Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
   ## will cost you bandwidth and has no auth)
   # - tailbone/proxy
@@ -30,14 +30,14 @@ includes:
   - tailbone/compute_engine/mesh
   ## Order in this list is important for restful and pathrewrite, they must be last.
   ## Restful resources
-  - tailbone/restful
+  # - tailbone/restful
   ## Any path without a file extension not in /api gets the app/client/index.html text. Useful for
   ## html5 applications that use the history api to write their paths.
   # - tailbone/pathrewrite
 
 env_variables:
   JSONP: 'false' # Set to true to enable jsonp
-  METADATA: 'true' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
+  METADATA: 'false' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

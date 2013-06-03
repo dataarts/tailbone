@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shared resources and global variables
-from tailbone import *
 
-import json
 import logging
 import random
 import webapp2
+
+class instance(ndb.Expando):
+  pass
+
+class LoadBalancer(object):
+  @classmethod
+  def load():
+    pass
