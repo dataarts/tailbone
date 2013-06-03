@@ -7,23 +7,23 @@
  */
 
 /**
- * Constructs new StateDrivenObject
+ * Constructs new StateDrive
  * @constructor
  */
-var StateDrivenObject = function () {
+var StateDrive = function () {
 
     this._state = 0;
     this._callQueue = {};
 
 };
 
-StateDrivenObject.prototype = new EventDispatcher();
+StateDrive.prototype = new EventDispatcher();
 
 /**
  * Gets current object state
  * @returns {int} current state
  */
-StateDrivenObject.prototype.getState = function () {
+StateDrive.prototype.getState = function () {
 
     return this._state;
 
@@ -33,7 +33,7 @@ StateDrivenObject.prototype.getState = function () {
  * Sets current object state
  * @param value {int} new state
  */
-StateDrivenObject.prototype.setState = function (value) {
+StateDrive.prototype.setState = function (value) {
 
     this._state = value;
     this.executeQueuedCalls();
@@ -43,21 +43,35 @@ StateDrivenObject.prototype.setState = function (value) {
 /**
  * Specifies minimum state for the instance function calls. A function call of name 'name' will be delayed until the instance reaches given 'state'
  * @param name {string}
+ * @param args... {array...} optional validator
  * @param state {int}
  */
-StateDrivenObject.prototype.setMinCallState = function (name, state) {
+StateDrive.prototype.setMinCallState = function (name, args, state) {
 
-    var originalFunction = this[name];
+    var originalFunction = this[name],
+        stateId = arguments[arguments.length - 1],
+        argumentValidators = arguments.length > 2 ? Array.prototype.slice.apply(arguments).slice(1, arguments.length - 1) : [],
+        i;
 
     this[name] = function () {
 
-        if (this._state >= state) {
+        if (this._state >= stateId || arguments.length < argumentValidators.length) {
 
-            originalFunction.apply(this, arguments);
+            return originalFunction.apply(this, arguments);
 
         } else {
 
-            this.queueCall(name, arguments, state);
+            for (i = 0; i < argumentValidators.length; ++i) {
+
+                if (!arguments[i].match(argumentValidators[i])) {
+
+                    return originalFunction.apply(this, arguments);
+
+                }
+
+            }
+
+            return this.queueCall(name, arguments, stateId);
 
         }
 
@@ -71,7 +85,7 @@ StateDrivenObject.prototype.setMinCallState = function (name, state) {
  * @param args {array}
  * @param state {int}
  */
-StateDrivenObject.prototype.queueCall = function (name, args, state) {
+StateDrive.prototype.queueCall = function (name, args, state) {
 
     this._callQueue[state] = this._callQueue[state] || [];
     this._callQueue[state].push({name: name, args: args});
@@ -81,7 +95,7 @@ StateDrivenObject.prototype.queueCall = function (name, args, state) {
 /**
  * Executes queued calls for current and lower states
  */
-StateDrivenObject.prototype.executeQueuedCalls = function () {
+StateDrive.prototype.executeQueuedCalls = function () {
 
     var i, j;
 
@@ -91,7 +105,7 @@ StateDrivenObject.prototype.executeQueuedCalls = function () {
 
             for (j = 0; j < this._callQueue[i].length; ++j) {
 
-                this[this._callQueue[i][j].name].apply(this, this._callQueue[i][j].arguments);
+                this[this._callQueue[i][j].name].apply(this, this._callQueue[i][j].args);
 
             }
 

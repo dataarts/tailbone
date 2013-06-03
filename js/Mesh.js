@@ -9,12 +9,13 @@
 var Mesh = function (id, options) {
 
     /* constructor */
-    StateDrivenObject.call(this);
+    StateDrive.call(this);
     this.id = id;
     this.config(options);
     this.setState(Mesh.STATE.INITIALISED);
     this.setMinCallState('connect', Mesh.STATE.INITIALISED);
-    this.setMinCallState('broadcast', Mesh.STATE.CONNECTED);
+    this.setMinCallState('trigger', 'test', Mesh.STATE.CONNECTED);
+    this.setMinCallState('unbind', /.*/, Mesh.STATE.CONNECTED);
 
     /* privilaged members */
     /**
@@ -84,7 +85,7 @@ var Mesh = function (id, options) {
     };
 
     var handleSystemMessage = function (self, message) {
-        
+
 //        enter, leave
 //        self.handleCustomMessage(self, overriddenMessage);
         return false;
@@ -168,8 +169,8 @@ var Mesh = function (id, options) {
 
     var onSocketOpen = function (self) {
 
-        console.log('- socket open', self);
         self.setState(Mesh.STATE.CONNECTED);
+        self.trigger('open');
 
     };
 
@@ -186,15 +187,15 @@ var Mesh = function (id, options) {
 
     var onSocketError = function (self) {
 
-        console.log('- socket error');
         self.setState(Mesh.STATE.UNDEFINED);
+        self.trigger('error');
 
     };
 
     var onSocketClose = function (self) {
 
-        console.log('- socket close');
         self.setState(Mesh.STATE.INITIALISED);
+        self.trigger('close');
 
     };
 
@@ -219,7 +220,7 @@ Mesh.options = {
 
 };
 
-Mesh.prototype = new StateDrivenObject();
+Mesh.prototype = new StateDrive();
 
 /**
  * Extends shared Mesh.options with custom config
@@ -246,14 +247,5 @@ Mesh.prototype.config = function (options) {
         }
 
     }
-
-};
-
-/**
- * Broadcasts message across all nodes
- */
-Mesh.prototype.broadcast = function () {
-
-    console.log('* broadcast', arguments, this);
 
 };

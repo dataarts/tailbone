@@ -12,4 +12,4 @@ var Node = function () {
 
 };
 
-Node.prototype = new StateDrivenObject();
+Node.prototype = new StateDrive();
