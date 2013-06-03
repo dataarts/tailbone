@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tailbone import DEBUG, PREFIX
+from tailbone import DEBUG, PREFIX, AppError
 
 import logging
 import random
 import webapp2
 
+from google.appengine.api import users
 from google.appengine.ext import ndb
 
 # These are just random guesses based on the name I have no idea where they actually are.
@@ -74,7 +75,8 @@ class LoadBalancer(object):
 class LoadBalanceHandler(webapp2.RequestHandler):
   def post(self):
     """POST handler used by the taskqueue api to update the loadbalancer with the heartbeat"""
-    pass
+    if not users.is_current_user_admin():
+      raise AppError("Unauthorized.")
 
 app = webapp2.WSGIApplication([
   (r"{}compute_engine/?.*".format(PREFIX), LoadBalanceHandler),
