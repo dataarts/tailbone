@@ -5,3 +5,4 @@ index.yaml
 *.pyc
 Gemfile.lock
 .sass-cache
+*.idea
