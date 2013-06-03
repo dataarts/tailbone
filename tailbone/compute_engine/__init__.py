@@ -20,62 +20,62 @@ import webapp2
 
 from google.appengine.ext import ndb
 
-# Static template configurations to be passed to start_instance
-CONFIGURATIONS = {
-  'WEBSOCKET': {
-    'kind': 'websocket',
-    'startup-script': 'tailbone/compute_engine/mesh/setup_and_run_ws.sh'
-  },
-  'TURN': {
-    'kind': 'turn',
-    'startup-script': 'tailbone/compute_engine/mesh/setup_and_run_turn.sh'
-  },
+# These are just random guesses based on the name I have no idea where they actually are.
+LOCATIONS = {
+  'us-central1-a': ndb.GeoPt(36.0156, 114.7378),
+  'us-central1-b': ndb.GeoPt(36.0156, 114.7378),
+  'us-central2-a': ndb.GeoPt(36.0156, 114.7378),
+  'europe-west1-a': ndb.GeoPt(52.5233, 13.4127),
+  'europe-west1-b': ndb.GeoPt(52.5233, 13.4127),
+  'default': ndb.GeoPt(36.0156, 114.7378),
 }
 
-
+# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCEInstance(ndb.Expando):
-  kind = ndb.StringProperty()  # websocket, turn, etc
-  ip = ndb.StringProperty()
-  zone = ndb.GeoPtProperty()
   load = ndb.FloatProperty()
+  address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
+  location = ndb.GeoPtProperty()
+  zone = ndb.StringProperty()
+
+  def _pre_put_hook(self):
+    """Set the GeoPtProperty based on the zone string."""
+    self.location = LOCATIONS.get(self.zone, LOCATIONS.get('default'))
 
 
-class LoadBalancer(webapp2.RequestHandler):
-  # Supported instance types
-  WEBSOCKET = 'websocket'
-  TURN = 'turn'
-
+class LoadBalancer(object):
   @staticmethod
   def load():
     """Return the current load."""
     pass
 
   @staticmethod
-  def start_instance(configuration):
-    """Start a new instance with a given configuration"""
+  def start_instance(instance_class):
+    """Start a new instance with a given configuration."""
     pass
 
   @staticmethod
-  def stop_instance(instance_id):
-    """Stop an instance with given instance_id"""
+  def stop_instance(key):
+    """Stop an instance with given datastore key."""
     pass
 
   @staticmethod
-  def restart():
+  def restart(instance_class=None):
     """Shutdown all instances and reboot, neccessary when
-    setup and run scripts change"""
+    setup and run scripts change. Restarts just those with instance_class
+    if given otherwise restarts all instances."""
     pass
 
   @staticmethod
   def find(kind, request):
     """Get the most appropriate kind of instance for the given request."""
-    return "localhost"
+    return "ws://localhost:2345/"
 
-  def get(self):
-    """GET handler used by the taskqueue api to update the loadbalancer with the heartbeat"""
+
+class LoadBalanceHandler(webapp2.RequestHandler):
+  def post(self):
+    """POST handler used by the taskqueue api to update the loadbalancer with the heartbeat"""
     pass
 
-
 app = webapp2.WSGIApplication([
-  (r"{}compute_engine/?.*".format(PREFIX), LoadBalancer),
+  (r"{}compute_engine/?.*".format(PREFIX), LoadBalanceHandler),
 ], debug=DEBUG)

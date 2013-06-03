@@ -14,7 +14,7 @@
 
 # shared resources and global variables
 from tailbone import as_json, DEBUG, PREFIX, BaseHandler, compile_js, AppError
-from tailbone.compute_engine import LoadBalancer
+from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
 
 import random
 import string
@@ -24,49 +24,101 @@ from google.appengine.api import users
 from google.appengine.ext import ndb
 
 
+websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
+turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
+
+
+# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
+class TailboneMeshInstance(TailboneCEInstance):
+  PARAMS = {
+    "serviceAccounts": [
+      {
+        "kind": "compute#serviceAccount",
+        "email": "default",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_only"
+        ]
+      }
+    ],
+    "metadata": {
+      "items": [
+        {
+          "key": "startup-script",
+          "value": websocket_script,
+        },
+      ],
+    }
+  }
+
+
+# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
+class TailboneTurnInstance(TailboneCEInstance):
+  PARAMS = {
+    "serviceAccounts": [
+      {
+        "kind": "compute#serviceAccount",
+        "email": "default",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_only"
+        ]
+      }
+    ],
+    "metadata": {
+      "items": [
+        {
+          "key": "startup-script",
+          "value": turn_script,
+        },
+      ],
+    }
+  }
+
+
+# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneMeshRoom(ndb.Model):
   """TODO: add a taskqueue callback to be executed in the future to delete yourself
   if a connection is not made to this room after x amount of time.
   This should be executed in websocket.py when not in debug mode.
   Similar callback from websocket.py must be created for both when someone first enters a room
   and when the last person leaves."""
-  ip = ndb.StringProperty()
+  address = ndb.StringProperty()
   created_at = ndb.DateTimeProperty(auto_now_add=True)
   in_use = ndb.BooleanProperty(default=False)
 
 
-def create_room(name=None):
+def create_room(request, name=None):
   room = None
   if not name:
     name = generate_word() + '.' + generate_word()
     # Test to confirm the generated name doesn't exist
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
-    # put the room creation in a transaction
-    room = TailboneMeshRoom(id=name)
+    # TODO: put the room creation in a @ndb.transaction
+    address = LoadBalancer.find(TailboneMeshInstance, request)
+    room = TailboneMeshRoom(id=name, address=address+name)
     room.put()
     return room
-  return create_room()
+  return create_room(request)
 
 
-def get_or_create_room(name):
+def get_or_create_room(request, name):
   if name:
     room = TailboneMeshRoom.get_by_id(name)
     if not room:
-      room = create_room(name)
+      room = create_room(request, name)
     return room
-  return create_room()
+  return create_room(request)
 
 
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    room = get_or_create_room(name)
-    if not room.ip:
-      room.ip = LoadBalancer.find(LoadBalancer.WEBSOCKET, self.request)
+    room = get_or_create_room(self.request, name)
+    turn = LoadBalancer.find(TailboneTurnInstance, self.request)
     return {
-      "ip": room.ip,
+      "ws": room.address,
       "name": room.key.id(),
+      "turn": "https://doesntexistyet",
     }
 
   @as_json
