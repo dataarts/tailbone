@@ -158,10 +158,10 @@ def compile_js(files, exports=None, closure=True):
       js += f.read() + "\n"
   if exports:
     for public, private in exports:
-      submodules = public.split('.')[:-1]
-      i = 1
-      for submodule in submodules:
-        js += "root.{} = {} || {{}};\n".format(".".join(submodules[:i]), submodule)
+      submodules = public.split(".")[:-1]
+      for i in range(len(submodules)):
+        submodule = ".".join(submodules[:i+1])
+        js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
       js += "root.{} = {};\n".format(public, private)
   if closure:
     js += "})(this);\n"
