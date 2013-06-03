@@ -17,7 +17,9 @@ import logging
 import random
 import webapp2
 
-class instance(ndb.Expando):
+from google.appengine.ext import ndb
+
+class TailboneCEInstance(ndb.Expando):
   pass
 
 class LoadBalancer(object):
