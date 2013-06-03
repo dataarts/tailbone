@@ -11,16 +11,36 @@
   <script src="/tailbone.mesh.js" type="text/javascript" charset="utf-8"></script>
   <script type="text/javascript">
 
-var mesh = new tailbone.Mesh('roomname');
-mesh.bind('enter', function(user_id) {
+var mesh = new tailbone.Mesh('test', window.location.protocol + '//' + window.location.host + '/api/mesh');
+mesh.connect();
+
+mesh.bind('open', function() {
+  console.log('handle open');
 });
-mesh.bind('leave', function(user_id) {
+
+mesh.bind('close', function() {
+  console.log('handle close');
 });
+
+mesh.bind('exist', function(nodes) {
+  console.log('handle exist');
+});
+
+mesh.bind('enter', function(node) {
+  console.log('handle enter', node);
+});
+
+mesh.bind('leave', function(node) {
+  console.log('handle leave', node);
+});
+
 mesh.bind('test', function(arg1, arg2) {
-  console.log('test', arg1, arg2);
+  console.log('handle test', arg1, arg2);
 });
+
 mesh.trigger('test', 1, 2);
 mesh.unbind('test');
+mesh.trigger('test', 3, 4);
 
 test(function() {
   ok(1 == 1, 'truth');

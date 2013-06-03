@@ -34,6 +34,7 @@ def enter(node, mesh_id):
 
   logging.debug('enter (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
   send_to_mesh(mesh, node, ['enter', node.id])
+  send_to_node(node, node, ['exist'] + get_exist(mesh))
   return True
 
 ##
@@ -65,27 +66,42 @@ def parse_message(node, message):
   send_to_mesh(meshes_by_id[mesh_id_by_node[node]], node, forward_message)
 
 ##
+# Wraps message with sender ID and timestamp
+##
+def wrap_message(message, sender_node):
+  try:
+    message_string = json.dumps([sender_node.id, time.time(), message])
+    return message_string
+  except:
+    return None
+
+##
 # Sends a message to a node.
 ##
-def send_to_node(node, message):
-  pass # node.write_message(message)
+def send_to_node(node, sender_node, message):
+  message_string = wrap_message(message, sender_node)
+  if message_string:
+    logging.info('sending to node %s (node ID: %s, to ID: %s)' % (message_string, sender_node.id, node.id))
+    node.write_message(message_string)
 
 ##
 # Sends a message to a mesh
 ##
 def send_to_mesh(mesh, sender_node, message):
-  message_string = None
-  try:
-    message_string = json.dumps([sender_node.id, time.time(), message])
+  message_string = wrap_message(message, sender_node)
+  if message_string:
     logging.info('sending to mesh %s (node ID: %s, mesh ID: *)' % (message_string, sender_node.id))
-  except:
+    for node in mesh:
+      if node != sender_node:
+        node.write_message(message_string)
+  else:
     logging.warning('invalid message format %s' % message)
-    return
 
-  for node in mesh:
-    if node != sender_node:
-      node.write_message(message_string)
-
+##
+# Gets a list of connected node IDs by mesh
+##
+def get_exist(mesh):
+  return [node.id for node in mesh]
 
 ##
 # Generates new node ID.
