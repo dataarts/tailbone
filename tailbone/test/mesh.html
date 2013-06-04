@@ -12,6 +12,7 @@
   <script type="text/javascript">
 
 var mesh = new tailbone.Mesh('test', window.location.protocol + '//' + window.location.host + '/api/mesh');
+// var mesh = new tailbone.Mesh('test', {ws: 'ws://localhost:2345/test'})
 mesh.connect();
 
 mesh.bind('open', function() {
@@ -22,8 +23,8 @@ mesh.bind('close', function() {
   console.log('handle close');
 });
 
-mesh.bind('exist', function(nodes) {
-  console.log('handle exist');
+mesh.bind('exist', function() {
+  console.log('handle exist', arguments);
 });
 
 mesh.bind('enter', function(node) {
@@ -33,14 +34,6 @@ mesh.bind('enter', function(node) {
 mesh.bind('leave', function(node) {
   console.log('handle leave', node);
 });
-
-mesh.bind('test', function(arg1, arg2) {
-  console.log('handle test', arg1, arg2);
-});
-
-mesh.trigger('test', 1, 2);
-mesh.unbind('test');
-mesh.trigger('test', 3, 4);
 
 test(function() {
   ok(1 == 1, 'truth');

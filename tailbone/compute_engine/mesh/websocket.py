@@ -34,7 +34,7 @@ def enter(node, mesh_id):
 
   logging.debug('enter (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
   send_to_mesh(mesh, node, ['enter', node.id])
-  send_to_node(node, node, ['exist'] + get_exist(mesh))
+  send_to_node(node, node, ['exist'] + get_exist(mesh, node.id))
   return True
 
 ##
@@ -100,8 +100,8 @@ def send_to_mesh(mesh, sender_node, message):
 ##
 # Gets a list of connected node IDs by mesh
 ##
-def get_exist(mesh):
-  return [node.id for node in mesh]
+def get_exist(mesh, ignore):
+  return [node.id for node in mesh if node.id != ignore]
 
 ##
 # Generates new node ID.

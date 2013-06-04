@@ -22,7 +22,9 @@ EventDispatcher.prototype = {
 
         console.log('* bind', type);
         this._handlers[type] = this._handlers[type] || [];
-        this._handlers[type].push(handler);
+        if (this._handlers[type].indexOf(handler) === -1) {
+            this._handlers[type].push(handler);
+        }
 
     },
 

@@ -133,6 +133,8 @@ app = webapp2.WSGIApplication([
   (r"/tailbone.mesh.js", compile_js([
     "tailbone/compute_engine/mesh/js/EventDispatcher.js",
     "tailbone/compute_engine/mesh/js/StateDrive.js",
+    "tailbone/compute_engine/mesh/js/SocketChannel.js",
+    "tailbone/compute_engine/mesh/js/RTCChannel.js",
     "tailbone/compute_engine/mesh/js/Node.js",
     "tailbone/compute_engine/mesh/js/Mesh.js",
   ], exports=[("tailbone.Mesh", "Mesh")])),
