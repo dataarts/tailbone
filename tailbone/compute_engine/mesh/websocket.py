@@ -56,9 +56,23 @@ def leave(node):
   logging.debug('leave (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
 
 ##
+# Simple time sync call
+##
+def time_sync(node, message):
+  if message[0] == 't':
+    t = message[1:]
+    now = time.time()*1000;
+    node.write_message('t{:f}'.format(time.time()*1000))
+    return True
+  return False
+
+##
 # Interprets node message and directs it forward.
 ##
 def parse_message(node, message):
+  # quick check to see if this is a time sync call
+  if time_sync(node, message):
+    return
   mesh_id = mesh_id_by_node[node]
   message_object = None
   to_nodes = None
