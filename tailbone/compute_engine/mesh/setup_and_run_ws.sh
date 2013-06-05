@@ -8,7 +8,7 @@ except:
   print 0
 '` -ne 1 ] ; then
   echo 'tornado not found, downloading and installing'
-  wget https://pypi.python.org/packages/source/t/tornado/tornado-3.0.1.tar.gz
+  curl -O https://pypi.python.org/packages/source/t/tornado/tornado-3.0.1.tar.gz
   tar xvfz tornado-3.0.1.tar.gz
   cd tornado-3.0.1
   python setup.py build
