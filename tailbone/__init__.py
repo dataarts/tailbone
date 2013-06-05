@@ -23,6 +23,7 @@ try:
 except:
   pass
 import webapp2
+import yaml
 
 from google.appengine import api
 from google.appengine.ext import ndb
@@ -151,20 +152,36 @@ def parse_body(self):
 
 
 # Leave minification etc up to PageSpeed
-def compile_js(files, exports=None, closure=True):
-  js = "(function(root) {\n" if closure else ""
+def compile_js(files, exports=None):
+  js = "(function(root) {\n" if exports else ""
   for fname in files:
     with open(fname) as f:
       js += f.read() + "\n"
   if exports:
-    for public, private in exports:
+    for public, private in exports.iteritems():
       submodules = public.split(".")[:-1]
       for i in range(len(submodules)):
         submodule = ".".join(submodules[:i+1])
         js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
       js += "root.{} = {};\n".format(public, private)
-  if closure:
     js += "})(this);\n"
+  return js
+
+
+# Find all javascript files in included modules
+def js_handler():
+  combined_js = ""
+  with open("app.yaml") as f:
+    appyaml = yaml.load(f)
+    for include in appyaml.get("includes", []):
+      try:
+        if include.startswith("tailbone"):
+          module = __import__(include.replace("/", "."), globals(), locals(), ["EXPORTED_JAVASCRIPT"], -1)
+          javascript = getattr(module, "EXPORTED_JAVASCRIPT", None)
+          if javascript:
+            combined_js += javascript + "\n"
+      except ImportError:
+        pass
 
   class JsHandler(webapp2.RequestHandler):
     def get(self):
@@ -172,7 +189,11 @@ def compile_js(files, exports=None, closure=True):
         # set cache-control public
         self.response.headers["Cache-Control"] = "public, max-age=300"
       self.response.headers["Content-Type"] = "text/javascript"
-      self.response.out.write(js)
+      self.response.out.write(combined_js)
 
   return JsHandler
 
+
+app = webapp2.WSGIApplication([
+  (r"/tailbone.js", js_handler()),
+], debug=DEBUG)

@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shared resources and global variables
-from tailbone import *
+from tailbone import DEBUG, PREFIX, compile_js, as_json, BaseHandler
 
+import time
 import webapp2
 
-# Test Handler
-# ------------
-#
-# QUnit tests can only be preformed on the local host because they actively modify the database and
-# don't properly clean up after themselves yet.
-class TestHandler(webapp2.RequestHandler):
+
+class ClockSyncHandler(BaseHandler):
+  def head(self):
+    self.response.headers['Current-Time'] = "{:f}".format(time.time()*1000)
+
+  @as_json
   def get(self):
-    if DEBUG:
-      with open('tailbone/js/test_restful.html') as f:
-        self.response.out.write(f.read())
-    else:
-      self.response.out.write("Sorry, tests can only be run from localhost because they modify the \
-      datastore.")
+    return time.time()*1000
+
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/clocksync/clocksync.js",
+], {
+  "clocksync": "clocksync"
+})
 
 app = webapp2.WSGIApplication([
-  (r".*", TestHandler),
-  ], debug=DEBUG)
-
+  (r"{}clocksync/?.*".format(PREFIX), ClockSyncHandler),
+], debug=DEBUG)

@@ -20,10 +20,11 @@ with open("app.yaml") as f:
   appyaml = yaml.load(f)
   for include in appyaml.get("includes", []):
     try:
-      module = __import__(include.replace("/", "."), globals(), locals(), ['Middleware'], -1)
-      middleware = getattr(module, 'Middleware', None)
-      if middleware:
-        middleware_list.append(middleware)
+      if include.startswith("tailbone"):
+        module = __import__(include.replace("/", "."), globals(), locals(), ["Middleware"], -1)
+        middleware = getattr(module, "Middleware", None)
+        if middleware:
+          middleware_list.append(middleware)
     except ImportError:
       pass
 

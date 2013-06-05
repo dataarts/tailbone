@@ -13,7 +13,5 @@
 # limitations under the License.
 
 handlers:
-  - url: /test/extras
-    static_dir: tailbone/test/extras
-  - url: /test/?(.*)
-    script: tailbone.test.app
+  - url: /api/clocksync/?.*
+    script: tailbone.clocksync.app

@@ -39,13 +39,11 @@
       discarded and the remaining samples are averaged using an arithmetic mean.
 */
 
-(function (root) {
-
   var samples = [],
       clockDelta = 0;
 
   var now = function () {
-    return +new Date;
+    return +new Date();
   };
 
   var nowsync = function () {
@@ -68,11 +66,10 @@
   };
 
   var updateSync = function (sample) {
-    console.log(sample);
     clockDelta = sample.clockDelta;
     pushSample(sample);
     if (samples.length < 9) {
-      return setTimeout(root.clocksync.syncMethod, 100);
+      return setTimeout(clocksync.syncMethod, 100);
     }
     completeSync();
   };
@@ -80,8 +77,8 @@
   var completeSync = function () {
     var list = filterSamples(samples);
     clockDelta = getAverageClockDelta(list);
-    if (root.clocksync.callback) {
-      root.clocksync.callback(nowsync(), clockDelta);
+    if (clocksync.callback) {
+      clocksync.callback(nowsync(), clockDelta);
     }
   };
 
@@ -187,22 +184,17 @@ var ajaxSyncMethod = function() {
   xhr.send();
 };
 
-  root.clocksync = (function() {
-    return {
-      delta: clockDelta,
-      time: nowsync,
-      sync: function(callback) {
-        this.callback = callback;
-        this.syncMethod();
-      },
-      syncMethod: ajaxSyncMethod,
-      data: createSyncData,
-      syncResponse: handleSyncResponse
-    };
-  }());
-
-
-})(this);
+var clocksync = {
+  delta: clockDelta,
+  time: nowsync,
+  sync: function(callback) {
+    this.callback = callback;
+    this.syncMethod();
+  },
+  syncMethod: ajaxSyncMethod,
+  data: createSyncData,
+  syncResponse: handleSyncResponse
+};
 
 
 

@@ -50,7 +50,8 @@
 #       save checks all listened queries for a matching one
 
 # shared resources and global variables
-from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX, PROTECTED
+from tailbone import AppError, LoginError, BreakError, as_json, parse_body
+from tailbone import BaseHandler, DEBUG, PREFIX, PROTECTED, compile_js
 from tailbone import search
 from counter import get_count, increment, decrement
 
@@ -591,6 +592,19 @@ except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
   logging.info("validation.json doesn't exist no model validation will be performed.")
+
+
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/utils.js",
+  "tailbone/restful/models.js"
+], {
+  "tailbone.Model": "ModelFactory",
+  "tailbone.User": "User",
+  "tailbone.FILTER": "FILTER",
+  "tailbone.ORDER": "ORDER",
+  "tailbone.AND": "AND",
+  "tailbone.OR": "OR"
+})
 
 app = webapp2.WSGIApplication([
   (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),

@@ -5,6 +5,8 @@ api_version: 1
 threadsafe: true
 
 includes:
+  ## Base includes such as a combined /tailbone.js from included modules to follow
+  - tailbone
   ## Qunit tests (only works when running locally)
   - tailbone/test
   ## Basic App Engine authentication
@@ -26,7 +28,9 @@ includes:
   ## Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
   ## will cost you bandwidth and has no auth)
   # - tailbone/proxy
-  ## Websocket based mesh server with rooms and load balancing
+  ## Clocksync simple synchronization of clocks
+  - tailbone/clocksync
+  ## Websocket+WebRTC based mesh server with rooms and load balancing
   - tailbone/compute_engine/mesh
   ## Order in this list is important for restful and pathrewrite, they must be last.
   ## Restful resources
