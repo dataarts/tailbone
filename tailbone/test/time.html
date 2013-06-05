@@ -5,7 +5,10 @@
 <body>
 <script type="text/javascript" src="/tailbone.mesh.js"></script>
 <script>
-var t = new Time('/api/mesh');
+
+clocksync.sync(function (now, delta) {
+	console.log('obtained synched time:', now, ' local delta: ', delta);
+});
 
 </script>
 

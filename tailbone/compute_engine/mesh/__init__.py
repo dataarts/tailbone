@@ -144,7 +144,7 @@ app = webapp2.WSGIApplication([
     "tailbone/compute_engine/mesh/js/RTCChannel.js",
     "tailbone/compute_engine/mesh/js/Node.js",
     "tailbone/compute_engine/mesh/js/Mesh.js",
-  ], exports=[("tailbone.Mesh", "Mesh"), ("Time", "Time")])),
+  ], exports=[("tailbone.Mesh", "Mesh"), ("clocksync", "clocksync")])),
   (r"{}mesh/?(.*)".format(PREFIX), MeshHandler),
 ], debug=DEBUG)
 
