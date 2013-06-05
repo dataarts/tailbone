@@ -11,6 +11,8 @@
  */
 var NodeUtils = {
 
+    uidSeed: 1,
+
     send: function (node, message) {
 
         var i;
@@ -39,6 +41,10 @@ var Node = function (mesh, id) {
 
     StateDrive.call(this);
 
+    var uid = NodeUtils.uidSeed++;
+    this.__defineGetter__('uid', function () {
+        return uid;
+    });
     this.mesh = mesh;
     this.id = id;
     this._channels = [];
@@ -50,6 +56,17 @@ var Node = function (mesh, id) {
  * @type {StateDrive}
  */
 Node.prototype = new StateDrive();
+
+/**
+ * Returns unique Node string representation.
+ * Essential to make dictionary indexing by Node work.
+ * @returns {string}
+ */
+Node.prototype.toString = function() {
+
+    return 'Node@' + this.uid;
+
+};
 
 /**
  * Connects to remote node
@@ -66,6 +83,13 @@ Node.prototype.connect = function () {
     }
 
     this._channels.forEach(function (channel) {
+
+        channel.bind('open', function () {
+
+            console.log('channel open');
+            StateDrive.prototype.trigger.call(self, 'open', channel);
+
+        });
 
         channel.bind('message', function (message) {
 
