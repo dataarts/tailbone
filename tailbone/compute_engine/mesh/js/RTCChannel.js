@@ -5,10 +5,30 @@
  * Time: 3:02 AM
  */
 
-var RTCChannel = function () {
+/**
+ * RTCChannel
+ * @param localNode {Node}
+ * @param remoteNode {Node}
+ * @constructor
+ */
+var RTCChannel = function (localNode, remoteNode) {
+
+    Channel.call(this, localNode,  remoteNode);
 
 };
 
-RTCChannel.prototype = {
+/**
+ * Extend Channel
+ * @type {Channel}
+ */
+RTCChannel.prototype = new Channel();
+
+/**
+ * Sends message to remoteNode
+ * @param message {string}
+ */
+RTCChannel.prototype.send = function (message) {
+
+    return Channel.prototype.send.call(this, message);
 
 };

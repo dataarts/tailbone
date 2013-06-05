@@ -6,16 +6,22 @@
  */
 
 /**
- * Constructs new StateDrive
+ * StateDrive
  * @constructor
  */
 var StateDrive = function () {
+
+    EventDispatcher.call(this);
 
     this._state = 0;
     this._callQueue = {};
 
 };
 
+/**
+ * Extend EventDispatcher
+ * @type {EventDispatcher}
+ */
 StateDrive.prototype = new EventDispatcher();
 
 /**
@@ -30,29 +36,30 @@ StateDrive.prototype.getState = function () {
 
 /**
  * Sets current object state
- * @param value {int} new state
+ * @param state {int} new state
  */
-StateDrive.prototype.setState = function (value) {
+StateDrive.prototype.setState = function (state) {
 
-    this._state = value;
-    this.executeQueuedCalls();
+    this._state = state;
+    this._executeQueuedCalls();
 
 };
 
 /**
- * Specifies minimum state for the instance function calls. A function call of name 'name' will be delayed until the instance reaches given 'state'
- * @param name {string}
- * @param args... {array...} optional validator
- * @param state {int}
+ * Specifies minimum state for the member function to execute.
+ * A function call of name 'funcName' will be delayed until the instance reaches given 'state'.
+ * @param funcName {string} name of member function to set minimum call state for
+ * @param validators... {RegExp...} optional validators per argument passed to future function call
+ * @param state {int} minimum state value for the member function to execute
  */
-StateDrive.prototype.setMinCallState = function (name, args, state) {
+StateDrive.prototype.setMinCallState = function (funcName, validators, state) {
 
-    var originalFunction = this[name],
+    var originalFunction = this[funcName],
         stateId = arguments[arguments.length - 1],
         argumentValidators = arguments.length > 2 ? Array.prototype.slice.apply(arguments).slice(1, arguments.length - 1) : [],
         i;
 
-    this[name] = function () {
+    this[funcName] = function () {
 
         if (this._state >= stateId || arguments.length < argumentValidators.length) {
 
@@ -70,7 +77,7 @@ StateDrive.prototype.setMinCallState = function (name, args, state) {
 
             }
 
-            return this.queueCall(name, arguments, stateId);
+            return this._queueCall(funcName, arguments, stateId);
 
         }
 
@@ -79,22 +86,22 @@ StateDrive.prototype.setMinCallState = function (name, args, state) {
 };
 
 /**
- * Queues function call until a given min. state is reached
- * @param name {string}
- * @param args {array}
- * @param state {int}
+ * Queues function call until a given minimum state is reached.
+ * @param funcName {string} name of member function to queue
+ * @param args {array} arguments to pass
+ * @param state {int} minimum state
  */
-StateDrive.prototype.queueCall = function (name, args, state) {
+StateDrive.prototype._queueCall = function (funcName, args, state) {
 
     this._callQueue[state] = this._callQueue[state] || [];
-    this._callQueue[state].push({name: name, args: args});
+    this._callQueue[state].push({name: funcName, args: args});
 
 };
 
 /**
  * Executes queued calls for current and lower states
  */
-StateDrive.prototype.executeQueuedCalls = function () {
+StateDrive.prototype._executeQueuedCalls = function () {
 
     var i, j;
 

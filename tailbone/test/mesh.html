@@ -15,29 +15,6 @@ var mesh = new tailbone.Mesh('test', window.location.protocol + '//' + window.lo
 // var mesh = new tailbone.Mesh('test', {ws: 'ws://localhost:2345/test'})
 mesh.connect();
 
-mesh.bind('open', function() {
-  console.log('handle open');
-});
-
-mesh.bind('close', function() {
-  console.log('handle close');
-});
-
-mesh.bind('exist', function() {
-  console.log('handle exist', arguments);
-});
-
-mesh.bind('enter', function(node) {
-  console.log('handle enter', node);
-});
-
-mesh.bind('leave', function(node) {
-  console.log('handle leave', node);
-});
-
-test(function() {
-  ok(1 == 1, 'truth');
-});
 
   </script>
   </body>

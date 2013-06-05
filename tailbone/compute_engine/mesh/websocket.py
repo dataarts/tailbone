@@ -15,6 +15,7 @@ import tornado.web
 
 node_id_seed = 1
 nodes = []
+nodes_by_id = {}
 meshes_by_id = {}
 mesh_id_by_node = {}
 
@@ -25,6 +26,7 @@ mesh_id_by_node = {}
 def enter(node, mesh_id):
   node.id = new_node_id()
   nodes.append(node)
+  nodes_by_id[node.id] = node
 
   if not mesh_id in meshes_by_id:
     meshes_by_id[mesh_id] = []
@@ -50,6 +52,7 @@ def leave(node):
   else:
     send_to_mesh(mesh, node, ['leave', node.id])
   nodes.remove(node)
+  del nodes_by_id[node.id]
   logging.debug('leave (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
 
 ##
@@ -57,13 +60,17 @@ def leave(node):
 ##
 def parse_message(node, message):
   mesh_id = mesh_id_by_node[node]
-  forward_message = message
-  try:
-    forward_message = json.loads(message)
-  except:
-    pass
+  message_object = None
+  to_nodes = None
+  message_data = None
   print 'received %s (node ID: %s, mesh ID: %s)' % (message, node.id, mesh_id)
-  send_to_mesh(meshes_by_id[mesh_id_by_node[node]], node, forward_message)
+  try:
+    message_object = json.loads(message)
+    to_nodes = message_object[0]
+    message_data = message_object[1]
+  except:
+    return
+  send_to_node_ids(to_nodes, node, message_data)
 
 ##
 # Wraps message with sender ID and timestamp
@@ -76,7 +83,7 @@ def wrap_message(message, sender_node):
     return None
 
 ##
-# Sends a message to a node.
+# Sends message to a node.
 ##
 def send_to_node(node, sender_node, message):
   message_string = wrap_message(message, sender_node)
@@ -85,7 +92,15 @@ def send_to_node(node, sender_node, message):
     node.write_message(message_string)
 
 ##
-# Sends a message to a mesh
+# Sends message to array of nodes
+##
+def send_to_node_ids(node_ids, sender_node, message):
+  for node_id in node_ids:
+    if node_id in nodes_by_id:
+      send_to_node(nodes_by_id[node_id], sender_node, message)
+
+##
+# Sends message to a mesh
 ##
 def send_to_mesh(mesh, sender_node, message):
   message_string = wrap_message(message, sender_node)

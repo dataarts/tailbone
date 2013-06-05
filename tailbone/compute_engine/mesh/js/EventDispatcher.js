@@ -5,6 +5,10 @@
  * Time: 1:34 AM
  */
 
+/**
+ * EventDispatcher
+ * @constructor
+ */
 var EventDispatcher = function () {
 
     this._handlers = {};
@@ -14,28 +18,29 @@ var EventDispatcher = function () {
 EventDispatcher.prototype = {
 
     /**
-     * Binds event by name
-     * @param type {string} type of event to bind
-     * @param handler {function}
+     * Binds event by type
+     * @param type {string} type of event to bind to
+     * @param handler {function} handler function
      */
     bind: function (type, handler) {
 
-        console.log('* bind', type);
         this._handlers[type] = this._handlers[type] || [];
+
         if (this._handlers[type].indexOf(handler) === -1) {
+
             this._handlers[type].push(handler);
+
         }
 
     },
 
     /**
      * Unbinds event by name
-     * @param type {string} type of event to unbind
-     * @param handler {function} (optional)
+     * @param type {string} (optional) type of event to unbind
+     * @param handler {function} (optional) particular handler to unbind
      */
     unbind: function (type, handler) {
 
-        console.log('* unbind', type);
         if (this._handlers[type]) {
 
             if (handler) {
@@ -54,7 +59,7 @@ EventDispatcher.prototype = {
 
     /**
      * Triggers event of given type type passes arguments to handlers
-     * @param type {string} type of event to be triggered
+     * @param type {string} type of event to trigger
      * @param args... {object...} arguments to be passed to event handler
      */
     trigger: function (type, args) {
@@ -62,7 +67,6 @@ EventDispatcher.prototype = {
         var i;
 
         args = Array.prototype.slice.apply(arguments).slice(1);
-        console.log('* trigger', type, args);
 
         if (this._handlers[type]) {
 
