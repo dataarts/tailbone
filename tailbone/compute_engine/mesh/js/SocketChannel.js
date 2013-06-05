@@ -41,9 +41,14 @@ SocketChannel.prototype = new Channel();
 SocketChannel.prototype.open = function () {
 
     var self = this,
-        socket;
+        socket = SocketChannelUtils.socketsByLocalNode[this.localNode];
 
-    if (!SocketChannelUtils.socketsByLocalNode[this.localNode]) {
+    if (socket) {
+
+        console.log(SocketChannelUtils.socketsByLocalNode);
+        console.log('socket');
+
+    } else {
 
         socket = new WebSocket(this.localNode.mesh.options.ws);
         SocketChannelUtils.socketsByLocalNode[this.localNode] = socket;
@@ -53,6 +58,7 @@ SocketChannel.prototype.open = function () {
         socket.addEventListener('open', function () {
 
             console.log('socket open');
+            self.trigger('open');
 
         });
 
@@ -77,12 +83,14 @@ SocketChannel.prototype.open = function () {
         socket.addEventListener('close', function () {
 
             console.log('socket closed');
+            self.trigger('close');
 
         });
 
         socket.addEventListener('error', function () {
 
             console.log('socket error');
+            self.trigger('error');
 
         });
 

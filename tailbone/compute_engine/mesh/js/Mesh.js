@@ -122,6 +122,12 @@ var Mesh = function (id, options) {
 
     StateDrive.call(this);
 
+    if (id && typeof id !== 'string') {
+
+        throw new Error('Invalid type ID');
+
+    }
+
     this.id = id;
     this.self = new Node(this, null);
     this.peers = [];
@@ -191,10 +197,6 @@ Mesh.prototype.config = function (options) {
 
         }
 
-    } else {
-
-        throw new Error('Invalid config type');
-
     }
 
 };
@@ -207,9 +209,17 @@ Mesh.prototype.config = function (options) {
 Mesh.prototype.connect = function () {
 
     var self = this,
-        options;
+        options,
+        idMatch;
 
     if (this.options.ws) {
+
+        idMatch = this.options.ws.match('[^\/]+$');
+        if (idMatch) {
+
+            this.id = idMatch[0];
+
+        }
 
         this.self.connect();
 
@@ -271,6 +281,8 @@ Mesh.prototype.bind = function (type, handler) {
 
     StateDrive.prototype.bind.apply(this, arguments);
 
+    this.self.bind.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's bind() proxy
+
     this.peers.forEach(function (peer) {
 
         peer.bind.apply(peer, arguments);
@@ -287,6 +299,8 @@ Mesh.prototype.bind = function (type, handler) {
 Mesh.prototype.unbind = function (type, handler) {
 
     StateDrive.prototype.unbind.apply(this, arguments);
+
+    this.self.unbind.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's unbind() proxy
 
     this.peers.forEach(function (peer) {
 
@@ -305,6 +319,8 @@ Mesh.prototype.trigger = function (type, args) {
 
     var originalArguments = arguments;
     StateDrive.prototype.trigger.apply(this, arguments);
+
+    this.self.trigger.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's trigger() proxy
 
     this.peers.forEach(function (peer) {
 
