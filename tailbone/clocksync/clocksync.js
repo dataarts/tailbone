@@ -42,9 +42,16 @@
   var samples = [],
       clockDelta = 0;
 
-  var now = function () {
-    return +new Date();
-  };
+  var now;
+  if (performance && performance.now) {
+    now = function() {
+      return performance.timing.navigationStart + performance.now();
+    };
+  } else {
+    now = function() {
+      return +new Date();
+    };
+  }
 
   var nowsync = function () {
     return now() - clockDelta;
@@ -170,7 +177,7 @@
 
 var ajaxSyncMethod = function() {
   var xhr = new XMLHttpRequest();
-  xhr.open('HEAD', '/api/mesh', false);
+  xhr.open('HEAD', '/api/clocksync', false);
   var start = Date.now();
   xhr.onreadystatechange = function(e) {
     if (xhr.readyState === xhr.DONE) {
