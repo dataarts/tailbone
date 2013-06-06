@@ -43,6 +43,8 @@ def enter(node, mesh_id):
 # Removes node from meshes, disconnects node.
 ##
 def leave(node):
+  if not node:
+    return
   mesh_id = mesh_id_by_node[node]
   mesh = meshes_by_id[mesh_id]
   del mesh_id_by_node[node]
@@ -53,6 +55,10 @@ def leave(node):
     send_to_mesh(mesh, node, ['leave', node.id])
   nodes.remove(node)
   del nodes_by_id[node.id]
+  try:
+    node.close()
+  except:
+    pass
   logging.debug('leave (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
 
 ##
@@ -103,7 +109,10 @@ def send_to_node(node, sender_node, message):
   message_string = wrap_message(message, sender_node)
   if message_string:
     logging.info('sending to node %s (node ID: %s, to ID: %s)' % (message_string, sender_node.id, node.id))
-    node.write_message(message_string)
+    try:
+      node.write_message(message_string)
+    except:
+      pass
 
 ##
 # Sends message to array of nodes
@@ -122,7 +131,10 @@ def send_to_mesh(mesh, sender_node, message):
     logging.info('sending to mesh %s (node ID: %s, mesh ID: *)' % (message_string, sender_node.id))
     for node in mesh:
       if node != sender_node:
-        node.write_message(message_string)
+        try:
+          node.write_message(message_string)
+        except:
+          pass
   else:
     logging.warning('invalid message format %s' % message)
 

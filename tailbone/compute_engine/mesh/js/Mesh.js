@@ -264,6 +264,8 @@ Mesh.prototype.connect = function () {
  */
 Mesh.prototype.disconnect = function () {
 
+    this.self.disconnect();
+
     this.peers.forEach(function (peer) {
 
         peer.disconnect();
