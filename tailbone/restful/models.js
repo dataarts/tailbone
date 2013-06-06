@@ -35,7 +35,7 @@ function OR() {
 
 
 // This helps construct a model type which can be queried and created.
-var ModelFactory = function(type, opt_schema) {
+var Model = function(type, opt_schema) {
   var ignored_prefixes = ['_', '$'];
 
 

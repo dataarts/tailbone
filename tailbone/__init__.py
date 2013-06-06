@@ -158,19 +158,21 @@ def compile_js(files, exports=None):
     with open(fname) as f:
       js += f.read() + "\n"
   if exports:
-    for public, private in exports.iteritems():
-      submodules = public.split(".")[:-1]
-      for i in range(len(submodules)):
-        submodule = ".".join(submodules[:i+1])
-        js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
-      js += "root.{} = {};\n".format(public, private)
+    for export in exports:
+      js += "tailbone.{} = {};\n".format(export, export)
+    # for public, private in exports.iteritems():
+    #   submodules = public.split(".")[:-1]
+    #   for i in range(len(submodules)):
+    #     submodule = ".".join(submodules[:i+1])
+    #     js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
+    #   js += "root.{} = {};\n".format(public, private)
     js += "})(this);\n"
   return js
 
 
 # Find all javascript files in included modules
 def js_handler():
-  combined_js = ""
+  combined_js = "var tailbone = {};\n"
   with open("app.yaml") as f:
     appyaml = yaml.load(f)
     for include in appyaml.get("includes", []):
@@ -182,6 +184,16 @@ def js_handler():
             combined_js += javascript + "\n"
       except ImportError:
         pass
+  combined_js += """
+//exports to multiple environments
+if (typeof define === 'function' && define.amd) {
+  //AMD
+  define(function(){ return tailbone; });
+} else if (typeof module != "undefined" && module.exports) {
+  //Node
+  module.exports = tailbone;
+}
+"""
 
   class JsHandler(webapp2.RequestHandler):
     def get(self):

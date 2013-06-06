@@ -137,9 +137,7 @@ EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/compute_engine/mesh/js/RTCChannel.js",
   "tailbone/compute_engine/mesh/js/Node.js",
   "tailbone/compute_engine/mesh/js/Mesh.js",
-], {
-  "tailbone.Mesh": "Mesh",
-})
+], ["Mesh"])
 
 app = webapp2.WSGIApplication([
   (r"{}mesh/?(.*)".format(PREFIX), MeshHandler),

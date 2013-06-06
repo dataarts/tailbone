@@ -28,9 +28,7 @@ class ClockSyncHandler(BaseHandler):
 
 EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/clocksync/clocksync.js",
-], {
-  "clocksync": "clocksync"
-})
+], ["clocksync"])
 
 app = webapp2.WSGIApplication([
   (r"{}clocksync/?.*".format(PREFIX), ClockSyncHandler),

@@ -597,14 +597,7 @@ except IOError:
 EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/utils.js",
   "tailbone/restful/models.js"
-], {
-  "tailbone.Model": "ModelFactory",
-  "tailbone.User": "User",
-  "tailbone.FILTER": "FILTER",
-  "tailbone.ORDER": "ORDER",
-  "tailbone.AND": "AND",
-  "tailbone.OR": "OR"
-})
+], ["Model", "User", "FILTER", "ORDER", "AND", "OR"])
 
 app = webapp2.WSGIApplication([
   (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),
