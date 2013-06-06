@@ -1,0 +1,18 @@
+{
+  "todos": {
+    "skipvalidation": "",
+    "anything": ".*",
+    "shortstring": "^.{3,30}$",
+    "integer": "^[-]?[0-9]+$",
+    "float": "^[-]?([0-9]*\\.[0-9]+|[0-9]+)$",
+    "timestamp": "^[0-9]+$",
+    "object": "^\\{.*\\}$",
+    "objectdeep": {
+      "anything": ".*",
+      "skipvalidation": "",
+      "integer": "^[-]?[0-9]+$"
+    },
+    "list": "^\\[.*\\]$"
+  },
+  "documents_with_anything": ""
+}

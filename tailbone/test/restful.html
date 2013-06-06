@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="extras/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="extras/qunit-git.js" type="text/javascript"></script>
+  <script src="extras/jquery.min.js"></script>
+  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+// Helper functions
+function after(counter, callback) {
+  return function() {
+    if (--counter <= 0) {
+      if (callback) {
+        callback();
+      }
+    }
+  };
+}
+// constants
+var WAIT = 500;  // wait time to ensure the database has been updated.   
+
+module('Authentication');
+asyncTest('Login', function() {
+  http.GET('/api/users/me', function(d) {
+    ok(d.Id !== undefined, 'Has Id, ' + d.Id);
+    ok(d.email !== undefined, 'Has email, ' + d.email);
+    start();
+  }, function(err) {
+    if(err.error !== 'LoginError') {
+      throw new Error('Fatal login error message is incorrect.')
+    }
+    var url = window.location.href;
+    window.location.href = '/api/login?continue=' + url;
+  });
+});
+var moduleConfig = {
+  setup: function() {
+    this.kind = 't' + Math.random().toString(36).substr(2,10);
+    this.models = '/api/' + this.kind + '/'
+  },
+  teardown: function() {
+  }
+};
+module('Creating Models', moduleConfig); 
+asyncTest('String field', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  http.POST(models, model, function(d) {
+    ok(d.text == 'stuff', 'Created model with string property.');
+    http.DELETE(models + d.Id, start);
+  }, null, this);
+});
+asyncTest('Boolean field', function() {
+  var models = this.models;
+  var model = {text: true};
+  http.POST(models, model, function(d) {
+    ok(d.text == true, 'Created model with boolean property.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Number field', function() {
+  var models = this.models;
+  var model = {count: 33};
+  http.POST(models, model, function(d) {
+    ok(d.count == 33, 'Saved number.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Float field', function() {
+  var models = this.models;
+  var model = {count: 33.233};
+  http.POST(models, model, function(d) {
+    ok(d.count == 33.233, 'Saved float.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Large text', function() {
+  var models = this.models;
+  var text = new Array(1000).join("loremipsum");
+  var model = {text: text};
+  http.POST(models, model, function(d) {
+    ok(d.text == text, 'Saved large text.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('List', function() {
+  var models = this.models;
+  var model = {text: ['stuff','thing']};
+  http.POST(models, model, function(d) {
+    model.owners = d.owners;
+    model.viewers = d.viewers;
+    model.Id = d.Id;
+    deepEqual(d, model, 'Saved a list')
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Complex object', function() {
+  var models = this.models;
+  var model = {obj: {text: 'stuff'}};
+  http.POST(models, model, function(d) {
+    model.owners = d.owners;
+    model.viewers = d.viewers;
+    model.Id = d.Id;
+    deepEqual(d, model, 'Saved a complex object')
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('GeoPt', function() {
+  var models = this.models;
+  var model = {pos: {lat: 33.3, lon: 44.4}};
+  http.POST(models, model, function(d) {
+    deepEqual(d.pos, model.pos, 'Saved GeoPt.')
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Datetime', function() {
+  var models = this.models;
+  var model = {date: new Date()};
+  http.POST(models, model, function(d) {
+    deepEqual(d.date, model.date, 'Saved datetime.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Combined', function() {
+  var models = this.models;
+  var model = {
+    f: 333.000034,
+    i: 322332212,
+    list: ["stuff", "and", "things"],
+    pos: {lat: 33.3, lon: 44.4},
+    obj: {
+      word: "words",
+      num: 33.4
+    },
+    title: "title",
+    text: new Array(1000).join("loremipsum"),
+    date: new Date()
+  };
+  http.POST(models, model, function(d) {
+    model.owners = d.owners;
+    model.viewers = d.viewers;
+    model.Id = d.Id;
+    deepEqual(d, model, 'Saved a combined complex object.');
+    http.DELETE(models + d.Id, start);
+  });
+});
+asyncTest('Reference', function() {
+  var models = this.models;
+  var model = {};
+  http.POST(models, model, function(d) {
+    http.POST(models, {ref: d.Id}, function(dd) {
+      // TODO: some way of confirming that this is stored as a reference
+      ok(dd.ref == d.Id, 'Same reference string.');
+      http.DELETE(models + d.Id);
+      http.DELETE(models + dd.Id, start);
+    });
+  });
+});
+module('Metadata', moduleConfig);
+asyncTest('Get metadata', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  http.POST(models, model, function(d) {
+    http.HEAD(models, function(_, _, xhr) {
+      var meta = JSON.parse(xhr.getResponseHeader('metadata'));
+      ok(meta.total == 1, 'Correct total in metadata: ' + meta)
+      http.DELETE(models + d.Id, start);
+    });
+  });
+});
+
+module('Retrieving Models', moduleConfig);
+asyncTest('Get by Id', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  http.POST(models, model, function(d) {
+    http.GET(models + d.Id, function(d) {
+      ok(d.text == 'stuff', 'Fetched model.');
+      http.DELETE(models + d.Id, start);
+    });
+  });
+});
+asyncTest('List all', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  http.POST(models, model, function(d) {
+    setTimeout(function() {
+      http.GET(models, function(dd) {
+        deepEqual(dd, [d], 'Correctly listed models.');
+        http.DELETE(models + d.Id, start);
+      });
+    }, WAIT);
+  });
+});
+asyncTest('Simple filters', function() {
+  var models = this.models;
+  var model = {
+    f: 333.000034,
+    i: 322332212,
+    title: "title"
+  };
+  http.POST(models, model, function(d) {
+    var done = after(9, function() {
+        http.DELETE(models + d.Id, start);
+    });
+    var expected = [d];
+    setTimeout(function() {
+      $.each(model, function(k, v) {
+        var filter1 = k + '==' + v;
+        http.GET(models + '?filter=' + filter1, function(d) {
+          deepEqual(d, expected, 'Correctly queried with filter: ' + filter1);
+          done();
+        });
+        var filter2 = k + '<' + (v + 1);
+        http.GET(models + '?filter=' + filter2, function(d) {
+          deepEqual(d, expected, 'Correctly queried with filter: ' + filter2);
+          done();
+        });
+        var filter3 = k + '>' + (v + 1);
+        http.GET(models + '?filter=' + filter3, function(d) {
+          deepEqual(d, [], 'Correctly queried with filter: ' + filter3);
+          done();
+        });
+      });
+    }, WAIT);
+  });
+});
+asyncTest('Subobject', function() {
+  var models = this.models;
+  var model = {
+    universe: {
+      ans: 42
+    }
+  };
+  http.POST(models, model, function(d) {
+    var filter = 'universe.ans==42';
+    var expected = [d];
+    var id = d.Id;
+    setTimeout(function() {
+      http.GET(models + '?filter=' + filter, function(d) {
+        deepEqual(d, expected, 'Correctly queried with filter: ' + filter);
+        http.DELETE(models + id, start);
+      });
+    }, WAIT);
+  });
+});
+asyncTest('Sort by order', function() {
+  expect(6);
+  var models = this.models;
+  http.POST(models, {str: 'b', num: 3, flt: 3.3}, function(d) {
+  http.POST(models, {str: 'a', num: 2, flt: 3.2}, function(dd) {
+    var done = after(6, function() {
+        http.DELETE(models + d.Id);
+        http.DELETE(models + dd.Id, start);
+    });
+    setTimeout(function() {
+      $.each(['str','num','flt'], function(i, v) {
+        http.GET(models + '?order=' + v, function(resp) {
+          deepEqual(resp, [dd, d], 'Ordered.');
+          done();
+        });
+        http.GET(models + '?order=-' + v, function(resp) {
+          deepEqual(resp, [d, dd], 'Ordered.');
+          done();
+        });
+      });
+    }, WAIT);
+  });
+  });
+});
+asyncTest('projection', function() {
+  expect(4);
+  var models = this.models;
+  var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
+  http.POST(models, model, function(d) {
+    var done = after(4, function() {
+        http.DELETE(models + d.Id, start);
+    });
+    setTimeout(function() {
+      http.GET(models + '?projection=Need', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        delete expected.secret;
+        expected.Id = d.Id;
+        deepEqual(resp, [expected], 'Only returned the projected items.')
+        done();
+      });
+      http.GET(models + '?projection=Need,secret', function() {}, function(resp) {
+        ok(resp.error != undefined, 'Recieved error ' + resp)
+        done();
+      });
+      http.GET(models + '?projection=Need,secret,owners', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        expected.Id = d.Id;
+        expected.owners = d.owners;
+        deepEqual(resp, [expected], 'Projected items plus owners.')
+        done();
+      });
+      http.GET(models + '?projection=Need&projection=secret,owners', function(resp) {
+        var expected = $.extend(true, {}, model);
+        delete expected.ToBig;
+        expected.Id = d.Id;
+        expected.owners = d.owners;
+        deepEqual(resp, [expected], 'Projected items plus owners.')
+        done();
+      });
+    }, WAIT);
+  });
+});
+// asyncTest('AND filter', function() {});
+// asyncTest('OR filter', function() {});
+// asyncTest('int vs float', function() {});
+// asyncTest('By params JSON string', function() {});
+// asyncTest('Nested models', function() {});
+// asyncTest('Override owners or viewers with invalid strings', function() {});
+
+module('Delete Models', moduleConfig);
+asyncTest('Delete by Id', function() {
+  var models = this.models;
+  http.POST(models, {}, function(d) {
+    http.DELETE(models + d.Id, function(d) {
+      ok(d.error === undefined, "No errors.");
+      start();
+    });
+  });
+});
+
+module('Nested Models', moduleConfig);
+asyncTest('Nested creation', function() {
+  var models = this.models;
+  var kind = this.kind;
+  var submodels = 'sub' + Math.random().toString(36).substr(2,10);
+  var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
+  var submodel = {SubNeed: 'stuff', SubToBig: 'do not want', subsecret: 'not for you'};
+  http.POST(models, model, function(d) {
+    http.POST(models + d.Id + '/' + submodels, submodel, function(sub) {
+      submodel.Id = sub.Id;
+      submodel.owners = sub.owners;
+      submodel.viewers = sub.viewers;
+      submodel[kind] = d.Id;
+      deepEqual(sub, submodel, 'Created nested model.');
+      http.DELETE(models + d.Id + '/' + submodels + '/' + sub.Id, function() {
+        http.DELETE(models + d.Id, start);
+      });
+    });
+  });
+});
+
+asyncTest('Nested fetch', function() {
+  var models = this.models;
+  var kind = this.kind;
+  var submodels = 'sub' + Math.random().toString(36).substr(2,10);
+  var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
+  var submodel = {SubNeed: 'stuff', SubToBig: 'do not want', subsecret: 'not for you'};
+  http.POST(models, model, function(d) {
+    http.POST(models + d.Id + '/' + submodels, submodel, function(sub) {
+      setTimeout(function() {
+        http.GET(models + d.Id + '/' + submodels, function(subGet) {
+          deepEqual(subGet, [sub], 'Fetched nested model.');
+          http.DELETE(models + d.Id + '/' + submodels + '/' + sub.Id, function() {
+            http.DELETE(models + d.Id, start);
+          });
+        });
+      }, WAIT);
+    });
+  });
+});
+
+
+module('Users');
+
+module('Validation');
+
+  </script>
+  </body>
+</html>

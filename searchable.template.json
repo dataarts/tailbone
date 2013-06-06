@@ -1,0 +1,11 @@
+{
+  "todos": {
+    "_index": "optional_field_for_name_of_index_default_if_not_defined",
+    "item": "TextField",
+    "snippet": "HtmlField",
+    "slug": "AtomField",
+    "value": "NumberField",
+    "dayof": "DateField",
+    "place": "GeoField"
+  }
+}
