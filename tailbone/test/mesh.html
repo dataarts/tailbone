@@ -43,124 +43,160 @@
 
       });
 
-      asyncTest('connect() with options.api', 12, function () {
+      asyncTest('connect()', 7, function () {
 
-          var mesh = new tailbone.Mesh(null, '/api/mesh');
-          var triggers = 0;
+          var mesh1 = new tailbone.Mesh(null, '/api/mesh'),
+                  mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
+                  mesh3 = new tailbone.Mesh('id1', '/api/mesh'),
+                  mesh4 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2'}),
+                  mesh5 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2', autoConnect: true}),
+                  triggers = 0;
 
-          mesh.self.bind('open', function (channel) {
+          mesh1.self.bind('open', function (channel) {
 
-              ok(true, 'Mesh.self: successfully connected to WS server and triggered \'open\'');
-              ok(channel, 'Mesh.self: channel passed to \'open\' handler');
-              ok(channel.localNode, 'Mesh.self: channel has localNode');
-              ok(channel.remoteNode, 'Mesh.self: channel has remoteNode');
-              equal(mesh.self, channel.remoteNode, 'Mesh.self: channel.localNode === mesh.self');
-              equal(channel.localNode, channel.remoteNode, 'Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+              ok(true, '[options.api]: Mesh.self: successfully connected to WS server via options.api');
 
-              if (++triggers === 2) {
+              if (++triggers === 7) {
                   start();
               }
 
           });
 
-          mesh.bind('open', function (channel) {
+          mesh1.bind('open', function (channel) {
 
-              ok(true, 'Mesh: successfully connected to WS server and triggered \'open\'');
-              ok(channel, 'Mesh: channel passed to \'open\' handler');
-              ok(channel.localNode, 'Mesh: channel has localNode');
-              ok(channel.remoteNode, 'Mesh: channel has remoteNode');
-              equal(mesh.self, channel.remoteNode, 'Mesh.self: channel.localNode === mesh.self');
-              equal(channel.localNode, channel.remoteNode, 'Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+              ok(true, '[options.api]: Mesh: successfully connected to WS server via options.api');
 
-              if (++triggers === 2) {
+              if (++triggers === 7) {
                   start();
               }
 
           });
 
-          mesh.connect();
+          mesh2.self.bind('open', function (channel) {
 
-      });
+              ok(true, '[options.ws]: Mesh.self: successfully connected to WS server via options.ws');
 
-      asyncTest('connect() with options.ws', 12, function () {
-
-          var mesh = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'});
-          var triggers = 0;
-
-          mesh.self.bind('open', function (channel) {
-
-              ok(true, 'Mesh.self: successfully connected to WS server and triggered \'open\'');
-              ok(channel, 'Mesh.self: channel passed to \'open\' handler');
-              ok(channel.localNode, 'Mesh.self: channel has localNode');
-              ok(channel.remoteNode, 'Mesh.self: channel has remoteNode');
-              equal(mesh.self, channel.remoteNode, 'Mesh.self: channel.localNode == mesh.self');
-              equal(channel.localNode, channel.remoteNode, 'Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
-
-              if (++triggers === 2) {
+              if (++triggers === 7) {
                   start();
               }
 
           });
 
-          mesh.bind('open', function (channel) {
+          mesh2.bind('open', function (channel) {
 
-              ok(true, 'Mesh: successfully connected to WS server and triggered \'open\'');
-              ok(channel, 'Mesh: channel passed to \'open\' handler');
-              ok(channel.localNode, 'Mesh: channel has localNode');
-              ok(channel.remoteNode, 'Mesh: channel has remoteNode');
-              equal(mesh.self, channel.remoteNode, 'Mesh.self: channel.localNode == mesh.self');
-              equal(channel.localNode, channel.remoteNode, 'Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+              ok(true, '[options.ws]: Mesh: successfully connected to WS server via options.ws');
 
-              if (++triggers === 2) {
+              if (++triggers === 7) {
                   start();
               }
 
           });
 
-          mesh.connect();
+          mesh3.self.bind('open', function (channel) {
 
-      });
+              equal(mesh3.id, 'id1', '[options.api]: Mesh.id is derived from constructor parameter');
 
-      asyncTest('connect() to particular mesh with options.api', 1, function () {
-
-          var mesh = new tailbone.Mesh('id1', '/api/mesh');
-
-          mesh.self.bind('open', function (channel) {
-
-              equal(mesh.id, 'id1', 'Mesh.id is derived from constructor parameter');
-              start();
+              if (++triggers === 7) {
+                  start();
+              }
 
           });
 
-          mesh.connect();
+          mesh4.self.bind('open', function (channel) {
 
-      });
+              equal(mesh4.id, 'id2', '[options.ws]: Mesh.id is derived from options.ws and not from constructor \'id\' argument');
 
-      asyncTest('connect() to particular mesh with options.ws', 1, function () {
-
-          var mesh = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2'});
-
-          mesh.self.bind('open', function (channel) {
-
-              equal(mesh.id, 'id2', 'Mesh.id is derived from options.ws and not from constructor \'id\' argument');
-              start();
+              if (++triggers === 7) {
+                  start();
+              }
 
           });
 
-          mesh.connect();
+          mesh5.self.bind('open', function (channel) {
+
+              ok(true, 'connect() called automatically by options.autoConnect');
+
+              if (++triggers === 7) {
+                  start();
+              }
+
+          });
+
+          mesh1.connect();
+          mesh2.connect();
+          mesh3.connect();
+          mesh4.connect();
 
       });
 
-      asyncTest('autoConnect', 1, function () {
+      asyncTest('open', 24, function () {
 
-          var mesh = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2', autoConnect: true});
+          var mesh1 = new tailbone.Mesh(null, '/api/mesh'),
+                  mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
+                  triggers = 0;
 
-          mesh.self.bind('open', function (channel) {
+          mesh1.self.bind('open', function (channel) {
 
-              ok(true, 'connect() called automatically');
-              start();
+              ok(true, '[options.api]: Mesh.self: triggered \'open\'');
+              ok(channel, '[options.api]: Mesh.self: channel passed to \'open\' handler');
+              ok(channel.localNode, '[options.api]: Mesh.self: channel has localNode');
+              ok(channel.remoteNode, '[options.api]: Mesh.self: channel has remoteNode');
+              equal(mesh1.self, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === mesh.self');
+              equal(channel.localNode, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+
+              if (++triggers === 4) {
+                  start();
+              }
 
           });
+
+          mesh1.bind('open', function (channel) {
+
+              ok(true, '[options.api]: Mesh: triggered \'open\'');
+              ok(channel, '[options.api]: Mesh: channel passed to \'open\' handler');
+              ok(channel.localNode, '[options.api]: Mesh: channel has localNode');
+              ok(channel.remoteNode, '[options.api]: Mesh: channel has remoteNode');
+              equal(mesh1.self, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === mesh.self');
+              equal(channel.localNode, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+
+              if (++triggers === 4) {
+                  start();
+              }
+
+          });
+
+          mesh2.self.bind('open', function (channel) {
+
+              ok(true, '[options.ws]: Mesh.self: triggered \'open\'');
+              ok(channel, '[options.ws]: Mesh.self: channel passed to \'open\' handler');
+              ok(channel.localNode, '[options.ws]: Mesh.self: channel has localNode');
+              ok(channel.remoteNode, '[options.ws]: Mesh.self: channel has remoteNode');
+              equal(mesh2.self, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode == mesh.self');
+              equal(channel.localNode, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+
+              if (++triggers === 4) {
+                  start();
+              }
+
+          });
+
+          mesh2.bind('open', function (channel) {
+
+              ok(true, '[options.ws]: Mesh: triggered \'open\'');
+              ok(channel, '[options.ws]: Mesh: channel passed to \'open\' handler');
+              ok(channel.localNode, '[options.ws]: Mesh: channel has localNode');
+              ok(channel.remoteNode, '[options.ws]: Mesh: channel has remoteNode');
+              equal(mesh2.self, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode == mesh.self');
+              equal(channel.localNode, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
+
+              if (++triggers === 4) {
+                  start();
+              }
+
+          });
+
+          mesh1.connect();
+          mesh2.connect();
 
       });
 
