@@ -46,79 +46,71 @@
       asyncTest('connect()', 7, function () {
 
           var mesh1 = new tailbone.Mesh(null, '/api/mesh'),
-                  mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
-                  mesh3 = new tailbone.Mesh('id1', '/api/mesh'),
-                  mesh4 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2'}),
-                  mesh5 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2', autoConnect: true}),
-                  triggers = 0;
+              mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
+              mesh3 = new tailbone.Mesh('id1', '/api/mesh'),
+              mesh4 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2'}),
+              mesh5 = new tailbone.Mesh('id1', {ws: 'ws://localhost:2345/id2', autoConnect: true}),
+              triggers = 0;
+
+          var onItemDone = function () {
+
+              if (++triggers === 7) {
+                  mesh1.disconnect();
+                  mesh2.disconnect();
+                  mesh3.disconnect();
+                  mesh4.disconnect();
+                  mesh5.disconnect();
+                  start();
+              }
+
+          };
 
           mesh1.self.bind('open', function (channel) {
 
               ok(true, '[options.api]: Mesh.self: successfully connected to WS server via options.api');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh1.bind('open', function (channel) {
 
               ok(true, '[options.api]: Mesh: successfully connected to WS server via options.api');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh2.self.bind('open', function (channel) {
 
               ok(true, '[options.ws]: Mesh.self: successfully connected to WS server via options.ws');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh2.bind('open', function (channel) {
 
               ok(true, '[options.ws]: Mesh: successfully connected to WS server via options.ws');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh3.self.bind('open', function (channel) {
 
               equal(mesh3.id, 'id1', '[options.api]: Mesh.id is derived from constructor parameter');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh4.self.bind('open', function (channel) {
 
               equal(mesh4.id, 'id2', '[options.ws]: Mesh.id is derived from options.ws and not from constructor \'id\' argument');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
           mesh5.self.bind('open', function (channel) {
 
               ok(true, 'connect() called automatically by options.autoConnect');
-
-              if (++triggers === 7) {
-                  start();
-              }
+              onItemDone();
 
           });
 
@@ -132,8 +124,18 @@
       asyncTest('open', 24, function () {
 
           var mesh1 = new tailbone.Mesh(null, '/api/mesh'),
-                  mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
-                  triggers = 0;
+              mesh2 = new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}),
+              triggers = 0;
+
+          var onItemComplete = function () {
+
+              if (++triggers === 4) {
+                  mesh1.disconnect();
+                  mesh2.disconnect();
+                  start();
+              }
+
+          };
 
           mesh1.self.bind('open', function (channel) {
 
@@ -143,10 +145,7 @@
               ok(channel.remoteNode, '[options.api]: Mesh.self: channel has remoteNode');
               equal(mesh1.self, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === mesh.self');
               equal(channel.localNode, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
-
-              if (++triggers === 4) {
-                  start();
-              }
+              onItemComplete();
 
           });
 
@@ -158,10 +157,7 @@
               ok(channel.remoteNode, '[options.api]: Mesh: channel has remoteNode');
               equal(mesh1.self, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === mesh.self');
               equal(channel.localNode, channel.remoteNode, '[options.api]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
-
-              if (++triggers === 4) {
-                  start();
-              }
+              onItemComplete();
 
           });
 
@@ -173,10 +169,7 @@
               ok(channel.remoteNode, '[options.ws]: Mesh.self: channel has remoteNode');
               equal(mesh2.self, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode == mesh.self');
               equal(channel.localNode, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
-
-              if (++triggers === 4) {
-                  start();
-              }
+              onItemComplete();
 
           });
 
@@ -188,10 +181,7 @@
               ok(channel.remoteNode, '[options.ws]: Mesh: channel has remoteNode');
               equal(mesh2.self, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode == mesh.self');
               equal(channel.localNode, channel.remoteNode, '[options.ws]: Mesh.self: channel.localNode === channel.remoteNode (there is no remote connection, only self Node is open');
-
-              if (++triggers === 4) {
-                  start();
-              }
+              onItemComplete();
 
           });
 
@@ -220,6 +210,67 @@
               equal(arguments.length, 1, 'arguments.length === 1 when there is one peer node already in the mesh');
               equal(typeof arguments[0], 'object', 'arguments are Node class instances');
 
+              mesh1.disconnect();
+              mesh2.disconnect();
+              start();
+
+          });
+
+          mesh1.connect();
+
+      });
+
+      asyncTest('enter', 3, function () {
+
+          var mesh1 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
+          var mesh2 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
+
+          mesh1.bind('open', function () {
+
+              mesh2.connect();
+
+          });
+
+          mesh1.bind('enter', function () {
+
+              ok(true, '\'enter\' triggered upon peer connection');
+              equal(arguments.length, 1, 'arguments.length === 1 when one peer connected');
+              equal(typeof arguments[0], 'object', 'arguments are Node class instances');
+
+              mesh1.disconnect();
+              mesh2.disconnect();
+              start();
+
+          });
+
+          mesh1.connect();
+
+      });
+
+      asyncTest('leave', 3, function () {
+
+          var mesh1 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
+          var mesh2 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
+
+          mesh1.bind('open', function () {
+
+              mesh2.connect();
+
+          });
+
+          mesh1.bind('enter', function () {
+
+              mesh2.disconnect();
+
+          });
+
+          mesh1.bind('leave', function () {
+
+              ok(true, '\'leave\' triggered upon peer disconnection');
+              equal(arguments.length, 1, 'arguments.length === 1 when one peer disconnected');
+              equal(typeof arguments[0], 'object', 'arguments are Node class instances');
+
+              mesh1.disconnect();
               start();
 
           });

@@ -62,7 +62,7 @@ Node.prototype = new StateDrive();
  * Essential to make dictionary indexing by Node work.
  * @returns {string}
  */
-Node.prototype.toString = function() {
+Node.prototype.toString = function () {
 
     return 'Node@' + this.uid;
 
