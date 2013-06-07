@@ -113,10 +113,6 @@ function json_request(kind, url, success, error, context) {
   return xhr;
 }
 http.HEAD = function(url, load, error, context) {
-  var success = function(_, _, xhr) {
-    arguments[0] = xhr.get
-    load.apply(this, arguments);
-  }
   xhr = json_request('HEAD', url, load, error, context);
   xhr.send();
 };
