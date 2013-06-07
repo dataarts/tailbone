@@ -44,7 +44,7 @@ LOCATIONS = {
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneCEInstance(polymodel.Model):
+class TailboneCEInstance(polymodel.PolyModel):
   load = ndb.FloatProperty()
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
