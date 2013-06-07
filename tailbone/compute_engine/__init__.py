@@ -27,13 +27,13 @@ def HaversineDistance(location1, location2):
   """Method to calculate Distance between two sets of Lat/Lon."""
   lat1, lon1 = location1
   lat2, lon2 = location2
-   #Calculate Distance based in Haversine Formula
-   dlat = math.radians(lat2-lat1)
-   dlon = math.radians(lon2-lon1)
-   a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
-   c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-   # c * 6371  # Earth's radius in km
-   return c
+  #Calculate Distance based in Haversine Formula
+  dlat = math.radians(lat2-lat1)
+  dlon = math.radians(lon2-lon1)
+  a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+  c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+  # c * 6371  # Earth's radius in km
+  return c
 
 
 # These are just random guesses based on the name I have no idea where they actually are.

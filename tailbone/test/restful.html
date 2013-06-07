@@ -25,8 +25,31 @@ function after(counter, callback) {
 // constants
 var WAIT = 500;  // wait time to ensure the database has been updated.   
 
+var relogin = function() {
+  alert('You must be logged in.');
+  var url = window.location.href;
+  window.location.href = '/api/login?continue=' + url;
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open('GET', '/api/users/me', false);
+xhr.onreadystatechange = function() {
+  if (xhr.readyState == 4) {
+    try {
+      d = JSON.parse(xhr.responseText);
+      if (!d['Id']) {
+        relogin();
+      }
+    } catch(e) {
+      relogin();
+    }
+  }
+}
+xhr.send();
+
 module('Authentication');
 asyncTest('Login', function() {
+  expect(2);
   http.GET('/api/users/me', function(d) {
     ok(d.Id !== undefined, 'Has Id, ' + d.Id);
     ok(d.email !== undefined, 'Has email, ' + d.email);
@@ -35,8 +58,7 @@ asyncTest('Login', function() {
     if(err.error !== 'LoginError') {
       throw new Error('Fatal login error message is incorrect.')
     }
-    var url = window.location.href;
-    window.location.href = '/api/login?continue=' + url;
+    start();
   });
 });
 var moduleConfig = {
