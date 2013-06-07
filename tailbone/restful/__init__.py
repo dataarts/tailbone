@@ -76,6 +76,11 @@ store_metadata = os.environ.get("METADATA", "true") == "true"
 ProtectedModelError = AppError("This is a protected Model.")
 
 
+def validate_modelname(model):
+  if [r for r in PROTECTED if r.match(model)]:
+    raise ProtectedModelError
+
+
 def current_user(required=False):
   u = webapp2.get_request().environ.get("TAILBONE_USER_ID")
   if u:
@@ -148,6 +153,9 @@ class users(ndb.Expando):
         if not re_public.match(k):
           del result[k]
     result["Id"] = self.key.urlsafe()
+    admin = api.users.is_current_user_admin()
+    if admin:
+      result["$admin"] = admin
     return result
 
 
@@ -404,8 +412,7 @@ def validate(cls_name, data):
 class RestfulHandler(BaseHandler):
   def _get(self, model, id, *extra_filters):
     model = model.lower()
-    if model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(model);
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
     cls = users if model == "users" else type(model, (ScopedExpando,), {})
     if id:
@@ -435,8 +442,7 @@ class RestfulHandler(BaseHandler):
     if not id:
       raise AppError("Must provide an id.")
     model = model.lower()
-    if model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(model);
     u = current_user(required=True)
     if model == "users":
       if id != "me" and id != u:
@@ -452,8 +458,7 @@ class RestfulHandler(BaseHandler):
 
   def set_or_create(self, model, id, parent_key=None):
     model = model.lower()
-    if model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(model);
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
@@ -502,8 +507,7 @@ class RestfulHandler(BaseHandler):
   def head(self, model, id):
     if store_metadata:
       model = model.lower()
-      if model in PROTECTED:
-        raise ProtectedModelError
+      validate_modelname(model);
       metadata = {
         "total": get_count(model)
       }
@@ -545,8 +549,7 @@ class NestedRestfulHandler(RestfulHandler):
   @as_json
   def get(self, parent_model, parent_id, model, id):
     parent_model = parent_model.lower()
-    if parent_model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(parent_model);
 
     parent = get_model(parent_id)
     parent_key = parent.key
@@ -558,15 +561,13 @@ class NestedRestfulHandler(RestfulHandler):
 
   def set_or_create(self, parent_model, parent_id, model, id):
     parent_model = parent_model.lower()
-    if parent_model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(parent_model);
     parent = get_model(parent_id)
     return RestfulHandler.set_or_create(self, model, id, parent.key)
 
   def _delete(self, parent_model, parent_id, model, id):
     parent_model = parent_model.lower()
-    if parent_model in PROTECTED:
-      raise ProtectedModelError
+    validate_modelname(parent_model);
     get_model(parent_id)
     return RestfulHandler._delete(self, model, id)
 
@@ -595,7 +596,6 @@ except IOError:
 
 
 EXPORTED_JAVASCRIPT = compile_js([
-  "tailbone/utils.js",
   "tailbone/restful/models.js"
 ], ["Model", "User", "FILTER", "ORDER", "AND", "OR"])
 

@@ -139,7 +139,7 @@ class EventsHandler(BaseHandler):
 
 EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/events/events.js",
-], ["clocksync"])
+], ["events"])
 
 app = webapp2.WSGIApplication([
   (r"{}events/.*".format(PREFIX), EventsHandler),

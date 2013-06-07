@@ -24,7 +24,6 @@ function after(counter, callback) {
 }
 // constants
 var WAIT = 500;  // wait time to ensure the database has been updated.   
-var http = tailbone.http;
 
 module('Authentication');
 asyncTest('Login', function() {
@@ -168,8 +167,8 @@ asyncTest('Get metadata', function() {
   var models = this.models;
   var model = {text: 'stuff'};
   http.POST(models, model, function(d) {
-    http.HEAD(models, function(_, _, xhr) {
-      var meta = JSON.parse(xhr.getResponseHeader('metadata'));
+    http.HEAD(models, function() {
+      var meta = JSON.parse(this.getResponseHeader('metadata'));
       ok(meta.total == 1, 'Correct total in metadata: ' + meta)
       http.DELETE(models + d.Id, start);
     });

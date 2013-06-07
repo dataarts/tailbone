@@ -32,7 +32,7 @@ PREFIX = "/api/"
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 JSONP = os.environ.get("JSONP", "false") == "true"
 
-PROTECTED = ["mesh", "users", "messages", "files", "events", "admin", "proxy"]
+PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECASE), re.compile("tailbone.*", re.IGNORECASE)]
 
 
 # Custom Exceptions
@@ -173,6 +173,8 @@ def compile_js(files, exports=None):
 # Find all javascript files in included modules
 def js_handler():
   combined_js = "var tailbone = {};\n"
+  with open("tailbone/globals.js") as f:
+    combined_js += f.read() + "\n"
   with open("app.yaml") as f:
     appyaml = yaml.load(f)
     for include in appyaml.get("includes", []):

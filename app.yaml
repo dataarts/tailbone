@@ -10,11 +10,11 @@ includes:
   ## Qunit tests (only works when running locally)
   - tailbone/test
   ## Basic App Engine authentication
-  # - tailbone/auth_gae
+  - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
   # - tailbone/admin
   ## Upload files to blobstore (TODO: also allow cloud storage)
-  # - tailbone/files
+  - tailbone/files
   ## Listen to and bind to global events with javascript and the channel api
   - tailbone/events
   ## Send direct messages between clients with the channel api
@@ -39,7 +39,7 @@ includes:
 
 env_variables:
   JSONP: 'false' # Set to true to enable jsonp
-  METADATA: 'false' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
+  METADATA: 'true' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

@@ -282,7 +282,7 @@ var Model = function(type, opt_schema) {
 
 // User is a built in model that is constructed like a normal model but has some
 // additional functionality built in.
-var User = new ModelFactory('users');
+var User = new Model('users');
 
 // Constructs a login url.
 User.logout_url = function(redirect_url) {
