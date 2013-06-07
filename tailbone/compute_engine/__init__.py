@@ -15,35 +15,56 @@
 from tailbone import DEBUG, PREFIX, AppError
 
 import logging
+import math
 import random
 import webapp2
 
 from google.appengine.api import users
 from google.appengine.ext import ndb
+from google.appengine.ext.ndb import polymodel
+
+def HaversineDistance(location1, location2):
+  """Method to calculate Distance between two sets of Lat/Lon."""
+  lat1, lon1 = location1
+  lat2, lon2 = location2
+   #Calculate Distance based in Haversine Formula
+   dlat = math.radians(lat2-lat1)
+   dlon = math.radians(lon2-lon1)
+   a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+   c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+   # c * 6371  # Earth's radius in km
+   return c
+
 
 # These are just random guesses based on the name I have no idea where they actually are.
 LOCATIONS = {
-  'us-central1-a': ndb.GeoPt(36.0156, 114.7378),
-  'us-central1-b': ndb.GeoPt(36.0156, 114.7378),
-  'us-central2-a': ndb.GeoPt(36.0156, 114.7378),
-  'europe-west1-a': ndb.GeoPt(52.5233, 13.4127),
-  'europe-west1-b': ndb.GeoPt(52.5233, 13.4127),
-  'default': ndb.GeoPt(36.0156, 114.7378),
+  (36.0156, 114.7378): ["us-central1-a", "us-central1-b", "us-central2-a"],
+  (52.5233, 13.4127): ["europe-west1-a", "europe-west1-b"],
 }
 
+
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneCEInstance(ndb.Expando):
+class TailboneCEInstance(polymodel.Model):
   load = ndb.FloatProperty()
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
-  location = ndb.GeoPtProperty()
   zone = ndb.StringProperty()
-
-  def _pre_put_hook(self):
-    """Set the GeoPtProperty based on the zone string."""
-    self.location = LOCATIONS.get(self.zone, LOCATIONS.get('default'))
 
 
 class LoadBalancer(object):
+  @staticmethod
+  def nearest_zone(request):
+    location = request.headers.get("X-AppEngine-CityLatLong")
+    if location:
+      location = tuple([float(x) for x in location.split(",")])
+      dist = None
+      for loc, zones in LOCATIONS.iteritems():
+        d = HaversineDistance(location, loc)
+        if not dist or d < dist:
+          dist = d
+          closest = zones
+      return random.choice(closest)
+    return random.choice([zone for l, z in LOCATIONS.iteritems() for zone in z])
+
   @staticmethod
   def load():
     """Return the current load."""
