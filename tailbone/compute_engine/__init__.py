@@ -50,9 +50,9 @@ PROJECT_ID = os.environ.get("PROJECT_ID", "")
 DEFAULT_ZONE = "us-central1-a"
 DEFAULT_IMAGE = "debian-7-wheezy-v20130515"
 
-credentials = AppAssertionCredentials(scope=",".join(SCOPES))
-http = credentials.authorize(httplib2.Http(memcache))
-compute = build("compute", API_VERSION, http=http)
+# credentials = AppAssertionCredentials(scope=",".join(SCOPES))
+# http = credentials.authorize(httplib2.Http(memcache))
+# compute = build("compute", API_VERSION, http=http)
 
 
 def ApiUrl(*paths, **kwargs):
@@ -152,8 +152,8 @@ class LoadBalancer(object):
   @staticmethod
   def Find(instance_class, request):
     """Get the most appropriate instance for the given request."""
-    zone = LoadBalancer.nearest_zone(request)
-    instance_class.query(zone=zone)
+    zone = LoadBalancer.NearestZone(request)
+    instance_class.query(TailboneCEInstance.zone==zone)
     return "ws://localhost:2345/"
 
   @staticmethod

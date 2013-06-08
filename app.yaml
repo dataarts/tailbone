@@ -22,7 +22,7 @@ includes:
   ## Add the users location in headers via geoip lookup
   # - tailbone/geoip
   ## Full text search must provide a searchable.json at the root level
-  # - tailbone/search
+  - tailbone/search
   ## Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
   ## will cost you bandwidth and has no auth)
   # - tailbone/proxy

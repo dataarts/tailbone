@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "hostname {}"
+
 if [ `python -c '
 try:
   import tornado
@@ -20,5 +22,5 @@ fi
 
 echo 'downloading and running latest websocket server code'
 curl https://raw.github.com/dataarts/tailbone/mesh/tailbone/compute_engine/mesh/websocket.py > .websocket.py
-python .websocket.py ${@:1:$#}
+python .websocket.py
 rm .websocket.py

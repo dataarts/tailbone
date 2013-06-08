@@ -184,7 +184,7 @@ def js_handler():
           javascript = getattr(module, "EXPORTED_JAVASCRIPT", None)
           if javascript:
             combined_js += javascript + "\n"
-      except ImportError:
+      except ImportError as e:
         pass
   combined_js += """
 //exports to multiple environments

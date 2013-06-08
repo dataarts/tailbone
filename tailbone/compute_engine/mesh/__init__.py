@@ -16,23 +16,20 @@
 from tailbone import as_json, DEBUG, PREFIX, BaseHandler, compile_js, AppError
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
 
-import jinja2
 import os
 import random
 import string
-import time
 import webapp2
 
 from google.appengine.api import users
 from google.appengine.api import app_identity
 from google.appengine.ext import ndb
 
-APP_VERSION = os.environ.get("CURRENT_VERSION_ID","").split('.')[0]
+APP_VERSION = os.environ.get("CURRENT_VERSION_ID", "").split('.')[0]
 HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 
-templates = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
-websocket_script = templates.get_template("setup_and_run_ws.sh").render({"hostname": HOSTNAME})
-turn_script = templates.get_template("setup_and_run_turn.sh").render({"hostname": HOSTNAME})
+websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read().format(HOSTNAME)
+turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read().format(HOSTNAME)
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneMeshInstance(TailboneCEInstance):
@@ -103,7 +100,7 @@ def CreateRoom(request, name=None, num_words=2, seperator="."):
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
     # TODO: put the room creation in a @ndb.transaction
-    address = LoadBalancer.find(TailboneMeshInstance, request)
+    address = LoadBalancer.Find(TailboneMeshInstance, request)
     room = TailboneMeshRoom(id=name, address=address+name)
     room.put()
     return room
