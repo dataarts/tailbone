@@ -13,19 +13,7 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/mesh/?.*
-    script: tailbone.compute_engine.mesh.app
-  - url: /tailbone.mesh.js
-    script: tailbone.compute_engine.mesh.app
-  - url: /admin/mesh
-    static_files: tailbone/compute_engine/mesh/admin.html
-    upload: tailbone/compute_engine/mesh/admin.html
+  - url: /api/compute_engine/?.*
+    script: tailbone.compute_engine.app
     login: admin
 
-includes:
-  - tailbone/compute_engine
-
-admin_console:
-  pages:
-  - name: Mesh Network
-    url: /admin/mesh

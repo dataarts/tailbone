@@ -16,22 +16,27 @@
 from tailbone import as_json, DEBUG, PREFIX, BaseHandler, compile_js, AppError
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
 
+import jinja2
+import os
 import random
 import string
 import time
 import webapp2
 
 from google.appengine.api import users
+from google.appengine.api import app_identity
 from google.appengine.ext import ndb
 
+APP_VERSION = os.environ.get("CURRENT_VERSION_ID","").split('.')[0]
+HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 
-websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
-turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
-
+templates = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
+websocket_script = templates.get_template("setup_and_run_ws.sh").render({"hostname": HOSTNAME})
+turn_script = templates.get_template("setup_and_run_turn.sh").render({"hostname": HOSTNAME})
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneMeshInstance(TailboneCEInstance):
-  PARAMS = {
+  PARAMS = dict(TailboneCEInstance.PARAMS, **{
     "serviceAccounts": [
       {
         "kind": "compute#serviceAccount",
@@ -49,12 +54,12 @@ class TailboneMeshInstance(TailboneCEInstance):
         },
       ],
     }
-  }
+  })
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneTurnInstance(TailboneCEInstance):
-  PARAMS = {
+  PARAMS = dict(TailboneCEInstance.PARAMS, **{
     "serviceAccounts": [
       {
         "kind": "compute#serviceAccount",
@@ -72,7 +77,7 @@ class TailboneTurnInstance(TailboneCEInstance):
         },
       ],
     }
-  }
+  })
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -87,10 +92,13 @@ class TailboneMeshRoom(ndb.Model):
   in_use = ndb.BooleanProperty(default=False)
 
 
-def create_room(request, name=None):
+def CreateRoom(request, name=None, num_words=2, seperator="."):
   room = None
   if not name:
-    name = generate_word() + '.' + generate_word()
+    name = []
+    for i in range(num_words):
+      name.append(GenerateWord())
+    name = seperator.join(name)
     # Test to confirm the generated name doesn't exist
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
@@ -99,23 +107,23 @@ def create_room(request, name=None):
     room = TailboneMeshRoom(id=name, address=address+name)
     room.put()
     return room
-  return create_room(request)
+  return CreateRoom(request)
 
 
-def get_or_create_room(request, name):
+def GetOrCreateRoom(request, name):
   if name:
     room = TailboneMeshRoom.get_by_id(name)
     if not room:
-      room = create_room(request, name)
+      room = CreateRoom(request, name)
     return room
-  return create_room(request)
+  return CreateRoom(request)
 
 
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    room = get_or_create_room(self.request, name)
-    turn = LoadBalancer.find(TailboneTurnInstance, self.request)
+    room = GetOrCreateRoom(self.request, name)
+    turn = LoadBalancer.Find(TailboneTurnInstance, self.request)
     return {
       "ws": room.address,
       "name": room.key.id(),
@@ -144,27 +152,27 @@ app = webapp2.WSGIApplication([
 ], debug=DEBUG)
 
 
-
 # Gibberish generator modified from: https://github.com/greghaskins/gibberish
-VOWELS = 'aeiou'
+VOWELS = "aeiou"
 INITIAL_CONSONANTS = list(set(string.ascii_lowercase) - set(VOWELS)
-                      # remove those easily confused with others
-                      - set('qxc')
-                      # add some crunchy clusters
-                      | set(['bl', 'br', 'cl', 'cr', 'dr', 'fl',
-                             'fr', 'gl', 'gr', 'pl', 'pr', 'sk',
-                             'sl', 'sm', 'sn', 'sp', 'st', 'str',
-                             'sw', 'tr', 'ch', 'sh'])
-                      )
+                     # remove those easily confused with others
+                      - set("qxc")
+                     # add some crunchy clusters
+                      | set(["bl", "br", "cl", "cr", "dr", "fl",
+                       "fr", "gl", "gr", "pl", "pr", "sk",
+                       "sl", "sm", "sn", "sp", "st", "str",
+                       "sw", "tr", "ch", "sh"])
+                     )
 FINAL_CONSONANTS = list(set(string.ascii_lowercase) - set(VOWELS)
-                    # remove the confusables
-                    - set('qxcsj')
-                    # crunchy clusters
-                    | set(['ct', 'ft', 'mp', 'nd', 'ng', 'nk', 'nt',
-                           'pt', 'sk', 'sp', 'ss', 'st', 'ch', 'sh'])
-                    )
+                   # remove the confusables
+                    - set("qxcsj")
+                   # crunchy clusters
+                    | set(["ct", "ft", "mp", "nd", "ng", "nk", "nt",
+                     "pt", "sk", "sp", "ss", "st", "ch", "sh"])
+                   )
 
-def generate_word():
+
+def GenerateWord():
     """Returns a random consonant-vowel-consonant pseudo-word."""
     return ''.join(random.choice(s) for s in (INITIAL_CONSONANTS,
                                               VOWELS,
