@@ -208,7 +208,7 @@
 
               ok(true, '\'exist\' triggered upon connection when peer nodes exist');
               equal(arguments.length, 1, 'arguments.length === 1 when there is one peer node already in the mesh');
-              equal(typeof arguments[0], 'object', 'arguments are Node class instances');
+              ok(typeof arguments[0], 'object', 'arguments are Node class instances');
 
               mesh1.disconnect();
               mesh2.disconnect();

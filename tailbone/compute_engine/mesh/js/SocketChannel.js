@@ -45,8 +45,7 @@ SocketChannel.prototype.open = function () {
 
     if (socket) {
 
-        console.log(SocketChannelUtils.socketsByLocalNode);
-        console.log('socket');
+        // do nothing
 
     } else {
 
@@ -57,7 +56,6 @@ SocketChannel.prototype.open = function () {
 
         socket.addEventListener('open', function () {
 
-            console.log('socket open');
             self.trigger('open');
 
         });
@@ -82,14 +80,12 @@ SocketChannel.prototype.open = function () {
 
         socket.addEventListener('close', function () {
 
-            console.log('socket closed');
             self.trigger('close');
 
         });
 
         socket.addEventListener('error', function () {
 
-            console.log('socket error');
             self.trigger('error');
 
         });

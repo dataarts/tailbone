@@ -27,9 +27,8 @@ var MeshUtils = {
             node = new Node(mesh, nodes[i]);
             mesh.peers.push(node);
             MeshUtils.nodesByMeshById[mesh][nodes[i]] = node;
-            console.log('adding remote node (', nodes[i], ')');
 
-            if (mesh.options.autoConnectPeers) {
+            if (mesh.options.autoPeerConnect) {
 
                 node.connect();
 
@@ -57,7 +56,6 @@ var MeshUtils = {
                 delete MeshUtils.nodesByMeshById[mesh][nodes[i]];
                 node.disconnect();
                 mesh.peers.splice(mesh.peers.indexOf(node), 1);
-                console.log('removing remote node (', nodes[i], ')');
 
             }
 
@@ -353,6 +351,6 @@ Mesh.options = {
 
     apiUrl: null,
     autoConnect: false,
-    autoConnectPeers: true
+    autoPeerConnect: true
 
 };

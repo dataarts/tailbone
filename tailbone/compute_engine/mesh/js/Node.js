@@ -86,15 +86,13 @@ Node.prototype.connect = function () {
 
         channel.bind('open', function () {
 
-            console.log('channel open');
             StateDrive.prototype.trigger.call(self, 'open', channel);
 
         });
 
         channel.bind('message', function (message) {
 
-            console.log('self Node got message:', message);
-            StateDrive.prototype.trigger.apply(self, message);
+            StateDrive.prototype.trigger.apply(self, self.preprocessIncoming.apply(self, message));
 
         });
 
@@ -141,7 +139,7 @@ Node.prototype.trigger = function (type, args) {
 
     try {
 
-        message = JSON.stringify(Array.prototype.slice.apply(arguments));
+        message = JSON.stringify(Array.prototype.slice.apply(this.preprocessOutgoing.apply(this, arguments)));
 
     } catch (e) {
 
@@ -150,5 +148,49 @@ Node.prototype.trigger = function (type, args) {
     }
 
     NodeUtils.send(this, message);
+
+};
+
+/**
+ * Pre-processes incoming event before passing it on to the event pipeline
+ * @param type {string} event type
+ * @param args {object...} event arguments
+ * @returns {Arguments} processed message array ready to be passed down the event line
+ */
+Node.prototype.preprocessIncoming = function (type, args) {
+
+    var parsedArguments = [],
+        i;
+
+    switch (type) {
+
+        case 'exist':
+        case 'enter':
+        case 'leave':
+            parsedArguments.push(type);
+            for (i = 1; i < arguments.length; ++i) {
+                parsedArguments.push(new Node(this.mesh, arguments[i]));
+            }
+            break;
+
+        default:
+            parsedArguments = arguments;
+            break;
+
+    }
+
+    return parsedArguments;
+
+};
+
+/**
+ * Pre-processes outgoing events before sending them
+ * @param type {string} event type
+ * @param args {object...} event arguments
+ * @returns {Arguments} processed message array ready to be sent
+ */
+Node.prototype.preprocessOutgoing = function (type, args) {
+
+    return arguments;
 
 };
