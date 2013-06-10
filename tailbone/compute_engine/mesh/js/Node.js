@@ -7,18 +7,21 @@
 
 /**
  * Internal Node utility functions
- * @type {{send: Function}}
+ * @type {{PROTECTED_EVENTS: Array, uidSeed: number, remoteBindsByNodeIds: {}, send: Function, acknowledgeRemoteBind: Function, acknowledgeRemoteUnbind: Function, doesRemoteBindTo: Function}}
  */
 var NodeUtils = {
 
+    PROTECTED_EVENTS: ['open', 'exist', 'enter', 'leave', 'bind', 'unbind'],
+
     uidSeed: 1,
+    remoteBindsByNodeIds: {},
 
     send: function (node, message) {
 
         var i;
 
         for (i = node._channels.length - 1; i > -1; --i) {
-;
+
             if (node._channels[i].send(message)) {
 
                 break;
@@ -26,6 +29,36 @@ var NodeUtils = {
             }
 
         }
+
+    },
+
+    acknowledgeRemoteBind: function (nodeId, type) {
+
+        NodeUtils.remoteBindsByNodeIds[nodeId] = NodeUtils.remoteBindsByNodeIds[nodeId] || [];
+
+        if (NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type) === -1) {
+
+            NodeUtils.remoteBindsByNodeIds[nodeId].push(type);
+
+        }
+
+    },
+
+    acknowledgeRemoteUnbind: function (nodeId, type) {
+
+        var index;
+
+        if (NodeUtils.remoteBindsByNodeIds[nodeId] && (index = NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type))) {
+
+            NodeUtils.remoteBindsByNodeIds[nodeId].splice(index, 1);
+
+        }
+
+    },
+
+    doesRemoteBindTo: function (nodeId, type) {
+
+        return NodeUtils.remoteBindsByNodeIds[nodeId] && NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type) !== -1;
 
     }
 
@@ -125,6 +158,28 @@ Node.prototype.bind = function (type, handler) {
 
     StateDrive.prototype.bind.apply(this, arguments);
 
+    if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+
+        NodeUtils.send(this, '["bind","' + type + '"]');
+
+    }
+
+};
+
+/**
+ * Unbinds event from the remote node
+ * @param type {string}
+ * @param handler {function}
+ */
+Node.prototype.unbind = function (type, handler) {
+
+    StateDrive.prototype.unbind.apply(this, arguments);
+
+    if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+
+        NodeUtils.send(this, '["unbind","' + type + '"]');
+
+    }
 
 };
 
@@ -137,9 +192,18 @@ Node.prototype.trigger = function (type, args) {
 
     var message;
 
+    if (!NodeUtils.doesRemoteBindTo(this.id, type)) {
+
+        return;
+
+    }
+
     try {
 
         message = JSON.stringify(Array.prototype.slice.apply(this.preprocessOutgoing.apply(this, arguments)));
+        if (message === 'null') {
+            return;
+        }
 
     } catch (e) {
 
@@ -153,13 +217,15 @@ Node.prototype.trigger = function (type, args) {
 
 /**
  * Pre-processes incoming event before passing it on to the event pipeline
- * @param type {string} event type
- * @param args {object...} event arguments
- * @returns {Arguments} processed message array ready to be passed down the event line
+ * @param from {string} from ID
+ * @param timestamp {int} timestamp
+ * @returns data {array} data
  */
-Node.prototype.preprocessIncoming = function (type, args) {
+Node.prototype.preprocessIncoming = function (from, timestamp, data) {
 
-    var parsedArguments = [],
+    var eventArguments = Array.prototype.slice.apply(arguments).slice(2)[0],
+        type = eventArguments[0],
+        parsedArguments = [],
         i;
 
     switch (type) {
@@ -168,13 +234,23 @@ Node.prototype.preprocessIncoming = function (type, args) {
         case 'enter':
         case 'leave':
             parsedArguments.push(type);
-            for (i = 1; i < arguments.length; ++i) {
-                parsedArguments.push(new Node(this.mesh, arguments[i]));
+            for (i = 1; i < eventArguments.length; ++i) {
+                parsedArguments.push(new Node(this.mesh, eventArguments[i]));
             }
             break;
 
+        case 'bind':
+            NodeUtils.acknowledgeRemoteBind(from, eventArguments[1]);
+            parsedArguments = eventArguments;
+            break;
+
+        case 'unbind':
+            NodeUtils.acknowledgeRemoteUnbind(from, eventArguments[1]);
+            parsedArguments = eventArguments;
+            break;
+
         default:
-            parsedArguments = arguments;
+            parsedArguments = eventArguments;
             break;
 
     }
@@ -191,6 +267,13 @@ Node.prototype.preprocessIncoming = function (type, args) {
  */
 Node.prototype.preprocessOutgoing = function (type, args) {
 
-    return arguments;
+    if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+
+        return arguments;
+
+    } else {
+
+        throw new Error('Event type ' + type + ' protected');
+    }
 
 };

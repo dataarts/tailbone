@@ -7,11 +7,9 @@
 
 /**
  * Internal Mesh utility functions
- * @type {{nodesByMeshById: {}, addNodes: Function, removeNodes: Function, restGet: Function}}
+ * @type {{addNodes: Function, removeNodes: Function, restGet: Function}}
  */
 var MeshUtils = {
-
-    nodesByMeshById: {},
 
     /**
      * Adds remote nodes to Mesh.peers
@@ -24,9 +22,8 @@ var MeshUtils = {
 
         for (i = 0; i < nodes.length; ++i) {
 
-            node = new Node(mesh, nodes[i]);
+            node = nodes[i];
             mesh.peers.push(node);
-            MeshUtils.nodesByMeshById[mesh][nodes[i]] = node;
 
             if (mesh.options.autoPeerConnect) {
 
@@ -49,15 +46,9 @@ var MeshUtils = {
 
         for (i = 0; i < nodes.length; ++i) {
 
-            node = MeshUtils.nodesByMeshById[mesh][nodes[i]];
-
-            if (node) {
-
-                delete MeshUtils.nodesByMeshById[mesh][nodes[i]];
-                node.disconnect();
-                mesh.peers.splice(mesh.peers.indexOf(node), 1);
-
-            }
+            node = nodes[i];
+            node.disconnect();
+            mesh.peers.splice(mesh.peers.indexOf(node), 1);
 
         }
 
@@ -134,8 +125,6 @@ var Mesh = function (id, options) {
     this.config(options);
     this.setState(Mesh.STATE.INITIALISED);
     this.setMinCallState('connect', Mesh.STATE.INITIALISED);
-
-    MeshUtils.nodesByMeshById[this] = {};
 
     this.self.bind('exist', function () {
 
@@ -279,13 +268,15 @@ Mesh.prototype.disconnect = function () {
  */
 Mesh.prototype.bind = function (type, handler) {
 
+    var originalArguments = arguments;
+
     StateDrive.prototype.bind.apply(this, arguments);
 
-    this.self.bind.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's bind() proxy
+    this.self.bind.apply(this.self, arguments);
 
     this.peers.forEach(function (peer) {
 
-        peer.bind.apply(peer, arguments);
+        peer.bind.apply(peer, originalArguments);
 
     });
 
@@ -298,13 +289,15 @@ Mesh.prototype.bind = function (type, handler) {
  */
 Mesh.prototype.unbind = function (type, handler) {
 
+    var originalArguments = arguments;
+
     StateDrive.prototype.unbind.apply(this, arguments);
 
-    this.self.unbind.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's unbind() proxy
+    this.self.unbind.apply(this.self, arguments);
 
     this.peers.forEach(function (peer) {
 
-        peer.unbind.apply(peer, arguments);
+        peer.unbind.apply(peer, originalArguments);
 
     });
 
@@ -318,9 +311,6 @@ Mesh.prototype.unbind = function (type, handler) {
 Mesh.prototype.trigger = function (type, args) {
 
     var originalArguments = arguments;
-    StateDrive.prototype.trigger.apply(this, arguments);
-
-    this.self.trigger.apply(this.self, arguments); // TODO: TBC if we include self node in the Mesh's trigger() proxy
 
     this.peers.forEach(function (peer) {
 

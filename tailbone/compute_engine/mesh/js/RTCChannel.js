@@ -5,6 +5,12 @@
  * Time: 3:02 AM
  */
 
+var RTCChannelUtils = {
+
+    RTCPeerConnection: window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection
+
+};
+
 /**
  * RTCChannel
  * @param localNode {Node}
@@ -22,6 +28,22 @@ var RTCChannel = function (localNode, remoteNode) {
  * @type {Channel}
  */
 RTCChannel.prototype = new Channel();
+
+/**
+ * Opens channel
+ */
+RTCChannel.prototype.open = function () {
+
+    console.log('trying to open RTCChannel with', RTCChannelUtils.RTCPeerConnection);
+
+};
+
+/**
+ * Closes channel
+ */
+RTCChannel.prototype.close = function () {
+
+};
 
 /**
  * Sends message to remoteNode

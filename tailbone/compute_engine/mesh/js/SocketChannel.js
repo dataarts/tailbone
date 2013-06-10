@@ -66,7 +66,7 @@ SocketChannel.prototype.open = function () {
 
             try {
 
-                messageObject = JSON.parse(message.data)[2];
+                messageObject = JSON.parse(message.data);
 
             } catch (e) {
 
