@@ -18,13 +18,20 @@
 # ability to drain a mesh and migrate users without a hiccup in service
 # report back usage more accurately than number of connected users possibly with diff API
 
-from tailbone import DEBUG, PREFIX, AppError
+from tailbone import AppError
+from tailbone import as_json
+from tailbone import BaseHandler
+from tailbone import DEBUG
+from tailbone import parse_body
+from tailbone import PREFIX
 
+import inspect
 import json
 import math
 import os
 import random
 import sys
+import uuid
 import webapp2
 
 from google.appengine.api import users
@@ -45,6 +52,7 @@ LOCATIONS = {
   (36.0156, 114.7378): ["us-central1-a", "us-central1-b", "us-central2-a"],
   (52.5233, 13.4127): ["europe-west1-a", "europe-west1-b"],
 }
+ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 PROJECT_ID = os.environ.get("PROJECT_ID", "")
@@ -67,7 +75,9 @@ def HaversineDistance(location1, location2):
   #Calculate Distance based in Haversine Formula
   dlat = math.radians(lat2-lat1)
   dlon = math.radians(lon2-lon1)
-  a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+  a = math.sin(dlat/2) * math.sin(dlat/2) + \
+      math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
+      math.sin(dlon/2) * math.sin(dlon/2)
   c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
   # c * 6371  # Earth's radius in km
   return c
@@ -76,7 +86,7 @@ def HaversineDistance(location1, location2):
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCEInstance(polymodel.PolyModel):
   name = ndb.StringProperty()
-  load = ndb.FloatProperty(repeated=True)
+  load = ndb.FloatProperty()
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
   status = ndb.StringProperty()  # READY, STARTING, ERROR, DISABLED
@@ -126,29 +136,37 @@ class LoadBalancer(object):
           dist = d
           closest = zones
       return random.choice(closest)
-    return random.choice([zone for l, z in LOCATIONS.iteritems() for zone in z])
+    return random.choice(ZONES)
 
   @staticmethod
   def StartInstance(instance_class, zone=None):
     """Start a new instance with a given configuration."""
     # start instance
     # defer an update load call
-    pass
+    name = "{}-{}".format(instance_class.__name__, uuid.uuid4())
+    instance = instance_class()
+    instance.PARAMS.name = name
+    instance.name = name
+    compute.instances().insert(
+      project=PROJECT_ID, zone=zone, body=instance_class.PARAMS).execute()
+    instance.put()
 
   @staticmethod
   def StopInstance(instance):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
-    pass
+    compute.instances().delete(
+      project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
+    instance.key.delete()
 
   @staticmethod
   def Find(instance_class, request):
     """Get the most appropriate instance for the given request."""
     zone = LoadBalancer.NearestZone(request)
-    qry = instance_class.query(TailboneCEInstance.zone == zone)
-    qry = qry.order(TailboneCEInstance.load)
-    instance = qry.get()
+    query = instance_class.query(TailboneCEInstance.zone == zone)
+    query = query.order(TailboneCEInstance.load)
+    instance = query.get()
     if not instance:
       instance = LoadBalancer.StartInstance(instance_class, zone)
     return instance or "ws://localhost:2345/"
@@ -158,12 +176,13 @@ class LoadBalancer(object):
     """Drain a particular instance"""
     # TODO: should clear an instance first
     LoadBalancer.StopInstance(instance)
-    pass
 
   @staticmethod
   def Drain(instance_class=None, zone=None):
     """Drain a set of instances"""
-    pass
+    query = instance_class.query(TailboneCEInstance.zone == zone)
+    for instance in query:
+      LoadBalancer.DrainInstance(instance)
 
   @staticmethod
   def UpdateLoad(urlsafe_instance_key):
@@ -197,11 +216,45 @@ class LoadBalancer(object):
         print(items)
 
 
-class LoadBalanceHandler(webapp2.RequestHandler):
+class LoadBalancerApi(object):
+  @staticmethod
+  def StartInstance(instance_class, zone=None):
+    """Start an instance."""
+    instance = ndb.Key(urlsafe=urlsafe_instance_key)
+    if zone:
+      assert zone in ZONES
+    module_name, class_name = instance_class.rsplt(".", 1)
+    module = importlib.import_module(module_name)
+    cls = getattr(module, class_name)
+    return LoadBalancer.StartInstance(cls, zone)
+
+  @staticmethod
+  def DrainInstance(urlsafe_instance_key):
+    """Drain an instance."""
+    instance = ndb.Key(urlsafe=urlsafe_instance_key)
+    LoadBalancer.DrainInstance(instance)
+
+  @staticmethod
+  def Echo(message):
+    """Echo a message."""
+    return message
+
+
+class LoadBalanceHandler(BaseHandler):
+  """Admin handler for the admin panel console."""
+  @as_json
+  def get(self):
+    methods = inspect.getmembers(LoadBalancerApi, predicate=inspect.isfunction)
+    return [(k, inspect.getargspec(v).args, v.__doc__) for k, v in methods]
+
+  @as_json
   def post(self):
-    """POST handler used by the taskqueue api to update the loadbalancer with the heartbeat."""
-    if not users.is_current_user_admin():
-      raise AppError("Unauthorized.")
+    """POST handler as JSON-RPC."""
+    data = parse_body(self)
+    method = getattr(LoadBalancerApi, data.get("method"))
+    resp = method(*data.get("params", []))
+    return resp
+
 
 app = webapp2.WSGIApplication([
   (r"{}compute_engine/?.*".format(PREFIX), LoadBalanceHandler),
