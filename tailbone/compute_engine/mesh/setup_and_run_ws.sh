@@ -1,26 +1,23 @@
 #!/bin/bash
 
-echo "hostname {}"
+# load reporter
+curl -O http://psutil.googlecode.com/files/psutil-0.6.1.tar.gz
+tar xvfz psutil-0.6.1.tar.gz
+cd psutil-0.6.1
+python setup.py install
+cd ..
+rm -rf psutil-0.6.1
+rm psutil-0.6.1.tar.gz
+curl -O https://raw.github.com/dataarts/tailbone/mesh/tailbone/compute_engine/load_reporter.py
+python load_reporter.py &
 
-if [ `python -c '
-try:
-  import tornado
-  print 1
-except:
-  print 0
-'` -ne 1 ] ; then
-  echo 'tornado not found, downloading and installing'
-  curl -O https://pypi.python.org/packages/source/t/tornado/tornado-3.0.1.tar.gz
-  tar xvfz tornado-3.0.1.tar.gz
-  cd tornado-3.0.1
-  python setup.py build
-  sudo python setup.py install
-  cd ..
-  sudo rm -rf tornado-3.0.1
-  sudo rm tornado-3.0.1.tar.gz
-fi
-
-echo 'downloading and running latest websocket server code'
-curl https://raw.github.com/dataarts/tailbone/mesh/tailbone/compute_engine/mesh/websocket.py > .websocket.py
-python .websocket.py
-rm .websocket.py
+# websocket server
+curl -O https://pypi.python.org/packages/source/t/tornado/tornado-3.0.1.tar.gz
+tar xvfz tornado-3.0.1.tar.gz
+cd tornado-3.0.1
+python setup.py install
+cd ..
+rm -rf tornado-3.0.1
+rm tornado-3.0.1.tar.gz
+curl -O https://raw.github.com/dataarts/tailbone/mesh/tailbone/compute_engine/mesh/websocket.py
+python websocket.py 

@@ -28,21 +28,14 @@ from google.appengine.ext import ndb
 APP_VERSION = os.environ.get("CURRENT_VERSION_ID", "").split('.')[0]
 HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 
-websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read().format(HOSTNAME)
-turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read().format(HOSTNAME)
+websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
+turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
+
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneMeshInstance(TailboneCEInstance):
+class TailboneWebsocketInstance(TailboneCEInstance):
   PARAMS = dict(TailboneCEInstance.PARAMS, **{
-    "serviceAccounts": [
-      {
-        "kind": "compute#serviceAccount",
-        "email": "default",
-        "scopes": [
-          "https://www.googleapis.com/auth/devstorage.read_only"
-        ]
-      }
-    ],
+    "name": "websocket-id",
     "metadata": {
       "items": [
         {
@@ -57,15 +50,7 @@ class TailboneMeshInstance(TailboneCEInstance):
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneTurnInstance(TailboneCEInstance):
   PARAMS = dict(TailboneCEInstance.PARAMS, **{
-    "serviceAccounts": [
-      {
-        "kind": "compute#serviceAccount",
-        "email": "default",
-        "scopes": [
-          "https://www.googleapis.com/auth/devstorage.read_only"
-        ]
-      }
-    ],
+    "name": "turn-id",
     "metadata": {
       "items": [
         {
@@ -100,8 +85,8 @@ def CreateRoom(request, name=None, num_words=2, seperator="."):
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
     # TODO: put the room creation in a @ndb.transaction
-    address = LoadBalancer.Find(TailboneMeshInstance, request)
-    room = TailboneMeshRoom(id=name, address=address+name)
+    address = LoadBalancer.Find(TailboneWebsocketInstance, request)
+    room = TailboneMeshRoom(id=name, address=(address+name))
     room.put()
     return room
   return CreateRoom(request)

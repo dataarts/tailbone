@@ -20,7 +20,7 @@
 
 from tailbone import DEBUG, PREFIX, AppError
 
-import logging
+import json
 import math
 import os
 import random
@@ -29,6 +29,7 @@ import webapp2
 
 from google.appengine.api import users
 from google.appengine.api import memcache
+from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext.ndb import polymodel
 
@@ -48,19 +49,15 @@ API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 PROJECT_ID = os.environ.get("PROJECT_ID", "")
 DEFAULT_ZONE = "us-central1-a"
-DEFAULT_IMAGE = "debian-7-wheezy-v20130515"
 
-# credentials = AppAssertionCredentials(scope=",".join(SCOPES))
-# http = credentials.authorize(httplib2.Http(memcache))
-# compute = build("compute", API_VERSION, http=http)
+credentials = AppAssertionCredentials(scope=",".join(SCOPES))
+http = credentials.authorize(httplib2.Http(memcache))
+compute = build("compute", API_VERSION, http=http)
 
 
-def ApiUrl(*paths, **kwargs):
+def ApiUrl(*paths):
   """Construct compute engine api url."""
-  project = kwargs.get("project")
-  if not project:
-    project = PROJECT_ID
-  return BASE_URL + project + "/" + "/".join(paths)
+  return BASE_URL + "/".join(paths)
 
 
 def HaversineDistance(location1, location2):
@@ -82,17 +79,21 @@ class TailboneCEInstance(polymodel.PolyModel):
   load = ndb.FloatProperty(repeated=True)
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
+  status = ndb.StringProperty()  # READY, STARTING, ERROR, DISABLED
+
+  def CalcLoad(stats):
+    return stats.mem
 
   PARAMS = {
     "kind": "compute#instance",
     "name": "default",
-    "zone": ApiUrl("zones", DEFAULT_ZONE),
-    "image": ApiUrl("global", "images", DEFAULT_IMAGE, project="debian-cloud"),
-    "machineTypes": ApiUrl("zones", DEFAULT_ZONE, "machineTypes", "n1-standard-1"),
+    "zone": ApiUrl(PROJECT_ID, "zones", DEFAULT_ZONE),
+    "image": ApiUrl("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
+    "machineTypes": ApiUrl(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", "n1-standard-1"),
     "networkInterfaces": [
       {
         "kind": "compute#networkInterface",
-        "network": ApiUrl("global", "networks", "default"),
+        "network": ApiUrl(PROJECT_ID, "global", "networks", "default"),
         "accessConfigs": [
           {
             "type": "ONE_TO_ONE_NAT",
@@ -107,7 +108,7 @@ class TailboneCEInstance(polymodel.PolyModel):
         "email": "default",
         "scopes": SCOPES
       }
-    ], 
+    ],
   }
 
 
@@ -128,37 +129,35 @@ class LoadBalancer(object):
     return random.choice([zone for l, z in LOCATIONS.iteritems() for zone in z])
 
   @staticmethod
-  def Load():
-    """Return the current load."""
-    pass
-
-  @staticmethod
   def StartInstance(instance_class, zone=None):
     """Start a new instance with a given configuration."""
+    # start instance
+    # defer an update load call
     pass
 
   @staticmethod
-  def StopInstance(key):
-    """Stop an instance with given datastore key."""
-    pass
-
-  @staticmethod
-  def Restart(instance_class=None, zone=None, force=False):
-    """Shutdown all instances and reboot, neccessary when
-    setup and run scripts change. Restarts just those with instance_class
-    if given otherwise restarts all instances."""
+  def StopInstance(instance):
+    """Stop an instance."""
+    # cancel update load defered call
+    # stop instance
     pass
 
   @staticmethod
   def Find(instance_class, request):
     """Get the most appropriate instance for the given request."""
     zone = LoadBalancer.NearestZone(request)
-    instance_class.query(TailboneCEInstance.zone==zone)
-    return "ws://localhost:2345/"
+    qry = instance_class.query(TailboneCEInstance.zone == zone)
+    qry = qry.order(TailboneCEInstance.load)
+    instance = qry.get()
+    if not instance:
+      instance = LoadBalancer.StartInstance(instance_class, zone)
+    return instance or "ws://localhost:2345/"
 
   @staticmethod
-  def DrainInstance(key):
+  def DrainInstance(instance):
     """Drain a particular instance"""
+    # TODO: should clear an instance first
+    LoadBalancer.StopInstance(instance)
     pass
 
   @staticmethod
@@ -167,10 +166,23 @@ class LoadBalancer(object):
     pass
 
   @staticmethod
+  def UpdateLoad(urlsafe_instance_key):
+    """Check the load on a given instance."""
+    key = ndb.Key(urlsafe=urlsafe_instance_key)
+    instance = key.get()
+    statsurl = "http://"+instance.ip+":8888"
+    result = urlfetch.fetch(statsurl)
+    if result.status_code == 200:
+      stats = json.loads(result.content)
+      load = instance.CalcLoad(stats)
+      instance.load = load
+      instance.put()
+
+  @staticmethod
   def Rebalance():
     """Rebalance the current load."""
     groups = {}
-    for instance in TailboneCEInstance.all():
+    for instance in TailboneCEInstance.query():
       cls = instance._class_name()
       zone = instance.zone
       groups[cls] = groups[cls] or {}
@@ -179,9 +191,10 @@ class LoadBalancer(object):
     for cls, zonemap in groups.iteritems():
       for zone, items in zonemap.iteritems():
         # rebalance the items in this zone
+        # if total load < x then drain one
+        # if load > y add an instance to this zone
+        # TODO: have rebalancer be aware of outages
         print(items)
-
-
 
 
 class LoadBalanceHandler(webapp2.RequestHandler):
@@ -189,7 +202,6 @@ class LoadBalanceHandler(webapp2.RequestHandler):
     """POST handler used by the taskqueue api to update the loadbalancer with the heartbeat."""
     if not users.is_current_user_admin():
       raise AppError("Unauthorized.")
-    logging.warn(httplib2)
 
 app = webapp2.WSGIApplication([
   (r"{}compute_engine/?.*".format(PREFIX), LoadBalanceHandler),

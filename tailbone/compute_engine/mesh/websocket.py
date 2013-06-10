@@ -158,6 +158,7 @@ def main():
   parser.add_option('-d', '--debug', dest='debug', action='store_true', help='enables debug mode', metavar='DEBUG', default=False)
   parser.add_option('-p', '--port', dest='port', help='port number to run the server on', metavar='PORT', default=2345)
   parser.add_option('-u', '--url', dest='url', help='base URL for connections', metavar='URL', default='')
+  parser.add_option('-r', '--report', dest='report', help='URL to report load to', metavar='REPORT', default='')
   (options, args) = parser.parse_args()
 
   server = tornado.httpserver.HTTPServer(tornado.web.Application([(options.url + '/.*', Handler)]))
