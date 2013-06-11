@@ -30,10 +30,6 @@ EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/clocksync/clocksync.js",
 ], ["clocksync"])
 
-EXPORTED_JAVASCRIPT = compile_js([
-  "tailbone/messages/messages.js",
-], ["messages"])
-
 app = webapp2.WSGIApplication([
   (r"{}clocksync/?.*".format(PREFIX), ClockSyncHandler),
 ], debug=DEBUG)
