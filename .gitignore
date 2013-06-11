@@ -1,5 +1,4 @@
 client
-*.pyc
 index.yaml
 .DS_Store
 *.pyc
