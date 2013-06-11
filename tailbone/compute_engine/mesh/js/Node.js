@@ -121,6 +121,7 @@ Node.prototype.connect = function () {
 
             StateDrive.prototype.trigger.call(self, 'open', channel);
 
+
         });
 
         channel.bind('message', function (message) {

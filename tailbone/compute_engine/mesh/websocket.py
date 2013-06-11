@@ -22,6 +22,7 @@ mesh_id_by_node = {}
 def enter(node, mesh_id):
   """Joins a node to a mesh. Creates new mesh if needed."""
   node.id = new_node_id()
+  node.is_initiator_by_peer_node_id = {}
   nodes.append(node)
   nodes_by_id[node.id] = node
 
@@ -66,6 +67,20 @@ def time_sync(node, message):
   return False
 
 
+def request_initiator(node, message):
+  if message[0] == 'rtcrim':
+    peer_id = message[1]
+    logging.debug('---- node %s requests initiator mode for %s' %(node.id, message[1]))
+    initiator = True
+    if peer_id in nodes_by_id and node.id in nodes_by_id[peer_id].is_initiator_by_peer_node_id and nodes_by_id[peer_id].is_initiator_by_peer_node_id[node.id]:
+      initiator = False
+    node.is_initiator_by_peer_node_id[peer_id] = initiator
+    logging.debug('---- granted: %s' % initiator)
+    send_to_node(node, node, ['rtcrim', initiator])
+    return True
+  return False
+
+
 def parse_message(node, message):
   """Interprets node message and directs it forward."""
   # quick check to see if this is a time sync call
@@ -80,7 +95,11 @@ def parse_message(node, message):
     message_object = json.loads(message)
     to_nodes = message_object[0]
     message_data = message_object[1]
-  except:
+    # quick check to see if this is an initiator mode request call
+    if request_initiator(node, message_object):
+      return
+  except AttributeError as e:
+    print e
     return
   send_to_node_ids(to_nodes, node, message_data)
 

@@ -41,7 +41,7 @@ SocketChannel.prototype = new Channel();
 SocketChannel.prototype.open = function () {
 
     var self = this,
-        socket = SocketChannelUtils.socketsByLocalNode[this.localNode];
+        socket = SocketChannelUtils.socketsByLocalNode[this.localNode.uid];
 
     if (socket) {
 
@@ -50,7 +50,7 @@ SocketChannel.prototype.open = function () {
     } else {
 
         socket = new WebSocket(this.localNode.mesh.options.ws);
-        SocketChannelUtils.socketsByLocalNode[this.localNode] = socket;
+        SocketChannelUtils.socketsByLocalNode[this.localNode.uid] = socket;
         SocketChannelUtils.batchSendTimeoutIdsBySocket[socket] = -1;
         SocketChannelUtils.sendToIdsBySocket[socket] = [];
 
@@ -101,7 +101,7 @@ SocketChannel.prototype.open = function () {
  */
 SocketChannel.prototype.close = function () {
 
-    var socket = SocketChannelUtils.socketsByLocalNode[this.localNode];
+    var socket = SocketChannelUtils.socketsByLocalNode[this.localNode.uid];
 
     if (socket) {
 
@@ -111,7 +111,7 @@ SocketChannel.prototype.close = function () {
 
             socket.close();
             socket.onopen = socket.onmessage = socket.onclose = socket.onerror = null;
-            delete SocketChannelUtils.socketsByLocalNode[this.localNode];
+            delete SocketChannelUtils.socketsByLocalNode[this.localNode.uid];
 
         }
 
@@ -125,7 +125,7 @@ SocketChannel.prototype.close = function () {
  */
 SocketChannel.prototype.send = function (message) {
 
-    var socket = SocketChannelUtils.socketsByLocalNode[this.localNode];
+    var socket = SocketChannelUtils.socketsByLocalNode[this.localNode.uid];
 
     if (socket) {
 
