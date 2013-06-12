@@ -30,16 +30,16 @@ includes:
   - tailbone/clocksync
   ## Websocket+WebRTC based mesh server with rooms and load balancing
   - tailbone/compute_engine/mesh
+  ## JSONP for all api calls, probably want this unless you really mean it
+  # - tailbone/jsonp
+  ## ShardedCounter for counter the restful models and getting totals (query with HEAD)
+  # - tailbone/metadata
   ## Order in this list is important for restful and pathrewrite, they must be last.
   ## Restful resources
   - tailbone/restful
   ## Any path without a file extension not in /api gets the app/client/index.html text. Useful for
   ## html5 applications that use the history api to write their paths.
   # - tailbone/pathrewrite
-
-env_variables:
-  JSONP: 'false' # Set to true to enable jsonp
-  METADATA: 'true' # use a sharded counter to store totals for counts of types of models, fetch with HEAD
 
 handlers:
   # # Add your own custom apps and handlers if you want to extend this

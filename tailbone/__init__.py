@@ -30,7 +30,6 @@ from google.appengine.ext import ndb
 
 PREFIX = "/api/"
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
-JSONP = os.environ.get("JSONP", "false") == "true"
 
 PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECASE), re.compile("tailbone.*", re.IGNORECASE)]
 
@@ -92,7 +91,7 @@ def as_json(func):
       resp = {"error": e.__class__.__name__, "message": e.message}
     if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
-    if JSONP:
+    if webapp2.get_request().environ.get("JSONP") == "true":
       callback = self.request.get("callback")
       if callback:
         self.response.headers["Content-Type"] = "text/javascript"

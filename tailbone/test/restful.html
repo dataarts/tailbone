@@ -190,8 +190,12 @@ asyncTest('Get metadata', function() {
   var model = {text: 'stuff'};
   http.POST(models, model, function(d) {
     http.HEAD(models, function(_, _, xhr) {
-      var meta = JSON.parse(xhr.getResponseHeader('metadata'));
-      ok(meta.total == 1, 'Correct total in metadata: ' + meta)
+      var meta = xhr.getResponseHeader('metadata');
+      ok(meta == '{"total": 1}', 'No metadata ' + meta);
+      if (meta) {
+        meta = JSON.parse(meta);
+        ok(meta.total == 1, 'Correct total in metadata: ' + meta);
+      }
       http.DELETE(models + d.Id, start);
     });
   });

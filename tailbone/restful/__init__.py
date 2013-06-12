@@ -71,8 +71,6 @@ re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
 
-store_metadata = os.environ.get("METADATA", "true") == "true"
-
 ProtectedModelError = AppError("This is a protected Model.")
 
 
@@ -88,6 +86,9 @@ def current_user(required=False):
   if required:
     raise LoginError("User must be logged in.")
   return None
+
+def store_metadata():
+  return webapp2.get_request().environ.get("METADATA") == "true"
 
 
 # Model
@@ -452,7 +453,7 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model)
     key.delete()
     search.delete(key)
-    if store_metadata:
+    if store_metadata():
       decrement(model)
     return {}
 
@@ -492,7 +493,7 @@ class RestfulHandler(BaseHandler):
         m.owners.append(u)
     m.put()
     # increment count
-    if not already_exists and store_metadata:
+    if not already_exists and store_metadata():
       increment(model)
     # update indexes
     search.put(m)
@@ -505,7 +506,7 @@ class RestfulHandler(BaseHandler):
 
   # Metadata including the count in the response header
   def head(self, model, id):
-    if store_metadata:
+    if store_metadata():
       model = model.lower()
       validate_modelname(model);
       metadata = {
