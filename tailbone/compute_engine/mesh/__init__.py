@@ -74,7 +74,7 @@ class TailboneMeshRoom(ndb.Model):
   in_use = ndb.BooleanProperty(default=False)
 
 
-def CreateRoom(request, name=None, num_words=2, seperator="."):
+def create_room(request, name=None, num_words=2, seperator="."):
   room = None
   if not name:
     name = []
@@ -85,27 +85,27 @@ def CreateRoom(request, name=None, num_words=2, seperator="."):
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
     # TODO: put the room creation in a @ndb.transaction
-    address = LoadBalancer.Find(TailboneWebsocketInstance, request)
+    address = LoadBalancer.find(TailboneWebsocketInstance, request)
     room = TailboneMeshRoom(id=name, address=(address+name))
     room.put()
     return room
-  return CreateRoom(request)
+  return create_room(request)
 
 
-def GetOrCreateRoom(request, name):
+def get_or_create_room(request, name):
   if name:
     room = TailboneMeshRoom.get_by_id(name)
     if not room:
-      room = CreateRoom(request, name)
+      room = create_room(request, name)
     return room
-  return CreateRoom(request)
+  return create_room(request)
 
 
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    room = GetOrCreateRoom(self.request, name)
-    turn = LoadBalancer.Find(TailboneTurnInstance, self.request)
+    room = get_or_create_room(self.request, name)
+    turn = LoadBalancer.find(TailboneTurnInstance, self.request)
     return {
       "ws": room.address,
       "name": room.key.id(),

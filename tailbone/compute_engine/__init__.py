@@ -40,7 +40,7 @@ from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext.ndb import polymodel
 
-sys.path.insert(0, 'tailbone/compute_engine/dependencies.zip')
+sys.path.insert(0, "tailbone/compute_engine/dependencies.zip")
 from oauth2client.appengine import AppAssertionCredentials
 import httplib2
 from apiclient.discovery import build
@@ -63,12 +63,12 @@ http = credentials.authorize(httplib2.Http(memcache))
 compute = build("compute", API_VERSION, http=http)
 
 
-def ApiUrl(*paths):
+def api_url(*paths):
   """Construct compute engine api url."""
   return BASE_URL + "/".join(paths)
 
 
-def HaversineDistance(location1, location2):
+def haversine_distance(location1, location2):
   """Method to calculate Distance between two sets of Lat/Lon."""
   lat1, lon1 = location1
   lat2, lon2 = location2
@@ -91,19 +91,19 @@ class TailboneCEInstance(polymodel.PolyModel):
   zone = ndb.StringProperty()
   status = ndb.StringProperty()  # READY, STARTING, ERROR, DISABLED
 
-  def CalcLoad(stats):
+  def calc_load(stats):
     return stats.mem
 
   PARAMS = {
     "kind": "compute#instance",
     "name": "default",
-    "zone": ApiUrl(PROJECT_ID, "zones", DEFAULT_ZONE),
-    "image": ApiUrl("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
-    "machineTypes": ApiUrl(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", "n1-standard-1"),
+    "zone": api_url(PROJECT_ID, "zones", DEFAULT_ZONE),
+    "image": api_url("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
+    "machineTypes": api_url(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", "n1-standard-1"),
     "networkInterfaces": [
       {
         "kind": "compute#networkInterface",
-        "network": ApiUrl(PROJECT_ID, "global", "networks", "default"),
+        "network": api_url(PROJECT_ID, "global", "networks", "default"),
         "accessConfigs": [
           {
             "type": "ONE_TO_ONE_NAT",
@@ -125,13 +125,13 @@ class TailboneCEInstance(polymodel.PolyModel):
 class LoadBalancer(object):
 
   @staticmethod
-  def NearestZone(request):
+  def nearest_zone(request):
     location = request.headers.get("X-AppEngine-CityLatLong")
     if location:
       location = tuple([float(x) for x in location.split(",")])
       dist = None
       for loc, zones in LOCATIONS.iteritems():
-        d = HaversineDistance(location, loc)
+        d = haversine_distance(location, loc)
         if not dist or d < dist:
           dist = d
           closest = zones
@@ -139,7 +139,7 @@ class LoadBalancer(object):
     return random.choice(ZONES)
 
   @staticmethod
-  def StartInstance(instance_class, zone=None):
+  def start_instance(instance_class, zone=None):
     """Start a new instance with a given configuration."""
     # start instance
     # defer an update load call
@@ -152,7 +152,7 @@ class LoadBalancer(object):
     instance.put()
 
   @staticmethod
-  def StopInstance(instance):
+  def stop_instance(instance):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
@@ -161,31 +161,31 @@ class LoadBalancer(object):
     instance.key.delete()
 
   @staticmethod
-  def Find(instance_class, request):
+  def find(instance_class, request):
     """Get the most appropriate instance for the given request."""
-    zone = LoadBalancer.NearestZone(request)
+    zone = LoadBalancer.nearest_zone(request)
     query = instance_class.query(TailboneCEInstance.zone == zone)
     query = query.order(TailboneCEInstance.load)
     instance = query.get()
     if not instance:
-      instance = LoadBalancer.StartInstance(instance_class, zone)
+      instance = LoadBalancer.start_instance(instance_class, zone)
     return instance or "ws://localhost:2345/"
 
   @staticmethod
-  def DrainInstance(instance):
+  def drain_instance(instance):
     """Drain a particular instance"""
     # TODO: should clear an instance first
-    LoadBalancer.StopInstance(instance)
+    LoadBalancer.stop_instance(instance)
 
   @staticmethod
-  def Drain(instance_class=None, zone=None):
+  def drain(instance_class=None, zone=None):
     """Drain a set of instances"""
     query = instance_class.query(TailboneCEInstance.zone == zone)
     for instance in query:
-      LoadBalancer.DrainInstance(instance)
+      LoadBalancer.drain_instance(instance)
 
   @staticmethod
-  def UpdateLoad(urlsafe_instance_key):
+  def update_load(urlsafe_instance_key):
     """Check the load on a given instance."""
     key = ndb.Key(urlsafe=urlsafe_instance_key)
     instance = key.get()
@@ -193,12 +193,12 @@ class LoadBalancer(object):
     result = urlfetch.fetch(statsurl)
     if result.status_code == 200:
       stats = json.loads(result.content)
-      load = instance.CalcLoad(stats)
+      load = instance.calc_load(stats)
       instance.load = load
       instance.put()
 
   @staticmethod
-  def Rebalance():
+  def rebalance():
     """Rebalance the current load."""
     groups = {}
     for instance in TailboneCEInstance.query():
@@ -218,7 +218,7 @@ class LoadBalancer(object):
 
 class LoadBalancerApi(object):
   @staticmethod
-  def StartInstance(instance_class, zone=None):
+  def start_instance(instance_class, zone=None):
     """Start an instance."""
     instance = ndb.Key(urlsafe=urlsafe_instance_key)
     if zone:
@@ -226,16 +226,16 @@ class LoadBalancerApi(object):
     module_name, class_name = instance_class.rsplt(".", 1)
     module = importlib.import_module(module_name)
     cls = getattr(module, class_name)
-    return LoadBalancer.StartInstance(cls, zone)
+    return LoadBalancer.start_instance(cls, zone)
 
   @staticmethod
-  def DrainInstance(urlsafe_instance_key):
+  def drain_instance(urlsafe_instance_key):
     """Drain an instance."""
     instance = ndb.Key(urlsafe=urlsafe_instance_key)
-    LoadBalancer.DrainInstance(instance)
+    LoadBalancer.drain_instance(instance)
 
   @staticmethod
-  def Echo(message):
+  def echo(message):
     """Echo a message."""
     return message
 
