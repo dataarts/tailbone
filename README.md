@@ -33,6 +33,8 @@ It also has experimental support for model validation and full text search.
 - Should work out of the box how most people plan to use it.
 - Be backend implementation agnostic, whether it is Go or Python or something else have a unified javascript interface.
 
+[Style Guide](http://google-styleguide.googlecode.com/svn/trunk/pyguide.html)
+
 ### A Word About Tailbone.js
 
 Finally, for added capabilities, there is a JavaScript library served up which

@@ -25,6 +25,7 @@ from tailbone import DEBUG
 from tailbone import parse_body
 from tailbone import PREFIX
 
+import importlib
 import inspect
 import json
 import math
@@ -34,7 +35,6 @@ import sys
 import uuid
 import webapp2
 
-from google.appengine.api import users
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
@@ -55,6 +55,7 @@ LOCATIONS = {
 ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
+# TODO: throw error on use if no PROJECT_ID defined
 PROJECT_ID = os.environ.get("PROJECT_ID", "")
 DEFAULT_ZONE = "us-central1-a"
 
@@ -81,6 +82,15 @@ def haversine_distance(location1, location2):
   c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
   # c * 6371  # Earth's radius in km
   return c
+
+
+class InstanceStatus(object):
+  READY = "ready"
+  STARTING = "starting"
+  STOPPING = "stopping"
+  ERROR = "error"
+  DISABLED = "disabled"
+  DRAINING = "draining"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -145,10 +155,11 @@ class LoadBalancer(object):
     # defer an update load call
     name = "{}-{}".format(instance_class.__name__, uuid.uuid4())
     instance = instance_class()
-    instance.PARAMS.name = name
-    instance.name = name
+    instance.PARAMS.update({
+      "name": name
+    })
     compute.instances().insert(
-      project=PROJECT_ID, zone=zone, body=instance_class.PARAMS).execute()
+      project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
     instance.put()
 
   @staticmethod
@@ -175,6 +186,7 @@ class LoadBalancer(object):
   def drain_instance(instance):
     """Drain a particular instance"""
     # TODO: should clear an instance first
+    instance.status = InstanceStatus.DISABLED
     LoadBalancer.stop_instance(instance)
 
   @staticmethod
@@ -218,24 +230,23 @@ class LoadBalancer(object):
 
 class LoadBalancerApi(object):
   @staticmethod
-  def start_instance(instance_class, zone=None):
+  def start_instance(request, instance_class, zone=None):
     """Start an instance."""
-    instance = ndb.Key(urlsafe=urlsafe_instance_key)
     if zone:
       assert zone in ZONES
-    module_name, class_name = instance_class.rsplt(".", 1)
+    module_name, class_name = instance_class.rsplit(".", 1)
     module = importlib.import_module(module_name)
     cls = getattr(module, class_name)
     return LoadBalancer.start_instance(cls, zone)
 
   @staticmethod
-  def drain_instance(urlsafe_instance_key):
+  def drain_instance(request, urlsafe_instance_key):
     """Drain an instance."""
     instance = ndb.Key(urlsafe=urlsafe_instance_key)
     LoadBalancer.drain_instance(instance)
 
   @staticmethod
-  def echo(message):
+  def echo(request, message):
     """Echo a message."""
     return message
 
@@ -245,14 +256,16 @@ class LoadBalanceHandler(BaseHandler):
   @as_json
   def get(self):
     methods = inspect.getmembers(LoadBalancerApi, predicate=inspect.isfunction)
-    return [(k, inspect.getargspec(v).args, v.__doc__) for k, v in methods]
+    return [(k, inspect.getargspec(v).args[1:], v.__doc__) for k, v in methods]
 
   @as_json
   def post(self):
     """POST handler as JSON-RPC."""
     data = parse_body(self)
     method = getattr(LoadBalancerApi, data.get("method"))
-    resp = method(*data.get("params", []))
+    params = data.get("params", [])
+    params.insert(0, self.request)
+    resp = method(*params)
     return resp
 
 
