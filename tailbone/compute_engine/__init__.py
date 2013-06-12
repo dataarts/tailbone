@@ -29,12 +29,12 @@ import importlib
 import inspect
 import json
 import math
-import os
 import random
 import sys
 import uuid
 import webapp2
 
+from google.appengine.api import app_identity
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
@@ -56,7 +56,7 @@ ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
-PROJECT_ID = os.environ.get("PROJECT_ID", "")
+PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 
 credentials = AppAssertionCredentials(scope=",".join(SCOPES))
