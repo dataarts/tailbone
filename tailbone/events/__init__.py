@@ -137,6 +137,10 @@ class EventsHandler(BaseHandler):
     elif method == "trigger":
       trigger(data.get("name"), data.get("payload"))
 
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/events/events.js",
+], ["events"])
+
 app = webapp2.WSGIApplication([
   (r"{}events/.*".format(PREFIX), EventsHandler),
   ], debug=DEBUG)

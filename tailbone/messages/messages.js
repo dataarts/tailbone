@@ -1,9 +1,3 @@
-'use strict';
-
-window.tailbone = !window.tailbone ? {} : window.tailbone;
-
-(function(window, document, undefined) {
-
 function messages(callback) {
   http.GET('/api/messages', function(resp) {
     var channel = new goog.appengine.Channel(resp.token);
@@ -17,8 +11,3 @@ function messages(callback) {
     callback(socket)
   });
 }
-
-// Exports
-tailbone.messages = messages;
-
-})(window, document);

@@ -1,0 +1,9 @@
+# Placeholder queue.yaml
+
+# Set the total storage limit for all queues to 120MB
+# total_storage_limit: 120M
+# queue:
+# - name: foo
+#   rate: 35/s
+
+queue:

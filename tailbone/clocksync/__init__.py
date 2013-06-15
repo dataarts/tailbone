@@ -12,6 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-handlers:
-  - url: /api/log(in|out)
-    script: tailbone.auth_gae.app
+from tailbone import DEBUG, PREFIX, compile_js, as_json, BaseHandler
+
+import time
+import webapp2
+
+
+class ClockSyncHandler(BaseHandler):
+  def head(self):
+    self.response.headers['Current-Time'] = "{:f}".format(time.time()*1000)
+
+  @as_json
+  def get(self):
+    return time.time()*1000
+
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/clocksync/clocksync.js",
+], ["clocksync"])
+
+app = webapp2.WSGIApplication([
+  (r"{}clocksync/?.*".format(PREFIX), ClockSyncHandler),
+], debug=DEBUG)
