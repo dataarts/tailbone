@@ -17,3 +17,30 @@
 
 tailbone_JSONP = False
 tailbone_METADATA = False
+
+
+
+
+
+# READ app yaml and import any defined Middleware objects
+import yaml
+middleware_list = []
+with open("app.yaml") as f:
+  appyaml = yaml.load(f)
+  for include in appyaml.get("includes", []):
+    try:
+      module = __import__(include.replace("/", "."), 
+                          globals(), locals(), ['Middleware'], -1)
+      middleware = getattr(module, 'Middleware', None)
+      if middleware:
+        middleware_list.append(middleware)
+    except ImportError:
+      pass
+
+
+def webapp_add_wsgi_middleware(app):
+  """Loads any registered middleware, i.e. 
+  included modules that have a Middleware class."""
+  for middleware in middleware_list:
+    app = middleware(app)
+  return app
