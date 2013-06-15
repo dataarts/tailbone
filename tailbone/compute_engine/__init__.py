@@ -28,7 +28,9 @@ from tailbone import PREFIX
 import importlib
 import inspect
 import json
+import logging
 import math
+import os
 import random
 import sys
 import uuid
@@ -36,6 +38,7 @@ import webapp2
 
 from google.appengine.api import app_identity
 from google.appengine.api import memcache
+from google.appengine.api import oauth
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext.ndb import polymodel
@@ -59,9 +62,36 @@ BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 
-credentials = AppAssertionCredentials(scope=",".join(SCOPES))
-http = credentials.authorize(httplib2.Http(memcache))
-compute = build("compute", API_VERSION, http=http)
+def build_service(service_name, api_version, scopes):
+  if DEBUG:
+    from oauth2client.client import SignedJwtAssertionCredentials
+    credentials_file = "credentials.json"
+    if os.path.exists(credentials_file):
+      with open(credentials_file) as f:
+        config = json.load(f)
+        assert config.get("email") and config.get("key_path")
+        # must extract key first since pycrypto doesn't support p12 files
+        # openssl pkcs12 -passin pass:notasecret -in privatekey.p12 -nocerts -passout pass:notasecret -out key.pem
+        # openssl pkcs8 -nocrypt -in key.pem -passin pass:notasecret -topk8 -out privatekey.pem
+        # rm key.pem
+        key_str = open(config.get("key_path")).read()
+        credentials = SignedJwtAssertionCredentials(config.get("email"), 
+                                                    key_str,
+                                                    scopes)
+        http = credentials.authorize(httplib2.Http(memcache))
+        service = build(service_name, api_version, http=http)
+        return service
+    else:
+      logging.warn("NO {} available with service account credentials.".format(credentials_file))
+      logging.warn("Please create a service account download your key.")
+      return None
+  else:
+    credentials = AppAssertionCredentials(scope=",".join(scopes))
+    http = credentials.authorize(httplib2.Http(memcache))
+    service = build(service_name, api_version, http=http)
+    return service
+
+compute = build_service("compute", API_VERSION, SCOPES)
 
 
 def api_url(*paths):
@@ -158,8 +188,13 @@ class LoadBalancer(object):
     instance.PARAMS.update({
       "name": name
     })
-    compute.instances().insert(
-      project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
+    if compute:
+      compute.instances().insert(
+        project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
+    else:
+      logging.warn("No compute api defined.")
+      if DEBUG:
+        raise AppError("No compute api defined.")
     instance.put()
 
   @staticmethod
@@ -167,8 +202,13 @@ class LoadBalancer(object):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
-    compute.instances().delete(
-      project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
+    if compute:
+      compute.instances().delete(
+        project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
+    else:
+      logging.warn("No compute api defined.")
+      if DEBUG:
+        raise AppError("No compute api defined.")
     instance.key.delete()
 
   @staticmethod

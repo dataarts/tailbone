@@ -5,12 +5,10 @@ api_version: 1
 threadsafe: true
 
 includes:
-  ## Base includes such as a combined /tailbone.js from included modules to follow
+  ## Base includes, authentication, and combined /tailbone.js file
   - tailbone
   ## Qunit tests (only works when running locally)
   - tailbone/test
-  ## Basic App Engine authentication
-  - tailbone/auth_gae
   ## Extra admin commands and interfaces (not done yet)
   # - tailbone/admin
   ## Upload files to blobstore (TODO: also allow cloud storage)
@@ -30,10 +28,6 @@ includes:
   - tailbone/clocksync
   ## Websocket+WebRTC based mesh server with rooms and load balancing
   - tailbone/compute_engine/mesh
-  ## JSONP for all api calls, probably want this unless you really mean it
-  # - tailbone/jsonp
-  ## ShardedCounter for counter the restful models and getting totals (query with HEAD)
-  # - tailbone/metadata
   ## Order in this list is important for restful and pathrewrite, they must be last.
   ## Restful resources
   - tailbone/restful
@@ -59,6 +53,11 @@ builtins:
   - deferred: on
   - admin_redirect: on
   - remote_api: on
+
+# Neccessary only for the JWT Credentials when developing locally and using the compute_engine module
+libraries:
+  - name: "pycrypto"
+    version: "latest"
 
 inbound_services:
   - warmup

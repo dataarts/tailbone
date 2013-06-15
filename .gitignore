@@ -5,3 +5,6 @@ index.yaml
 Gemfile.lock
 .sass-cache
 *.idea
+credentials.json
+*.p12
+*.pem

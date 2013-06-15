@@ -34,6 +34,31 @@ DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECASE), re.compile("tailbone.*", re.IGNORECASE)]
 
 
+class _ConfigDefaults(object):
+  JSONP = False
+  METADATA = False
+  PREFIX = "/api/"
+  DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
+  PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECASE),
+               re.compile("tailbone.*", re.IGNORECASE)]
+
+  def is_current_user_admin(*args, **kwargs):
+    return api.users.is_current_user_admin(*args, **kwargs)
+
+  def get_current_user(*args, **kwargs):
+    return api.users.get_current_user(*args, **kwargs)
+
+  def create_login_url(*args, **kwargs):
+    return api.users.create_login_url(*args, **kwargs)
+
+  def create_logout_url(*args, **kwargs):
+    return api.users.create_logout_url(*args, **kwargs)
+ 
+
+
+config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)
+
+
 # Custom Exceptions
 class AppError(Exception):
   pass
@@ -91,7 +116,7 @@ def as_json(func):
       resp = {"error": e.__class__.__name__, "message": e.message}
     if not isinstance(resp, str) and not isinstance(resp, unicode):
       resp = json.dumps(resp, default=json_extras)
-    if webapp2.get_request().environ.get("JSONP") == "true":
+    if config.JSONP:
       callback = self.request.get("callback")
       if callback:
         self.response.headers["Content-Type"] = "text/javascript"
@@ -207,6 +232,26 @@ if (typeof define === 'function' && define.amd) {
   return JsHandler
 
 
+class LoginHandler(webapp2.RequestHandler):
+  def get(self):
+    self.redirect(
+        config.create_login_url(
+          self.request.get("continue", default_value="/")))
+
+
+class LogoutHandler(webapp2.RequestHandler):
+  def get(self):
+    self.redirect(
+        config.create_logout_url(
+          self.request.get("continue", default_value="/")))
+
+
+auth = webapp2.WSGIApplication([
+  (r"{}login".format(PREFIX), LoginHandler),
+  (r"{}logout" .format(PREFIX), LogoutHandler),
+], debug=DEBUG)
+
 app = webapp2.WSGIApplication([
   (r"/tailbone.js", js_handler()),
 ], debug=DEBUG)
+
