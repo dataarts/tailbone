@@ -18,8 +18,14 @@ from tailbone import *
 import re
 import urllib
 
-from google.appengine.api.images import delete_serving_url
-from google.appengine.api.images import get_serving_url_async
+HAS_PIL = True
+try:
+  import PIL
+  from google.appengine.api.images import delete_serving_url
+  from google.appengine.api.images import get_serving_url_async
+except:
+  HAS_PIL = False
+
 from google.appengine.api import users
 from google.appengine.ext.ndb import blobstore
 from google.appengine.ext import blobstore as bs
@@ -42,7 +48,7 @@ def blob_info_to_dict(blob_info):
   for prop in ["content_type", "creation", "filename", "size"]:
     d[prop] = getattr(blob_info, prop)
   key = blob_info.key()
-  if re_image.match(blob_info.content_type):
+  if HAS_PIL and re_image.match(blob_info.content_type):
     d["image_url"] = get_serving_url_async(key)
   d["Id"] = str(key)
   return d
@@ -85,7 +91,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
     blob_info = BlobInfo.get(key)
     if blob_info:
       blob_info.delete()
-      if re_image.match(blob_info.content_type):
+      if HAS_PIL and re_image.match(blob_info.content_type):
         delete_serving_url(key)
       return {}
     else:

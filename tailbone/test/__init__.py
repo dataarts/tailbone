@@ -13,9 +13,12 @@
 # limitations under the License.
 
 # shared resources and global variables
-from tailbone import *
+from tailbone import DEBUG
 
 import webapp2
+
+NONMUTATING = ["clocksync"]
+
 
 # Test Handler
 # ------------
@@ -24,13 +27,16 @@ import webapp2
 # don't properly clean up after themselves yet.
 class TestHandler(webapp2.RequestHandler):
   def get(self, path):
-    if DEBUG:
-      with open("tailbone/test/{}.html".format(path)) as f:
-        self.response.out.write(f.read())
+    if DEBUG or path in NONMUTATING:
+      try:
+        with open("tailbone/test/{}.html".format(path)) as f:
+          self.response.out.write(f.read())
+      except:
+        self.response.out.write("No such test found.")
     else:
-      self.response.out.write("Sorry, tests can only be run from localhost because they modify the \
+      self.response.out.write("Sorry, most tests can only be run from localhost because they modify the \
       datastore.")
 
 app = webapp2.WSGIApplication([
-  (r"{}test/(.*)".format(PREFIX), TestHandler),
+  (r"/test/?(.*)", TestHandler),
 ], debug=DEBUG)

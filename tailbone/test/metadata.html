@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="extras/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="extras/qunit-git.js" type="text/javascript"></script>
+  <script src="extras/jquery.min.js"></script>
+  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+var relogin = function() {
+  alert('You must be logged in.');
+  var url = window.location.href;
+  window.location.href = '/api/login?continue=' + url;
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open('GET', '/api/users/me', false);
+xhr.onreadystatechange = function() {
+  if (xhr.readyState == 4) {
+    try {
+      d = JSON.parse(xhr.responseText);
+      if (!d['Id']) {
+        relogin();
+      }
+    } catch(e) {
+      relogin();
+    }
+  }
+}
+xhr.send();
+
+var moduleConfig = {
+  setup: function() {
+    this.kind = 't' + Math.random().toString(36).substr(2,10);
+    this.models = '/api/' + this.kind + '/'
+  },
+  teardown: function() {
+  }
+};
+module('Metadata', moduleConfig);
+asyncTest('Get metadata', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  http.POST(models, model, function(d) {
+    http.HEAD(models, function(_, _, xhr) {
+      var meta = xhr.getResponseHeader('metadata');
+      ok(meta == '{"total": 1}', 'No metadata ' + meta);
+      if (meta) {
+        meta = JSON.parse(meta);
+        ok(meta.total == 1, 'Correct total in metadata: ' + meta);
+      }
+      http.DELETE(models + d.Id, start);
+    });
+  });
+});
+
+
+  </script>
+  </body>
+</html>

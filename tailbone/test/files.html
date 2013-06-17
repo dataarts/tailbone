@@ -8,10 +8,31 @@
   <div id="qunit"></div>
   <script src="extras/qunit-git.js" type="text/javascript"></script>
   <script src="extras/jquery.min.js"></script>
-  <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-  <script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
   <script type="text/javascript">
 
+
+var relogin = function() {
+  alert('You must be logged in as an Admin.');
+  var url = window.location.href;
+  window.location.href = '/api/login?continue=' + url;
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open('GET', '/api/users/me', false);
+xhr.onreadystatechange = function() {
+  if (xhr.readyState == 4) {
+    try {
+      d = JSON.parse(xhr.responseText);
+      if (!d['$admin']) {
+        relogin();
+      }
+    } catch(e) {
+      relogin();
+    }
+  }
+}
+xhr.send();
 
 function toBlob(data_url) {
   var d = atob(data_url.split(',')[1]);
@@ -43,11 +64,12 @@ asyncTest('Upload file', function() {
       processData: false,
       success: function(items) {
         var d = items[0];
+        console.log(d);
         ok(d.Id != undefined, 'Id is ' + d.Id);
         ok(d.filename == 'image_filename', 'filename is ' + d.filename);
         ok(d.size == 1616, 'size is ' + d.size);
         ok(d.content_type == 'image/png', 'content type is ' + d.content_type);
-        http.DELETE('/api/files/'+d.Id, start)
+        http.DELETE('/api/files/'+d.Id, start);
       }
     });
   });

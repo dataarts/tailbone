@@ -1,13 +1,7 @@
-'use strict';
-
 // This is a simple javascript wrapper to make using the restful api provided
 // by tailbone easier.  It also includes bi-directional data binding with
 // AppEngine and the channel api so that your javascript models upload in
 // real time.
-
-window.tailbone = !window.tailbone ? {} : window.tailbone;
-
-(function(window, document, undefined) {
 
 
 // Quering and Filtering
@@ -41,7 +35,7 @@ function OR() {
 
 
 // This helps construct a model type which can be queried and created.
-var ModelFactory = function(type, opt_schema) {
+var Model = function(type, opt_schema) {
   var ignored_prefixes = ['_', '$'];
 
 
@@ -288,7 +282,7 @@ var ModelFactory = function(type, opt_schema) {
 
 // User is a built in model that is constructed like a normal model but has some
 // additional functionality built in.
-var User = new ModelFactory('users');
+var User = new Model('users');
 
 // Constructs a login url.
 User.logout_url = function(redirect_url) {
@@ -298,16 +292,3 @@ User.logout_url = function(redirect_url) {
 User.login_url = function(redirect_url) {
   return '/api/login?url=' + (redirect_url || '/');
 };
-
-
-
-// Exports
-// -------
-tailbone.Model = ModelFactory;
-tailbone.User = User;
-tailbone.FILTER = FILTER;
-tailbone.ORDER = ORDER;
-tailbone.AND = AND;
-tailbone.OR = OR;
-
-})(this, this.document);

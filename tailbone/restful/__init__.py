@@ -50,7 +50,8 @@
 #       save checks all listened queries for a matching one
 
 # shared resources and global variables
-from tailbone import AppError, LoginError, BreakError, as_json, parse_body, BaseHandler, DEBUG, PREFIX
+from tailbone import AppError, LoginError, BreakError, as_json, parse_body
+from tailbone import BaseHandler, DEBUG, PREFIX, PROTECTED, compile_js, config
 from tailbone import search
 from counter import get_count, increment, decrement
 
@@ -70,13 +71,18 @@ re_type = type(re_public)
 
 acl_attributes = [u"owners", u"viewers"]
 
-store_metadata = os.environ.get("METADATA", "true") == "true"
+ProtectedModelError = AppError("This is a protected Model.")
+
+
+def validate_modelname(model):
+  if [r for r in PROTECTED if r.match(model)]:
+    raise ProtectedModelError
 
 
 def current_user(required=False):
-  u = webapp2.get_request().environ.get("TAILBONE_USER_ID")
+  u = config.get_current_user()
   if u:
-    return ndb.Key("users", u).urlsafe()
+    return ndb.Key("users", u.user_id()).urlsafe()
   if required:
     raise LoginError("User must be logged in.")
   return None
@@ -145,6 +151,9 @@ class users(ndb.Expando):
         if not re_public.match(k):
           del result[k]
     result["Id"] = self.key.urlsafe()
+    admin = config.is_current_user_admin()
+    if admin:
+      result["$admin"] = admin
     return result
 
 
@@ -400,8 +409,10 @@ def validate(cls_name, data):
 # /users/me which will look up your logged in id and return your information.
 class RestfulHandler(BaseHandler):
   def _get(self, model, id, *extra_filters):
+    model = model.lower()
+    validate_modelname(model)
     # TODO(doug) does the model name need to be ascii encoded since types don't support utf-8?
-    cls = users if model == "users" else type(model.lower(), (ScopedExpando,), {})
+    cls = users if model == "users" else type(model, (ScopedExpando,), {})
     if id:
       me = False
       if model == "users":
@@ -415,10 +426,11 @@ class RestfulHandler(BaseHandler):
           m = users()
           m.key = key
           setattr(m, "$unsaved", True)
-          environ = webapp2.get_request().environ
-          for k, v in environ.iteritems():
-            if k[:14] == "TAILBONE_USER_" and k != "TAILBONE_USER_ID" and v:
-              setattr(m, k[14:].lower(), v)
+          u = config.get_current_user()
+          if hasattr(u, "email"):
+            m.email = u.email()
+          logging.info("\n\n{}\n\n".format(u))
+          logging.info("\n\n{}\n\n".format(u.__dict__))
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
@@ -429,6 +441,7 @@ class RestfulHandler(BaseHandler):
     if not id:
       raise AppError("Must provide an id.")
     model = model.lower()
+    validate_modelname(model)
     u = current_user(required=True)
     if model == "users":
       if id != "me" and id != u:
@@ -438,11 +451,13 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model)
     key.delete()
     search.delete(key)
-    if store_metadata:
+    if config.METADATA:
       decrement(model)
     return {}
 
   def set_or_create(self, model, id, parent_key=None):
+    model = model.lower()
+    validate_modelname(model)
     u = current_user(required=True)
     if model == "users":
       if not (id == "me" or id == "" or id == u):
@@ -451,7 +466,7 @@ class RestfulHandler(BaseHandler):
       id = u
       cls = users
     else:
-      cls = type(model.lower(), (ScopedExpando,), {})
+      cls = type(model, (ScopedExpando,), {})
     data = parse_body(self)
     key = parse_id(id, model, data.get("Id"))
     clean_data(data)
@@ -476,7 +491,7 @@ class RestfulHandler(BaseHandler):
         m.owners.append(u)
     m.put()
     # increment count
-    if not already_exists and store_metadata:
+    if not already_exists and config.METADATA:
       increment(model)
     # update indexes
     search.put(m)
@@ -489,8 +504,9 @@ class RestfulHandler(BaseHandler):
 
   # Metadata including the count in the response header
   def head(self, model, id):
-    if store_metadata:
+    if config.METADATA:
       model = model.lower()
+      validate_modelname(model)
       metadata = {
         "total": get_count(model)
       }
@@ -531,6 +547,9 @@ def get_model(urlsafekey):
 class NestedRestfulHandler(RestfulHandler):
   @as_json
   def get(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    validate_modelname(parent_model)
+
     parent = get_model(parent_id)
     parent_key = parent.key
 
@@ -540,10 +559,14 @@ class NestedRestfulHandler(RestfulHandler):
     return self._get(model, id, belongs_to_filter)
 
   def set_or_create(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    validate_modelname(parent_model)
     parent = get_model(parent_id)
     return RestfulHandler.set_or_create(self, model, id, parent.key)
 
   def _delete(self, parent_model, parent_id, model, id):
+    parent_model = parent_model.lower()
+    validate_modelname(parent_model)
     get_model(parent_id)
     return RestfulHandler._delete(self, model, id)
 
@@ -569,6 +592,11 @@ except ValueError:
   logging.error("validation.json is not a valid json document.")
 except IOError:
   logging.info("validation.json doesn't exist no model validation will be performed.")
+
+
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/restful/models.js"
+], ["Model", "User", "FILTER", "ORDER", "AND", "OR"])
 
 app = webapp2.WSGIApplication([
   (r"{}([^/]+)/([^/]+)/([^/]+)/?(.*)".format(PREFIX), NestedRestfulHandler),

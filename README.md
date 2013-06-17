@@ -407,9 +407,7 @@ In order to use Tailbone.js include the following in your html. If you don’t w
 ```html
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
 <script src="/_ah/channel/jsapi" type="text/javascript" charset="utf-8"></script>
-<script src="/tailbone.base.js" type="text/javascript" charset="utf-8"></script>
-<script src="/tailbone.events.js" type="text/javascript" charset="utf-8"></script>
-<script src="/tailbone.models.js" type="text/javascript" charset="utf-8"></script>
+<script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
 ```
 
 In order to support older browsers also include this before the other two scripts:
