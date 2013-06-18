@@ -24,6 +24,7 @@ from tailbone import BaseHandler
 from tailbone import parse_body
 from tailbone import config
 
+import datetime
 import importlib
 import inspect
 import json
@@ -185,9 +186,12 @@ class TailboneCEPool(polymodel.PolyModel):
 
   def get(self):
     """Pick an instance from this pool, but don't lock it."""
- 
+
 
 class LoadBalancer(object):
+
+  HEARTBEAT_MAX = datetime.timedelta(minutes=20)
+  HEARTBEAT_INTERVAL = datetime.timedelta(minutes=2)
 
   @staticmethod
   def nearest_zone(request):
@@ -262,6 +266,11 @@ class LoadBalancer(object):
     for instance in query:
       LoadBalancer.drain_instance(instance)
 
+  @staticmethod
+  def remove_from_pool(instance):
+    """Remove from pool."""
+    pass
+
 
 class LoadBalancerApi(object):
   @staticmethod
@@ -283,10 +292,18 @@ class LoadBalancerApi(object):
     """Echo a message."""
     return message
 
+
 class LoadBalanceCronHandler(BaseHandler):
   @as_json
   def get(self):
-    pass
+    """Update all instances."""
+    now = datetime.datetime.now()
+    for instance in TailboneCEInstance.query():
+      delta = instance.heartbeat - now
+      if delta > LoadBalancer.HEARTBEAT_MAX:
+        LoadBalancer.remove_from_pool(instance)
+      elif delta > LoadBalancer.HEARTBEAT_INTERVAL:
+        LoadBalancer.drain_instance(instance)
 
 
 class LoadBalanceHandler(BaseHandler):
