@@ -177,8 +177,8 @@ class TailboneCEPool(polymodel.PolyModel):
   instance_type = ndb.StringProperty()
   region = ndb.StringProperty()
 
-  def aquire(self):
-    """Transaction to aquire an instance from pool"""
+  def acquire(self):
+    """Transaction to acquire an instance from pool"""
 
   def release(self, instance):
     """Release an instance."""
