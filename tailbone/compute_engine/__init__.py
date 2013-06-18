@@ -187,15 +187,6 @@ class TailboneCEPool(polymodel.PolyModel):
     """Randomly pick an instance from this pool."""
  
 
-instance = pool.aquire(TailboneWebsocket)
-pool.release(instance)
-
-cron job for all instances in this pool
-remove check the last heartbeat
-if the heartbeat is less than time x then release the instance
-if the heartbeat is greater than time x*y then delete the instance
-
-
 class LoadBalancer(object):
 
   @staticmethod
@@ -249,7 +240,7 @@ class LoadBalancer(object):
 
   @staticmethod
   def find(instance_class, request):
-    """Get the most appropriate instance for the given request."""
+    """Return a pool of this instance type."""
     zone = LoadBalancer.nearest_zone(request)
     query = instance_class.query(TailboneCEInstance.zone == zone)
     query = query.order(TailboneCEInstance.load)
@@ -281,25 +272,9 @@ class LoadBalancerApi(object):
     pass
 
   @staticmethod
-  def drain_pool(request, instance_class, zone):
-    """Start a new instance pool."""
+  def drain_pool(request, urlsafe_pool_key):
+    """Drain an instance pool."""
     pass
-
-  @staticmethod
-  def start_instance(request, instance_class, zone=None):
-    """Start an instance."""
-    if zone:
-      assert zone in ZONES
-    module_name, class_name = instance_class.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    cls = getattr(module, class_name)
-    return LoadBalancer.start_instance(cls, zone)
-
-  @staticmethod
-  def drain_instance(request, urlsafe_instance_key):
-    """Drain an instance."""
-    instance = ndb.Key(urlsafe=urlsafe_instance_key)
-    LoadBalancer.drain_instance(instance)
 
   @staticmethod
   def echo(request, message):
