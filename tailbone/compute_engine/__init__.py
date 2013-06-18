@@ -21,9 +21,8 @@
 from tailbone import AppError
 from tailbone import as_json
 from tailbone import BaseHandler
-from tailbone import DEBUG
 from tailbone import parse_body
-from tailbone import PREFIX
+from tailbone import config
 
 import importlib
 import inspect
@@ -70,7 +69,7 @@ PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 
 def build_service(service_name, api_version, scopes):
-  if DEBUG:
+  if config.DEBUG:
     from oauth2client.client import SignedJwtAssertionCredentials
     credentials_file = "credentials.json"
     if os.path.exists(credentials_file):
@@ -82,7 +81,7 @@ def build_service(service_name, api_version, scopes):
         # openssl pkcs8 -nocrypt -in key.pem -passin pass:notasecret -topk8 -out privatekey.pem
         # rm key.pem
         key_str = open(config.get("key_path")).read()
-        credentials = SignedJwtAssertionCredentials(config.get("email"), 
+        credentials = SignedJwtAssertionCredentials(config.get("email"),
                                                     key_str,
                                                     scopes)
         http = credentials.authorize(httplib2.Http(memcache))
@@ -141,7 +140,7 @@ class TailboneCEInstance(polymodel.PolyModel):
   pool = ndb.KeyProperty()
 
   def calc_load(stats):
-    return stats.mem
+    return stats.get("mem", 0)
 
   PARAMS = {
     "kind": "compute#instance",
@@ -174,8 +173,9 @@ class TailboneCEInstance(polymodel.PolyModel):
 class TailboneCEPool(polymodel.PolyModel):
   min_size = ndb.IntegerProperty(default=1)
   max_size = ndb.IntegerProperty(default=10)
-  current_size = ndb.IntegerProperty()
-  instance_class = ndb.StringProperty()
+  size = ndb.IntegerProperty()
+  instance_type = ndb.StringProperty()
+  region = ndb.StringProperty()
 
   def aquire(self):
     """Transaction to aquire an instance from pool"""
@@ -184,7 +184,7 @@ class TailboneCEPool(polymodel.PolyModel):
     """Release an instance."""
 
   def get(self):
-    """Randomly pick an instance from this pool."""
+    """Pick an instance from this pool, but don't lock it."""
  
 
 class LoadBalancer(object):
@@ -220,8 +220,7 @@ class LoadBalancer(object):
         project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
     else:
       logging.warn("No compute api defined.")
-      if DEBUG:
-        raise AppError("No compute api defined.")
+      raise AppError("No compute api defined.")
     instance.put()
 
   @staticmethod
@@ -234,8 +233,7 @@ class LoadBalancer(object):
         project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
     else:
       logging.warn("No compute api defined.")
-      if DEBUG:
-        raise AppError("No compute api defined.")
+      raise AppError("No compute api defined.")
     instance.key.delete()
 
   @staticmethod
@@ -276,10 +274,19 @@ class LoadBalancerApi(object):
     """Drain an instance pool."""
     pass
 
+  def update_pool(request, params):
+    """Update a pools params."""
+    pass
+
   @staticmethod
   def echo(request, message):
     """Echo a message."""
     return message
+
+class LoadBalanceCronHandler(BaseHandler):
+  @as_json
+  def get(self):
+    pass
 
 
 class LoadBalanceHandler(BaseHandler):
@@ -301,5 +308,5 @@ class LoadBalanceHandler(BaseHandler):
 
 
 app = webapp2.WSGIApplication([
-  (r"{}compute_engine/?.*".format(PREFIX), LoadBalanceHandler),
-], debug=DEBUG)
+  (r"{}compute_engine/?.*".format(config.PREFIX), LoadBalanceHandler),
+], debug=config.DEBUG)
