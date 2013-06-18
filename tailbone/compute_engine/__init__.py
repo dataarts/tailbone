@@ -52,10 +52,17 @@ from apiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/devstorage.read_write"]
 # These are just random guesses based on the name I have no idea where they actually are.
 LOCATIONS = {
-  (36.0156, 114.7378): ["us-central1-a", "us-central1-b", "us-central2-a"],
-  (52.5233, 13.4127): ["europe-west1-a", "europe-west1-b"],
+  "us-central": {
+    "location": (36.0156, 114.7378),
+    "zones": ["us-central1-a", "us-central1-b", "us-central2-a"],
+  },
+  "europe-west": {
+    "location": (52.5233, 13.4127),
+    "zones": ["europe-west1-a", "europe-west1-b"],
+  }
 }
-ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z]
+
+ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z["zones"]]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
@@ -121,6 +128,7 @@ class InstanceStatus(object):
   ERROR = "error"
   DISABLED = "disabled"
   DRAINING = "draining"
+  LOCKED = "locked"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -130,6 +138,7 @@ class TailboneCEInstance(polymodel.PolyModel):
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
   status = ndb.StringProperty()  # READY, STARTING, ERROR, DISABLED
+  pool = ndb.KeyProperty()
 
   def calc_load(stats):
     return stats.mem
@@ -162,6 +171,31 @@ class TailboneCEInstance(polymodel.PolyModel):
   }
 
 
+class TailboneCEPool(polymodel.PolyModel):
+  min_size = ndb.IntegerProperty(default=1)
+  max_size = ndb.IntegerProperty(default=10)
+  current_size = ndb.IntegerProperty()
+  instance_class = ndb.StringProperty()
+
+  def aquire(self):
+    """Transaction to aquire an instance from pool"""
+
+  def release(self, instance):
+    """Release an instance."""
+
+  def get(self):
+    """Randomly pick an instance from this pool."""
+ 
+
+instance = pool.aquire(TailboneWebsocket)
+pool.release(instance)
+
+cron job for all instances in this pool
+remove check the last heartbeat
+if the heartbeat is less than time x then release the instance
+if the heartbeat is greater than time x*y then delete the instance
+
+
 class LoadBalancer(object):
 
   @staticmethod
@@ -170,7 +204,9 @@ class LoadBalancer(object):
     if location:
       location = tuple([float(x) for x in location.split(",")])
       dist = None
-      for loc, zones in LOCATIONS.iteritems():
+      for name, obj in LOCATIONS.iteritems():
+        loc = obj["location"]
+        zones = obj["zones"]
         d = haversine_distance(location, loc)
         if not dist or d < dist:
           dist = d
@@ -232,43 +268,23 @@ class LoadBalancer(object):
   @staticmethod
   def drain(instance_class=None, zone=None):
     """Drain a set of instances"""
+    instance_class = instance_class or TailboneCEInstance
     query = instance_class.query(TailboneCEInstance.zone == zone)
     for instance in query:
       LoadBalancer.drain_instance(instance)
 
-  @staticmethod
-  def update_load(urlsafe_instance_key):
-    """Check the load on a given instance."""
-    key = ndb.Key(urlsafe=urlsafe_instance_key)
-    instance = key.get()
-    statsurl = "http://"+instance.ip+":8888"
-    result = urlfetch.fetch(statsurl)
-    if result.status_code == 200:
-      stats = json.loads(result.content)
-      load = instance.calc_load(stats)
-      instance.load = load
-      instance.put()
-
-  @staticmethod
-  def rebalance():
-    """Rebalance the current load."""
-    groups = {}
-    for instance in TailboneCEInstance.query():
-      cls = instance._class_name()
-      zone = instance.zone
-      groups[cls] = groups[cls] or {}
-      groups[cls][zone] = groups[cls][zone] or {}
-      groups[cls][zone].append(instance)
-    for cls, zonemap in groups.iteritems():
-      for zone, items in zonemap.iteritems():
-        # rebalance the items in this zone
-        # if total load < x then drain one
-        # if load > y add an instance to this zone
-        # TODO: have rebalancer be aware of outages
-        print(items)
-
 
 class LoadBalancerApi(object):
+  @staticmethod
+  def start_pool(request, instance_class, zone):
+    """Start a new instance pool."""
+    pass
+
+  @staticmethod
+  def drain_pool(request, instance_class, zone):
+    """Start a new instance pool."""
+    pass
+
   @staticmethod
   def start_instance(request, instance_class, zone=None):
     """Start an instance."""
