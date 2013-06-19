@@ -85,8 +85,8 @@ def create_room(request, name=None, num_words=2, seperator="."):
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
     # TODO: put the room creation in a @ndb.transaction
-    address = LoadBalancer.find(TailboneWebsocketInstance, request)
-    room = TailboneMeshRoom(id=name, address=(address+name))
+    instance = LoadBalancer.find(TailboneWebsocketInstance, request)
+    room = TailboneMeshRoom(id=name, address=(instance.address+name))
     room.put()
     return room
   return create_room(request)

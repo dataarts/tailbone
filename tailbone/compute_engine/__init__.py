@@ -41,6 +41,7 @@ from google.appengine.api import memcache
 from google.appengine.api import oauth
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
+from google.appengine.ext import deferred
 from google.appengine.ext.ndb import polymodel
 
 sys.path.insert(0, "tailbone/compute_engine/dependencies.zip")
@@ -98,7 +99,12 @@ def build_service(service_name, api_version, scopes):
     service = build(service_name, api_version, http=http)
     return service
 
-compute = build_service("compute", API_VERSION, SCOPES)
+compute = None
+def compute_api():
+  if compute:
+    return compute
+  compute = build_service("compute", API_VERSION, SCOPES)
+  return compute
 
 
 def api_url(*paths):
@@ -121,6 +127,18 @@ def haversine_distance(location1, location2):
   return c
 
 
+def class_to_string(cls):
+  path = cls.__module__ + "." + cls.__name__
+  return path
+
+
+def string_to_class(str):
+  module_name, class_name = str.rsplit(".", 1)
+  module = importlib.import_module(module_name)
+  cls = getattr(module, class_name)
+  return cls
+
+
 class InstanceStatus(object):
   READY = "ready"
   STARTING = "starting"
@@ -128,7 +146,6 @@ class InstanceStatus(object):
   ERROR = "error"
   DISABLED = "disabled"
   DRAINING = "draining"
-  LOCKED = "locked"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -178,20 +195,15 @@ class TailboneCEPool(polymodel.PolyModel):
   instance_type = ndb.StringProperty()
   region = ndb.StringProperty()
 
-  def acquire(self):
-    """Transaction to acquire an instance from pool"""
-
-  def release(self, instance):
-    """Release an instance."""
-
-  def get(self):
-    """Pick an instance from this pool, but don't lock it."""
+  def instance(self):
+    """Pick an instance from this pool."""
+    query = TailboneCEInstance.query(TailboneCEInstance.pool==self,
+                                     TailboneCEInstance.status==InstanceStatus.READY)
+    query = query.order(TailboneCEInstance.load)
+    return query.get()
 
 
 class LoadBalancer(object):
-
-  HEARTBEAT_MAX = datetime.timedelta(minutes=20)
-  HEARTBEAT_INTERVAL = datetime.timedelta(minutes=2)
 
   @staticmethod
   def nearest_zone(request):
@@ -199,15 +211,18 @@ class LoadBalancer(object):
     if location:
       location = tuple([float(x) for x in location.split(",")])
       dist = None
-      for name, obj in LOCATIONS.iteritems():
+      region = None
+      for r, obj in LOCATIONS.iteritems():
         loc = obj["location"]
         zones = obj["zones"]
         d = haversine_distance(location, loc)
         if not dist or d < dist:
           dist = d
           closest = zones
-      return random.choice(closest)
-    return random.choice(ZONES)
+          region = r
+      return region, random.choice(closest)
+    region = random.choice(LOCATIONS.keys())
+    return region, random.choice(LOCATIONS[region]["zones"])
 
   @staticmethod
   def start_instance(instance_class, zone=None):
@@ -219,6 +234,7 @@ class LoadBalancer(object):
     instance.PARAMS.update({
       "name": name
     })
+    compute = compute_api()
     if compute:
       compute.instances().insert(
         project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
@@ -232,6 +248,7 @@ class LoadBalancer(object):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
+    compute = compute_api()
     if compute:
       compute.instances().delete(
         project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
@@ -242,14 +259,17 @@ class LoadBalancer(object):
 
   @staticmethod
   def find(instance_class, request):
-    """Return a pool of this instance type."""
-    zone = LoadBalancer.nearest_zone(request)
-    query = instance_class.query(TailboneCEInstance.zone == zone)
-    query = query.order(TailboneCEInstance.load)
-    instance = query.get()
-    if not instance:
-      instance = LoadBalancer.start_instance(instance_class, zone)
-    return instance or "ws://localhost:2345/"
+    """Return an instance of this instance type from the nearest pool or create it."""
+    region, zone = LoadBalancer.nearest_zone(request)
+    instance_str = class_to_string(instance_class)
+    query = TailboneCEPool.query(instance_type == instance_str)
+    query = query.filter(TailboneCEPool.region == region)
+    pool = query.get()
+    if not pool:
+      pool = TailboneCEPool(instance_type=instance_str, region=region)
+      pool.put()
+      LoadBalancer.fill_pool(pool)
+    return pool.instance()
 
   @staticmethod
   def drain_instance(instance):
@@ -266,24 +286,19 @@ class LoadBalancer(object):
     for instance in query:
       LoadBalancer.drain_instance(instance)
 
-  @staticmethod
-  def remove_from_pool(instance):
-    """Remove from pool."""
-    pass
-
 
 class LoadBalancerApi(object):
   @staticmethod
-  def start_pool(request, instance_class, zone):
+  def fill_pool(request, instance_class_str, region):
     """Start a new instance pool."""
     pass
 
   @staticmethod
   def drain_pool(request, urlsafe_pool_key):
-    """Drain an instance pool."""
+    """Drain an instance pool and delete it."""
     pass
 
-  def update_pool(request, params):
+  def resize_pool(request, params):
     """Update a pools params."""
     pass
 
@@ -292,21 +307,20 @@ class LoadBalancerApi(object):
     """Echo a message."""
     return message
 
+  def update_load(request, urlsafe_instance_key):
+    """Query load and update load of instnace."""
+    instance = ndb.Key(urlsafe=urlsafe_instance_key)
+    instance.load = random.random()
+    # determine if an instance needs to be added or drained from the pool
+    # if total avg load is > 80 percent add an instance
+    # if total avg load < 20 percent drain an instance
 
-class LoadBalanceCronHandler(BaseHandler):
-  @as_json
-  def get(self):
-    """Update all instances."""
-    now = datetime.datetime.now()
-    for instance in TailboneCEInstance.query():
-      delta = instance.heartbeat - now
-      if delta > LoadBalancer.HEARTBEAT_MAX:
-        LoadBalancer.remove_from_pool(instance)
-      elif delta > LoadBalancer.HEARTBEAT_INTERVAL:
-        LoadBalancer.drain_instance(instance)
+  @staticmethod
+  def test(request):
+    return LoadBalancer.nearest_zone(request)
 
 
-class LoadBalanceHandler(BaseHandler):
+class LoadBalanceAdminHandler(BaseHandler):
   """Admin handler for the admin panel console."""
   @as_json
   def get(self):
@@ -325,5 +339,5 @@ class LoadBalanceHandler(BaseHandler):
 
 
 app = webapp2.WSGIApplication([
-  (r"{}compute_engine/?.*".format(config.PREFIX), LoadBalanceHandler),
+  (r"{}compute_engine/?.*".format(config.PREFIX), LoadBalanceAdminHandler),
 ], debug=config.DEBUG)

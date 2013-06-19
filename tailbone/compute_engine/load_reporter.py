@@ -23,7 +23,7 @@ import time
 def UpdateStats(cpu, memory):
   mem_history = []
   cpu_history = []
-  buffer_len = 300
+  buffer_len = 100
   # TODO: remove outliers
   while True:
     vmem = psutil.virtual_memory()
@@ -33,7 +33,7 @@ def UpdateStats(cpu, memory):
     cpu_history.append(psutil.cpu_percent(0))
     cpu_history = cpu_history[-buffer_len:]
     cpu.value = sum(cpu_history) / len(cpu_history)
-    time.sleep(1)
+    time.sleep(20)
 
 
 def ReportServer(cpu, memory):
