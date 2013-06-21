@@ -7,7 +7,7 @@
 
 /**
  * Internal Node utility functions
- * @type {{PROTECTED_EVENTS: Array, uidSeed: number, remoteBindsByNodeIds: {}, send: Function, acknowledgeRemoteBind: Function, acknowledgeRemoteUnbind: Function, doesRemoteBindTo: Function}}
+ * @type {{PROTECTED_EVENTS: Array, uidSeed: number, remoteBindsByNodeIds: {}, upgradeLocal: Function, upgradeRemote: Function, upgradeMutual: Function, send: Function, acknowledgeRemoteBind: Function, acknowledgeRemoteUnbind: Function, doesRemoteBindTo: Function}}
  */
 var NodeUtils = {
 
@@ -15,6 +15,53 @@ var NodeUtils = {
 
     uidSeed: 1,
     remoteBindsByNodeIds: {},
+
+    upgradeLocal: function (node) {
+
+        console.log('update local');
+
+        switch(node.getState()) {
+
+            case Node.STATE.DISCONNECTED:
+                node.setState(Node.STATE.WAITING_LOCAL);
+                break;
+
+            case Node.STATE.WAITING_REMOTE:
+                NodeUtils.upgradeMutual(node);
+                break;
+
+        }
+
+    },
+
+    upgradeRemote: function (node, from) {
+
+        console.log('update remote from', from, node.getState());
+
+        switch(node.getState()) {
+
+            case Node.STATE.DISCONNECTED:
+                node.setState(Node.STATE.WAITING_REMOTE);
+                break;
+
+            case Node.STATE.WAITING_LOCAL:
+                NodeUtils.upgradeMutual(node);
+                break;
+
+        }
+
+    },
+
+    upgradeMutual: function (node) {
+
+        console.log('mutual upgrade', node.initiator);
+        node._channels.forEach(function (channel) {
+
+            channel.open();
+
+        });
+
+    },
 
     send: function (node, message) {
 
@@ -70,7 +117,7 @@ var NodeUtils = {
  * @param id {string} Node ID
  * @constructor
  */
-var Node = function (mesh, id) {
+var Node = function (mesh, id, initiator) {
 
     StateDrive.call(this);
 
@@ -81,6 +128,15 @@ var Node = function (mesh, id) {
     this.mesh = mesh;
     this.id = id;
     this._channels = [];
+    this._signalingChannel = null;
+
+    this.__defineGetter__('initiator', function () {
+
+        return initiator;
+
+    });
+
+    this.setState(Node.STATE.DISCONNECTED);
 
 };
 
@@ -108,19 +164,21 @@ Node.prototype.connect = function () {
 
     var self = this;
 
-    if (this._channels.length === 0) {
+    if (this.getState() >= Node.STATE.WAITING_LOCAL) {
 
-        this._channels.push(new SocketChannel(this.mesh.self, this));
-        this._channels.push(new RTCChannel(this.mesh.self, this));
+        return;
 
     }
+
+    this._channels.push(new SocketChannel(this.mesh.self, this));
+    this._channels.push(new RTCChannel(this.mesh.self, this));
+    this._signalingChannel = this._channels[0];
 
     this._channels.forEach(function (channel) {
 
         channel.bind('open', function () {
 
             StateDrive.prototype.trigger.call(self, 'open', channel);
-
 
         });
 
@@ -130,9 +188,16 @@ Node.prototype.connect = function () {
 
         });
 
-        channel.open();
-
     });
+
+    this._signalingChannel.open();
+//    this._signalingChannel.send('["connect"]');
+
+//    if (this.mesh.self !== this) {
+//
+//        NodeUtils.upgradeLocal(this);
+//
+//    }
 
 };
 
@@ -229,14 +294,33 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
         parsedArguments = [],
         i;
 
+    console.log('got', data);
+
+    // we don't want the remote mesh to receive messages from any unrelated node if the channel is common
+    if (this._signalingChannel.localNode !== this._signalingChannel.remoteNode && from !== this._signalingChannel.remoteNode.id) {
+
+        return null;
+
+    }
+
     switch (type) {
 
+//        case 'connect':
+//            NodeUtils.upgradeRemote(this, from);
+//            break;
+
         case 'exist':
+            parsedArguments.push(type);
+            for (i = 1; i < eventArguments.length; ++i) {
+                parsedArguments.push(new Node(this.mesh, eventArguments[i], true));
+            }
+            break;
+
         case 'enter':
         case 'leave':
             parsedArguments.push(type);
             for (i = 1; i < eventArguments.length; ++i) {
-                parsedArguments.push(new Node(this.mesh, eventArguments[i]));
+                parsedArguments.push(new Node(this.mesh, eventArguments[i], false));
             }
             break;
 
@@ -278,3 +362,12 @@ Node.prototype.preprocessOutgoing = function (type, args) {
     }
 
 };
+
+Node.STATE = {
+
+    DISCONNECTED: 1,
+    WAITING_REMOTE: 2,
+    WAITING_LOCAL: 3,
+    CONNECTED: 4
+
+}

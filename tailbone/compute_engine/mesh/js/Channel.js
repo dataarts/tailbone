@@ -13,7 +13,7 @@
  */
 var Channel = function (localNode, remoteNode) {
 
-    EventDispatcher.call(this);
+    StateDrive.call(this);
 
     this.localNode = localNode;
     this.remoteNode = remoteNode;
@@ -24,7 +24,7 @@ var Channel = function (localNode, remoteNode) {
  * Extend EventDispatcher
  * @type {EventDispatcher}
  */
-Channel.prototype = new EventDispatcher();
+Channel.prototype = new StateDrive();
 
 /**
  * Opens connection channel between local and remote node

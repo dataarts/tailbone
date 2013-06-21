@@ -27,6 +27,9 @@ var SocketChannel = function (localNode, remoteNode) {
 
     Channel.call(this, localNode, remoteNode);
 
+    this.setState(SocketChannel.STATE.CLOSED);
+    this.setMinCallState('send', SocketChannel.STATE.OPEN);
+
 };
 
 /**
@@ -45,7 +48,7 @@ SocketChannel.prototype.open = function () {
 
     if (socket) {
 
-        // do nothing
+        self.setState(SocketChannel.STATE.OPEN);
 
     } else {
 
@@ -54,45 +57,44 @@ SocketChannel.prototype.open = function () {
         SocketChannelUtils.batchSendTimeoutIdsBySocket[socket] = -1;
         SocketChannelUtils.sendToIdsBySocket[socket] = [];
 
-        socket.addEventListener('open', function () {
-
-            self.trigger('open');
-
-        });
-
-        socket.addEventListener('message', function (message) {
-
-            var messageObject;
-
-            try {
-
-                messageObject = JSON.parse(message.data);
-
-            } catch (e) {
-
-                throw new Error('Invalid message received', message);
-
-            }
-
-            self.trigger('message', messageObject);
-
-        });
-
-        socket.addEventListener('close', function () {
-
-            self.trigger('close');
-
-        });
-
-        socket.addEventListener('error', function () {
-
-            self.trigger('error');
-
-        });
-
     }
 
-    // we don't want to listen on remote nodes as the messages arrive to local node anyway (shared socket)
+    socket.addEventListener('open', function () {
+
+        self.trigger('open');
+        self.setState(SocketChannel.STATE.OPEN);
+
+    });
+
+    socket.addEventListener('message', function (message) {
+
+        var messageObject;
+
+        try {
+
+            messageObject = JSON.parse(message.data);
+
+        } catch (e) {
+
+            throw new Error('Invalid message received', message);
+
+        }
+
+        self.trigger('message', messageObject);
+
+    });
+
+    socket.addEventListener('close', function () {
+
+        self.trigger('close');
+
+    });
+
+    socket.addEventListener('error', function () {
+
+        self.trigger('error');
+
+    });
 
 };
 
@@ -144,5 +146,16 @@ SocketChannel.prototype.send = function (message) {
     }
 
     return false;
+
+};
+
+/**
+ * SocketChannel states
+ * @type {{CONNECTED: number}}
+ */
+SocketChannel.STATE = {
+
+    CLOSED: 1,
+    OPEN: 2
 
 };

@@ -146,43 +146,6 @@ var RTCChannelUtils = {
 
     },
 
-    requestInitiatorMode: function (channel, handler) {
-
-        console.log('requesting initiator mode for channel', channel);
-
-        RTCChannelUtils.getSocket(channel, function (socket) {
-
-            var rtcrimHandler = function (message) {
-
-                var messageObject;
-
-                try {
-
-                    messageObject = JSON.parse(message.data)[2];
-
-                } catch (e) {
-
-                    return;
-
-                }
-
-                if (messageObject[0] === 'rtcrim') {
-
-                    socket.removeEventListener('message', rtcrimHandler);
-                    handler(messageObject[1]);
-
-                }
-
-            };
-
-            socket.addEventListener('message', rtcrimHandler);
-
-        });
-
-        RTCChannelUtils.signal(channel, 'rtcrim', channel.remoteNode.id);
-
-    },
-
     signal: function (channel, type, data) {
 
         var originalArguments = arguments;
@@ -251,28 +214,22 @@ RTCChannel.prototype.open = function () {
 
         };
 
-        RTCChannelUtils.requestInitiatorMode(this, function (success) {
+        if (this.localNode.initiator) {
 
-            console.log('GOT IM PERMISSION:', success);
+            peerConnection.createOffer(function (sessionDescription) {
 
-            if (success) {
+                console.log('got session description', sessionDescription);
+                sessionDescription.sdp = RTCChannelUtils.preferOpus(sessionDescription.sdp);
+                peerConnection.setLocalDescription(sessionDescription);
+                RTCChannelUtils.signal(self, 'rtcoffer', sessionDescription);
 
-                peerConnection.createOffer(function (sessionDescription) {
+            }, function () {
 
-                    console.log('got session description', sessionDescription);
-                    sessionDescription.sdp = RTCChannelUtils.preferOpus(sessionDescription.sdp);
-                    peerConnection.setLocalDescription(sessionDescription);
-                    RTCChannelUtils.signal(self, 'rtcoffer', sessionDescription);
+                console.log('createOffer error');
 
-                }, function () {
+            });
 
-                    console.log('createOffer error');
-
-                });
-
-            }
-
-        });
+        }
 
     }
 
