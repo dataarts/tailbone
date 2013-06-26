@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# install deps
+apt-get install -y build-essential python-dev
+
 # load reporter
 curl -O http://psutil.googlecode.com/files/psutil-0.6.1.tar.gz
 tar xvfz psutil-0.6.1.tar.gz

@@ -50,7 +50,8 @@ import httplib2
 from apiclient.discovery import build
 
 
-SCOPES = ["https://www.googleapis.com/auth/devstorage.read_write"]
+SCOPES = ["https://www.googleapis.com/auth/compute", 
+          "https://www.googleapis.com/auth/devstorage.read_write"]
 # These are just random guesses based on the name I have no idea where they actually are.
 LOCATIONS = {
   "us-central": {
@@ -69,6 +70,7 @@ BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
 PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
+DEFAULT_TYPE = "n1-standard-1"
 
 def build_service(service_name, api_version, scopes):
   if config.DEBUG:
@@ -76,14 +78,14 @@ def build_service(service_name, api_version, scopes):
     credentials_file = "credentials.json"
     if os.path.exists(credentials_file):
       with open(credentials_file) as f:
-        config = json.load(f)
-        assert config.get("email") and config.get("key_path")
+        cred = json.load(f)
+        assert cred.get("email") and cred.get("key_path")
         # must extract key first since pycrypto doesn't support p12 files
         # openssl pkcs12 -passin pass:notasecret -in privatekey.p12 -nocerts -passout pass:notasecret -out key.pem
         # openssl pkcs8 -nocrypt -in key.pem -passin pass:notasecret -topk8 -out privatekey.pem
         # rm key.pem
-        key_str = open(config.get("key_path")).read()
-        credentials = SignedJwtAssertionCredentials(config.get("email"),
+        key_str = open(cred.get("key_path")).read()
+        credentials = SignedJwtAssertionCredentials(cred.get("email"),
                                                     key_str,
                                                     scopes)
         http = credentials.authorize(httplib2.Http(memcache))
@@ -99,12 +101,11 @@ def build_service(service_name, api_version, scopes):
     service = build(service_name, api_version, http=http)
     return service
 
-compute = None
+
 def compute_api():
-  if compute:
-    return compute
-  compute = build_service("compute", API_VERSION, SCOPES)
-  return compute
+  # if config.DEBUG:
+  #   return None
+  return build_service("compute", API_VERSION, SCOPES)
 
 
 def api_url(*paths):
@@ -140,22 +141,20 @@ def string_to_class(str):
 
 
 class InstanceStatus(object):
-  READY = "ready"
-  STARTING = "starting"
-  STOPPING = "stopping"
-  ERROR = "error"
-  DISABLED = "disabled"
-  DRAINING = "draining"
+  PENDING = "PENDING"
+  RUNNING = "RUNNING"
+  STAGING = "STAGING"
+  STOPPING = "STOPPING"
+  DRAINING = "DRAINING"
+  ERROR = "ERROR"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCEInstance(polymodel.PolyModel):
-  name = ndb.StringProperty()
   load = ndb.FloatProperty(default=1)
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
-  # READY, STARTING, ERROR, DISABLED
-  status = ndb.StringProperty(default=InstanceStatus.STARTING)
+  status = ndb.StringProperty(default=InstanceStatus.PENDING)
   pool = ndb.KeyProperty()
 
   def calc_load(stats):
@@ -166,7 +165,7 @@ class TailboneCEInstance(polymodel.PolyModel):
     "name": "default",
     "zone": api_url(PROJECT_ID, "zones", DEFAULT_ZONE),
     "image": api_url("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
-    "machineTypes": api_url(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", "n1-standard-1"),
+    "machineType": api_url(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", DEFAULT_TYPE),
     "networkInterfaces": [
       {
         "kind": "compute#networkInterface",
@@ -198,10 +197,27 @@ class TailboneCEPool(polymodel.PolyModel):
 
   def instance(self):
     """Pick an instance from this pool."""
-    query = TailboneCEInstance.query(TailboneCEInstance.pool==self.key,
-                                     TailboneCEInstance.status==InstanceStatus.READY)
+    query = TailboneCEInstance.query(TailboneCEInstance.pool == self.key,
+                                     TailboneCEInstance.status == InstanceStatus.RUNNING)
     query = query.order(TailboneCEInstance.load)
     return query.get()
+
+
+def update_instance_status(urlsafe_key):
+  instance = ndb.Key(urlsafe=urlsafe_key).get()
+  info = compute_api().instances().get(
+    project=PROJECT_ID, zone=instance.zone,
+    instance=instance.key.id()).execute()
+  logging.info("Instance status {}".format(info))
+  status = info.get("status")
+  if status == InstanceStatus.RUNNING:
+    instance.status = status
+    instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+    instance.put()
+  elif status in [InstanceStatus.PENDING, InstanceStatus.STAGING]:
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=30)
+  else:
+    logging.error("Unexpected instance status: {}\n{}.".format(status, info))
 
 
 class LoadBalancer(object):
@@ -226,33 +242,48 @@ class LoadBalancer(object):
     return region, random.choice(LOCATIONS[region]["zones"])
 
   @staticmethod
-  def start_instance(instance_class, zone=None):
+  def start_instance(pool):
     """Start a new instance with a given configuration."""
     # start instance
     # defer an update load call
-    name = "{}-{}".format(instance_class.__name__, uuid.uuid4())
-    instance = instance_class()
-    instance.PARAMS.update({
-      "name": name
-    })
+    instance_class = string_to_class(pool.instance_type)
+    name = "{}-{}".format(instance_class.__name__, uuid.uuid4()).lower()
+    instance = instance_class(id=name)
+    instance.pool = pool.key
+    instance.zone = random.choice(LOCATIONS[pool.region]["zones"])
+    instance.put()
+
     compute = compute_api()
     if compute:
-      compute.instances().insert(
-        project=PROJECT_ID, zone=instance.PARAMS.get("zone"), body=instance.PARAMS).execute()
+      instance.PARAMS.update({
+        "name": name,
+        "zone": instance.PARAMS.get("zone").replace(DEFAULT_ZONE, instance.zone),
+        "machineType": instance.PARAMS.get("machineType").replace(DEFAULT_ZONE, instance.zone),
+      })
+      operation = compute.instances().insert(
+        project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
+      logging.info("Create instance operation {}".format(operation))
+      instance.status = operation.get("status")
+      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=30)
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
-    instance.put()
+
+    pool.size += 1
+    pool.put()
 
   @staticmethod
   def stop_instance(instance):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
+    pool = instance.pool.get()
+    pool.size -= 1
+    pool.put()
     compute = compute_api()
     if compute:
       compute.instances().delete(
-        project=PROJECT_ID, zone=instance.zone, instance=instance.name).execute()
+        project=PROJECT_ID, zone=instance.zone, instance=instance.key.id()).execute()
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -263,14 +294,22 @@ class LoadBalancer(object):
     """Return an instance of this instance type from the nearest pool or create it."""
     region, zone = LoadBalancer.nearest_zone(request)
     instance_str = class_to_string(instance_class)
-    query = TailboneCEPool.query(instance_type == instance_str)
-    query = query.filter(TailboneCEPool.region == region)
-    pool = query.get()
-    if not pool:
-      pool = TailboneCEPool(instance_type=instance_str, region=region)
-      pool.put()
-      LoadBalancer.fill_pool(pool)
+    pool = LoadBalancer.get_or_create_pool(instance_str, region)
     return pool.instance()
+
+  @staticmethod
+  def get_or_create_pool(instance_class_str, region):
+    # see if this pool already exists
+    query = TailboneCEPool.query(TailboneCEPool.region == region,
+                                 TailboneCEPool.instance_type == instance_class_str)
+    pool = query.get()
+    # create it if it does not
+    if not pool:
+      pool = TailboneCEPool(region=region, instance_type=instance_class_str)
+      pool.put()
+      for i in range(pool.min_size):
+        LoadBalancer.start_instance(pool)
+    return pool
 
   @staticmethod
   def drain_instance(instance):
@@ -292,23 +331,7 @@ class LoadBalancerApi(object):
   @staticmethod
   def fill_pool(request, instance_class_str, region):
     """Start a new instance pool."""
-    # see if this pool already exists
-    query = TailboneCEPool.query(TailboneCEPool.region == region,
-                                 TailboneCEPool.instance_type == instance_class_str)
-    pool = query.get()
-    # create it if it does not
-    if not pool:
-      instance_class = string_to_class(instance_class_str)
-      pool = TailboneCEPool(region=region, instance_type=instance_class_str)
-      pool.put()
-      for i in range(pool.min_size):
-        instance = instance_class()
-        instance.pool = pool.key
-        pool.size += 1
-        instance.put()
-      pool.put()
-      # start adding instances
-    return pool
+    return LoadBalancer.get_or_create_pool(instance_class_str, region)
 
   @staticmethod
   def drain_pool(request, urlsafe_pool_key):

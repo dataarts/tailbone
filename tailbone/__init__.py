@@ -53,7 +53,6 @@ class _ConfigDefaults(object):
 
   def create_logout_url(*args, **kwargs):
     return api.users.create_logout_url(*args, **kwargs)
- 
 
 
 config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)

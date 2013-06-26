@@ -27,6 +27,7 @@ from google.appengine.ext import ndb
 
 APP_VERSION = os.environ.get("CURRENT_VERSION_ID", "").split('.')[0]
 HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
+WEBSOCKET_PORT = 2345
 
 websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
 turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
@@ -79,14 +80,17 @@ def create_room(request, name=None, num_words=2, seperator="."):
   if not name:
     name = []
     for i in range(num_words):
-      name.append(GenerateWord())
+      name.append(generate_word())
     name = seperator.join(name)
     # Test to confirm the generated name doesn't exist
     room = TailboneMeshRoom.get_by_id(name)
   if not room:
     # TODO: put the room creation in a @ndb.transaction
     instance = LoadBalancer.find(TailboneWebsocketInstance, request)
-    room = TailboneMeshRoom(id=name, address=(instance.address+name))
+    if not instance:
+      raise AppError('Instance not yet ready, try again later.')
+    address = "ws://{}:{}/{}".format(instance.address, WEBSOCKET_PORT, name)
+    room = TailboneMeshRoom(id=name, address=address)
     room.put()
     return room
   return create_room(request)
@@ -109,7 +113,7 @@ class MeshHandler(BaseHandler):
     return {
       "ws": room.address,
       "name": room.key.id(),
-      "turn": "https://doesntexistyet",
+      "turn": turn,
     }
 
   @as_json
@@ -137,24 +141,20 @@ app = webapp2.WSGIApplication([
 # Gibberish generator modified from: https://github.com/greghaskins/gibberish
 VOWELS = "aeiou"
 INITIAL_CONSONANTS = list(set(string.ascii_lowercase) - set(VOWELS)
-                     # remove those easily confused with others
                       - set("qxc")
-                     # add some crunchy clusters
                       | set(["bl", "br", "cl", "cr", "dr", "fl",
-                       "fr", "gl", "gr", "pl", "pr", "sk",
-                       "sl", "sm", "sn", "sp", "st", "str",
-                       "sw", "tr", "ch", "sh"])
-                     )
+                            "fr", "gl", "gr", "pl", "pr", "sk",
+                            "sl", "sm", "sn", "sp", "st", "str",
+                            "sw", "tr", "ch", "sh"])
+                         )
 FINAL_CONSONANTS = list(set(string.ascii_lowercase) - set(VOWELS)
-                   # remove the confusables
                     - set("qxcsj")
-                   # crunchy clusters
                     | set(["ct", "ft", "mp", "nd", "ng", "nk", "nt",
-                     "pt", "sk", "sp", "ss", "st", "ch", "sh"])
-                   )
+                           "pt", "sk", "sp", "ss", "st", "ch", "sh"])
+                       )
 
 
-def GenerateWord():
+def generate_word():
     """Returns a random consonant-vowel-consonant pseudo-word."""
     return ''.join(random.choice(s) for s in (INITIAL_CONSONANTS,
                                               VOWELS,
