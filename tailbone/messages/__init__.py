@@ -43,6 +43,10 @@ class MessagesHandler(BaseHandler):
       raise AppError("Must provide a 'to' client_id.")
     channel.send_message(to, body)
 
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/messages/messages.js"
+], ["messages"])
+
 app = webapp2.WSGIApplication([
   (r"{}messages/?".format(PREFIX), MessagesHandler),
 ], debug=DEBUG)
