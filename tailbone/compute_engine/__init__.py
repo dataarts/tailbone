@@ -151,10 +151,11 @@ class InstanceStatus(object):
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCEInstance(polymodel.PolyModel):
   name = ndb.StringProperty()
-  load = ndb.FloatProperty()
+  load = ndb.FloatProperty(default=1)
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
-  status = ndb.StringProperty()  # READY, STARTING, ERROR, DISABLED
+  # READY, STARTING, ERROR, DISABLED
+  status = ndb.StringProperty(default=InstanceStatus.STARTING)
   pool = ndb.KeyProperty()
 
   def calc_load(stats):
@@ -191,13 +192,13 @@ class TailboneCEInstance(polymodel.PolyModel):
 class TailboneCEPool(polymodel.PolyModel):
   min_size = ndb.IntegerProperty(default=1)
   max_size = ndb.IntegerProperty(default=10)
-  size = ndb.IntegerProperty()
+  size = ndb.IntegerProperty(default=0)
   instance_type = ndb.StringProperty()
   region = ndb.StringProperty()
 
   def instance(self):
     """Pick an instance from this pool."""
-    query = TailboneCEInstance.query(TailboneCEInstance.pool==self,
+    query = TailboneCEInstance.query(TailboneCEInstance.pool==self.key,
                                      TailboneCEInstance.status==InstanceStatus.READY)
     query = query.order(TailboneCEInstance.load)
     return query.get()
@@ -291,7 +292,23 @@ class LoadBalancerApi(object):
   @staticmethod
   def fill_pool(request, instance_class_str, region):
     """Start a new instance pool."""
-    pass
+    # see if this pool already exists
+    query = TailboneCEPool.query(TailboneCEPool.region == region,
+                                 TailboneCEPool.instance_type == instance_class_str)
+    pool = query.get()
+    # create it if it does not
+    if not pool:
+      instance_class = string_to_class(instance_class_str)
+      pool = TailboneCEPool(region=region, instance_type=instance_class_str)
+      pool.put()
+      for i in range(pool.min_size):
+        instance = instance_class()
+        instance.pool = pool.key
+        pool.size += 1
+        instance.put()
+      pool.put()
+      # start adding instances
+    return pool
 
   @staticmethod
   def drain_pool(request, urlsafe_pool_key):
