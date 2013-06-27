@@ -34,13 +34,11 @@ import os
 import random
 import sys
 import time
-import urllib
 import uuid
 import webapp2
 
 from google.appengine.api import app_identity
 from google.appengine.api import memcache
-from google.appengine.api import oauth
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext import deferred
