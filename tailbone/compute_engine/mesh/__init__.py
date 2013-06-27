@@ -33,6 +33,7 @@ ROOM_EXPIRATION = 86400  # one day in seconds
 websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
 turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
 
+# TODO: Use an image instead of a startup-script for downloading dependencies
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneWebsocketInstance(TailboneCEInstance):
