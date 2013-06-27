@@ -22,12 +22,13 @@ import string
 import webapp2
 
 from google.appengine.api import users
+from google.appengine.api import memcache
 from google.appengine.api import app_identity
-from google.appengine.ext import ndb
 
 APP_VERSION = os.environ.get("CURRENT_VERSION_ID", "").split('.')[0]
 HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 WEBSOCKET_PORT = 2345
+ROOM_EXPIRATION = 86400  # one day in seconds
 
 websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
 turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
@@ -63,56 +64,36 @@ class TailboneTurnInstance(TailboneCEInstance):
   })
 
 
-# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneMeshRoom(ndb.Model):
-  """TODO: add a taskqueue callback to be executed in the future to delete yourself
-  if a connection is not made to this room after x amount of time.
-  This should be executed in websocket.py when not in debug mode.
-  Similar callback from websocket.py must be created for both when someone first enters a room
-  and when the last person leaves."""
-  address = ndb.StringProperty()
-  created_at = ndb.DateTimeProperty(auto_now_add=True)
-  in_use = ndb.BooleanProperty(default=False)
+def room_name(name):
+  return "tailbone-mesh-room-{}".format(name)
 
 
-def create_room(request, name=None, num_words=2, seperator="."):
-  room = None
+def get_or_create_room(request, name=None, num_words=2, seperator="."):
   if not name:
     name = []
     for i in range(num_words):
       name.append(generate_word())
     name = seperator.join(name)
-    # Test to confirm the generated name doesn't exist
-    room = TailboneMeshRoom.get_by_id(name)
-  if not room:
-    # TODO: put the room creation in a @ndb.transaction
+  room = room_name(name)
+  address = memcache.get(room)
+  if not address:
     instance = LoadBalancer.find(TailboneWebsocketInstance, request)
     if not instance:
       raise AppError('Instance not yet ready, try again later.')
     address = "ws://{}:{}/{}".format(instance.address, WEBSOCKET_PORT, name)
-    room = TailboneMeshRoom(id=name, address=address)
-    room.put()
-    return room
-  return create_room(request)
-
-
-def get_or_create_room(request, name):
-  if name:
-    room = TailboneMeshRoom.get_by_id(name)
-    if not room:
-      room = create_room(request, name)
-    return room
-  return create_room(request)
+    memcache.set(room, address, time=ROOM_EXPIRATION)
+  return name, address
 
 
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    room = get_or_create_room(self.request, name)
-    turn = LoadBalancer.find(TailboneTurnInstance, self.request)
+    room, ws = get_or_create_room(self.request, name)
+    # turn = LoadBalancer.find(TailboneTurnInstance, self.request)
+    turn = None
     return {
-      "ws": room.address,
-      "name": room.key.id(),
+      "ws": ws,
+      "name": room,
       "turn": turn,
     }
 

@@ -33,6 +33,8 @@ import math
 import os
 import random
 import sys
+import time
+import urllib
 import uuid
 import webapp2
 
@@ -50,7 +52,7 @@ import httplib2
 from apiclient.discovery import build
 
 
-SCOPES = ["https://www.googleapis.com/auth/compute", 
+SCOPES = ["https://www.googleapis.com/auth/compute",
           "https://www.googleapis.com/auth/devstorage.read_write"]
 # These are just random guesses based on the name I have no idea where they actually are.
 LOCATIONS = {
@@ -71,6 +73,9 @@ BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 DEFAULT_TYPE = "n1-standard-1"
+# DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
+STATS_PORT = 8888
+
 
 def build_service(service_name, api_version, scopes):
   if config.DEBUG:
@@ -145,6 +150,7 @@ class InstanceStatus(object):
   RUNNING = "RUNNING"
   STAGING = "STAGING"
   STOPPING = "STOPPING"
+  DISABLED = "DISABLED"
   DRAINING = "DRAINING"
   ERROR = "ERROR"
 
@@ -157,8 +163,10 @@ class TailboneCEInstance(polymodel.PolyModel):
   status = ndb.StringProperty(default=InstanceStatus.PENDING)
   pool = ndb.KeyProperty()
 
+  @staticmethod
   def calc_load(stats):
-    return stats.get("mem", 0)
+    """Calculate load value 0 to 1 from the stats object."""
+    return stats.get("mem", 0) / 100
 
   PARAMS = {
     "kind": "compute#instance",
@@ -211,11 +219,21 @@ def update_instance_status(urlsafe_key):
   logging.info("Instance status {}".format(info))
   status = info.get("status")
   if status == InstanceStatus.RUNNING:
-    instance.status = status
-    instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-    instance.put()
+    if status != instance.status:
+      instance.status = status
+      instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+      instance.put()
+    else:  # check load
+      address = "http://{}:{}".format(instance.address, STATS_PORT)
+      resp = urlfetch.fetch(url=address,
+                            method=urlfetch.GET)
+      if resp.status_code == 200:
+        stats = json.loads(resp.content)
+        instance.load = instance.calc_load(stats)
+        instance.put()
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=120)
   elif status in [InstanceStatus.PENDING, InstanceStatus.STAGING]:
-    deferred.defer(update_instance_status, urlsafe_key, _countdown=30)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=10)
   else:
     logging.error("Unexpected instance status: {}\n{}.".format(status, info))
 
@@ -264,7 +282,7 @@ class LoadBalancer(object):
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
       instance.status = operation.get("status")
-      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=30)
+      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=10)
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -295,7 +313,14 @@ class LoadBalancer(object):
     region, zone = LoadBalancer.nearest_zone(request)
     instance_str = class_to_string(instance_class)
     pool = LoadBalancer.get_or_create_pool(instance_str, region)
-    return pool.instance()
+
+    def get_instance():
+      instance = pool.instance()
+      if instance and instance.address:
+        return instance
+      time.sleep(11)
+      return get_instance()
+    return get_instance()
 
   @staticmethod
   def get_or_create_pool(instance_class_str, region):
@@ -307,7 +332,31 @@ class LoadBalancer(object):
     if not pool:
       pool = TailboneCEPool(region=region, instance_type=instance_class_str)
       pool.put()
-      for i in range(pool.min_size):
+      # TODO: find any existing instances already running in this region
+      compute = compute_api()
+      if compute:
+        instance_class = string_to_class(instance_class_str)
+        name_match = ".*{}.*".format(instance_class.__name__.lower())
+        name_filter = "name eq {}".format(name_match)
+        for zone in LOCATIONS[region]["zones"]:
+          resp = compute.instances().list(project=PROJECT_ID,
+                                          zone=zone,
+                                          filter=name_filter).execute()
+          logging.info("List of instances {}".format(resp))
+          items = resp.get("items", [])
+          for info in items:
+            logging.info("instance {}".format(info))
+            instance = instance_class(id=info.get("name"))
+            instance.zone = info.get("zone").split("/")[-1]
+            instance.status = info.get("status")
+            instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+            instance.pool = pool.key
+            instance.put()
+            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=30)
+            pool.size += 1
+          if items:
+            pool.put()
+      for i in range(pool.min_size - pool.size):
         LoadBalancer.start_instance(pool)
     return pool
 
@@ -348,7 +397,7 @@ class LoadBalancerApi(object):
     return message
 
   def update_load(request, urlsafe_instance_key):
-    """Query load and update load of instnace."""
+    """Query load and update load of instance."""
     instance = ndb.Key(urlsafe=urlsafe_instance_key)
     instance.load = random.random()
     # determine if an instance needs to be added or drained from the pool
