@@ -24,7 +24,6 @@ from tailbone import BaseHandler
 from tailbone import parse_body
 from tailbone import config
 
-import datetime
 import importlib
 import inspect
 import json
@@ -32,8 +31,8 @@ import logging
 import math
 import os
 import random
+import re
 import sys
-import time
 import uuid
 import webapp2
 
@@ -48,6 +47,7 @@ sys.path.insert(0, "tailbone/compute_engine/dependencies.zip")
 from oauth2client.appengine import AppAssertionCredentials
 import httplib2
 from apiclient.discovery import build
+from apiclient.errors import HttpError
 
 
 SCOPES = ["https://www.googleapis.com/auth/compute",
@@ -74,6 +74,11 @@ DEFAULT_TYPE = "n1-standard-1"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
 STATS_PORT = 8888
 
+DRAIN_DELAY = 15*60
+REBALANCE_DELAY = 5*60
+STARTING_STATUS_DELAY = 20
+STATUS_DELAY = 2*60
+
 
 def build_service(service_name, api_version, scopes):
   if config.DEBUG:
@@ -96,7 +101,7 @@ def build_service(service_name, api_version, scopes):
         return service
     else:
       logging.warn("NO {} available with service account credentials.".format(credentials_file))
-      logging.warn("Please create a service account download your key.")
+      logging.warn("Please create a service account and download your key.")
       return None
   else:
     credentials = AppAssertionCredentials(scope=",".join(scopes))
@@ -114,6 +119,14 @@ def compute_api():
 def api_url(*paths):
   """Construct compute engine api url."""
   return BASE_URL + "/".join(paths)
+
+
+def rfc1035(name):
+  return "-".join(l.lower() for l in re.findall("[A-Z][^A-Z]*", name))
+
+
+def unrfc1035(name):
+  return "".join(l.capitalize() for l in name.split("-"))
 
 
 def haversine_distance(location1, location2):
@@ -148,14 +161,14 @@ class InstanceStatus(object):
   RUNNING = "RUNNING"
   STAGING = "STAGING"
   STOPPING = "STOPPING"
-  DISABLED = "DISABLED"
+  TERMINATED = "TERMINATED"
   DRAINING = "DRAINING"
   ERROR = "ERROR"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCEInstance(polymodel.PolyModel):
-  load = ndb.FloatProperty(default=1)
+  load = ndb.FloatProperty(default=0)
   address = ndb.StringProperty()  # address of the service with port number e.g. ws://72.4.2.1:2345/
   zone = ndb.StringProperty()
   status = ndb.StringProperty(default=InstanceStatus.PENDING)
@@ -194,10 +207,32 @@ class TailboneCEInstance(polymodel.PolyModel):
   }
 
 
+def rebalance_pool(urlsafe_pool_key):
+  """Rebalance a pool based on load."""
+  pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+  if not pool:
+    logging.error("Pool no longer exists {}".format(urlsafe_pool_key))
+    return
+  query = TailboneCEInstance.query()
+  query = query.filter(TailboneCEInstance.pool == pool.key)
+  query = query.filter(TailboneCEInstance.status.IN([
+    InstanceStatus.RUNNING,
+    InstanceStatus.PENDING,
+    InstanceStatus.STAGING,
+  ]))
+  load = [i.load for i in query]
+  size = len(load)
+  avg_load = sum(load) / size
+  if avg_load < 0.2:
+    LoadBalancer.decrease_pool(pool, size)
+  elif avg_load > 0.7:
+    LoadBalancer.increase_pool(pool, size)
+  deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY)
+
+
 class TailboneCEPool(polymodel.PolyModel):
   min_size = ndb.IntegerProperty(default=1)
   max_size = ndb.IntegerProperty(default=10)
-  size = ndb.IntegerProperty(default=0)
   instance_type = ndb.StringProperty()
   region = ndb.StringProperty()
 
@@ -208,15 +243,43 @@ class TailboneCEPool(polymodel.PolyModel):
     query = query.order(TailboneCEInstance.load)
     return query.get()
 
+  def size(self):
+    query = TailboneCEInstance.query()
+    query = query.filter(TailboneCEInstance.pool == self.key)
+    size = query.filter(TailboneCEInstance.status.IN(
+      [InstanceStatus.RUNNING,
+       InstanceStatus.STAGING,
+       InstanceStatus.PENDING])).count()
+    return size
+
+
+def remove_draining_instance(urlsafe_key):
+  instance = ndb.Key(urlsafe=urlsafe_key).get()
+  if instance.status == InstanceStatus.DRAINING:
+    # remove instance
+    LoadBalancer.stop_instance(instance)
+
 
 def update_instance_status(urlsafe_key):
   instance = ndb.Key(urlsafe=urlsafe_key).get()
-  info = compute_api().instances().get(
-    project=PROJECT_ID, zone=instance.zone,
-    instance=instance.key.id()).execute()
+  if not instance:
+    return
+  try:
+    info = compute_api().instances().get(
+      project=PROJECT_ID, zone=instance.zone,
+      instance=instance.key.id()).execute()
+  except HttpError as e:
+    logging.info("Instance no longer exists, remove it.")
+    logging.error(e)
+    LoadBalancer.fill_pool(instance.pool.get())
+    instance.key.delete()
+    return
   logging.info("Instance status {}".format(info))
   status = info.get("status")
   if status == InstanceStatus.RUNNING:
+    if instance.status == InstanceStatus.DRAINING:
+      # Don't update the instance it should be drained
+      return
     if status != instance.status:
       instance.status = status
       instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
@@ -229,9 +292,11 @@ def update_instance_status(urlsafe_key):
         stats = json.loads(resp.content)
         instance.load = instance.calc_load(stats)
         instance.put()
-    deferred.defer(update_instance_status, urlsafe_key, _countdown=120)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY)
   elif status in [InstanceStatus.PENDING, InstanceStatus.STAGING]:
-    deferred.defer(update_instance_status, urlsafe_key, _countdown=10)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=STARTING_STATUS_DELAY)
+  elif status in [InstanceStatus.STOPPING, InstanceStatus.TERMINATED]:
+    LoadBalancer.stop_instance(instance, False)
   else:
     logging.error("Unexpected instance status: {}\n{}.".format(status, info))
 
@@ -263,7 +328,9 @@ class LoadBalancer(object):
     # start instance
     # defer an update load call
     instance_class = string_to_class(pool.instance_type)
-    name = "{}-{}".format(instance_class.__name__, uuid.uuid4()).lower()
+    name = rfc1035(instance_class.__name__)
+    # max length of a name is 63
+    name = "{}-{}".format(name, uuid.uuid4())[:63]
     instance = instance_class(id=name)
     instance.pool = pool.key
     instance.zone = random.choice(LOCATIONS[pool.region]["zones"])
@@ -280,22 +347,17 @@ class LoadBalancer(object):
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
       instance.status = operation.get("status")
-      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=10)
+      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY)
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
-
-    pool.size += 1
-    pool.put()
 
   @staticmethod
   def stop_instance(instance):
     """Stop an instance."""
     # cancel update load defered call
     # stop instance
-    pool = instance.pool.get()
-    pool.size -= 1
-    pool.put()
+    # TODO: need some way of clearing externally assciated instances
     compute = compute_api()
     if compute:
       compute.instances().delete(
@@ -306,19 +368,55 @@ class LoadBalancer(object):
     instance.key.delete()
 
   @staticmethod
+  def drain_instance(instance):
+    """Drain a particular instance"""
+    instance.status = InstanceStatus.DRAINING
+    instance.put()
+    deferred.defer(remove_draining_instance, instance.key.urlsafe(), _countdown=DRAIN_DELAY)
+
+  @staticmethod
   def find(instance_class, request):
     """Return an instance of this instance type from the nearest pool or create it."""
     region, zone = LoadBalancer.nearest_zone(request)
     instance_str = class_to_string(instance_class)
     pool = LoadBalancer.get_or_create_pool(instance_str, region)
 
-    def get_instance():
-      instance = pool.instance()
-      if instance and instance.address:
-        return instance
-      time.sleep(11)
-      return get_instance()
-    return get_instance()
+    instance = pool.instance()
+    if instance and instance.address:
+      return instance
+    raise AppError("Instance not yet ready, please try again.")
+
+  @staticmethod
+  def fill_pool(pool):
+    compute = compute_api()
+    if compute:
+      # find existing instances
+      instance_class = string_to_class(pool.instance_type)
+      name_match = ".*{}.*".format(rfc1035(instance_class.__name__))
+      name_filter = "name eq {}".format(name_match)
+      size = 0
+      for zone in LOCATIONS[pool.region]["zones"]:
+        resp = compute.instances().list(project=PROJECT_ID,
+                                        zone=zone,
+                                        filter=name_filter).execute()
+        logging.info("List of instances {}".format(resp))
+        items = resp.get("items", [])
+        for info in items:
+          status = info.get("status")
+          # if instance is new or running add it to the pool
+          if status in [InstanceStatus.RUNNING, InstanceStatus.PENDING, InstanceStatus.STAGING]:
+            logging.info("instance {}".format(info))
+            instance = instance_class(id=info.get("name"))
+            instance.zone = info.get("zone").split("/")[-1]
+            instance.status = status
+            instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+            instance.pool = pool.key
+            instance.put()
+            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY)
+            size += 1
+    # start any additional instances need to meet pool min_size
+    for i in range(pool.min_size - size):
+      LoadBalancer.start_instance(pool)
 
   @staticmethod
   def get_or_create_pool(instance_class_str, region):
@@ -330,48 +428,46 @@ class LoadBalancer(object):
     if not pool:
       pool = TailboneCEPool(region=region, instance_type=instance_class_str)
       pool.put()
-      # TODO: find any existing instances already running in this region
-      compute = compute_api()
-      if compute:
-        instance_class = string_to_class(instance_class_str)
-        name_match = ".*{}.*".format(instance_class.__name__.lower())
-        name_filter = "name eq {}".format(name_match)
-        for zone in LOCATIONS[region]["zones"]:
-          resp = compute.instances().list(project=PROJECT_ID,
-                                          zone=zone,
-                                          filter=name_filter).execute()
-          logging.info("List of instances {}".format(resp))
-          items = resp.get("items", [])
-          for info in items:
-            logging.info("instance {}".format(info))
-            instance = instance_class(id=info.get("name"))
-            instance.zone = info.get("zone").split("/")[-1]
-            instance.status = info.get("status")
-            instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-            instance.pool = pool.key
-            instance.put()
-            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=30)
-            pool.size += 1
-          if items:
-            pool.put()
-      for i in range(pool.min_size - pool.size):
-        LoadBalancer.start_instance(pool)
+      # start rebalancer
+      deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY)
+      LoadBalancer.fill_pool(pool)
     return pool
 
   @staticmethod
-  def drain_instance(instance):
-    """Drain a particular instance"""
-    # TODO: should clear an instance first
-    instance.status = InstanceStatus.DISABLED
-    LoadBalancer.stop_instance(instance)
+  def increase_pool(pool, current_size):
+    """Double pool size."""
+    new_size = min(pool.max_size, current_size * 2)
+    toadd = new_size - current_size
+    if toadd <= 0:
+      return {}
+    # Find any draining instances and add back in
+    query = TailboneCEInstance.query()
+    query = query.filter(TailboneCEInstance.pool == pool.key)
+    query = query.filter(TailboneCEInstance.status == InstanceStatus.DRAINING)
+    for i in query:
+      if toadd <= 0:
+        break
+      i.status = InstanceStatus.RUNNING
+      i.put()
+      toadd -= 1
+    # start any additionally needed instances
+    for i in range(toadd):
+      LoadBalancer.start_instance(pool)
+    return {}
 
   @staticmethod
-  def drain(instance_class=None, zone=None):
-    """Drain a set of instances"""
-    instance_class = instance_class or TailboneCEInstance
-    query = instance_class.query(TailboneCEInstance.zone == zone)
-    for instance in query:
-      LoadBalancer.drain_instance(instance)
+  def decrease_pool(pool, current_size):
+    """Half pool size."""
+    new_size = max(pool.min_size, round(current_size * 0.5))
+    if current_size != new_size:
+      dropped = current_size - new_size
+      query = TailboneCEInstance.query(TailboneCEInstance.pool == pool.key)
+      query = TailboneCEInstance.query(TailboneCEInstance.status == InstanceStatus.RUNNING)
+      query = query.order(TailboneCEInstance.load)
+      instances = query.fetch(dropped)
+      for i in instances:
+        LoadBalancer.drain_instance(i)
+    return {}
 
 
 class LoadBalancerApi(object):
@@ -381,10 +477,20 @@ class LoadBalancerApi(object):
     return LoadBalancer.get_or_create_pool(instance_class_str, region)
 
   @staticmethod
-  def drain_pool(request, urlsafe_pool_key):
-    """Drain an instance pool and delete it."""
-    pass
+  def increase_pool(request, urlsafe_pool_key):
+    """Double pool size."""
+    pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+    size = pool.size()
+    return LoadBalancer.increase_pool(pool, size)
 
+  @staticmethod
+  def decrease_pool(request, urlsafe_pool_key):
+    """Half pool size."""
+    pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+    size = pool.size()
+    return LoadBalancer.decrease_pool(pool, size)
+
+  @staticmethod
   def resize_pool(request, params):
     """Update a pools params."""
     pass
@@ -394,16 +500,9 @@ class LoadBalancerApi(object):
     """Echo a message."""
     return message
 
-  def update_load(request, urlsafe_instance_key):
-    """Query load and update load of instance."""
-    instance = ndb.Key(urlsafe=urlsafe_instance_key)
-    instance.load = random.random()
-    # determine if an instance needs to be added or drained from the pool
-    # if total avg load is > 80 percent add an instance
-    # if total avg load < 20 percent drain an instance
-
   @staticmethod
   def test(request):
+    """Nearest zone."""
     return LoadBalancer.nearest_zone(request)
 
 
