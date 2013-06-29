@@ -43,7 +43,7 @@
       clockDelta = 0;
 
   var now;
-  if (performance && performance.now) {
+  if (window.performance && performance.now) {
     now = function() {
       return performance.timing.navigationStart + performance.now();
     };

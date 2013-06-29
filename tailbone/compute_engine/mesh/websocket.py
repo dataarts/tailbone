@@ -59,14 +59,6 @@ def leave(node):
   logging.debug('leave (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
 
 
-def time_sync(node, message):
-  """Simple time sync call."""
-  if message[0] == 't':
-    node.write_message('t{:f}'.format(time.time()*1000))
-    return True
-  return False
-
-
 def request_initiator(node, message):
   if message[0] == 'rtcrim':
     peer_id = message[1]
@@ -83,9 +75,6 @@ def request_initiator(node, message):
 
 def parse_message(node, message):
   """Interprets node message and directs it forward."""
-  # quick check to see if this is a time sync call
-  if time_sync(node, message):
-    return
   mesh_id = mesh_id_by_node[node]
   message_object = None
   to_nodes = None

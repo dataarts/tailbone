@@ -15,6 +15,7 @@
 # shared resources and global variables
 from tailbone import as_json, DEBUG, PREFIX, BaseHandler, compile_js, AppError
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
+from tailbone.compute_engine.turn import TailboneTurnInstance
 
 import os
 import random
@@ -30,35 +31,19 @@ HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 WEBSOCKET_PORT = 2345
 ROOM_EXPIRATION = 86400  # one day in seconds
 
-websocket_script = open("tailbone/compute_engine/mesh/setup_and_run_ws.sh").read()
-turn_script = open("tailbone/compute_engine/mesh/setup_and_run_turn.sh").read()
+mesh_script = open("tailbone/compute_engine/mesh/setup_and_run.sh").read()
 
 # TODO: Use an image instead of a startup-script for downloading dependencies
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneWebsocketInstance(TailboneCEInstance):
+class TailboneMeshInstance(TailboneCEInstance):
   PARAMS = dict(TailboneCEInstance.PARAMS, **{
     "name": "websocket-id",
     "metadata": {
       "items": [
         {
           "key": "startup-script",
-          "value": websocket_script,
-        },
-      ],
-    }
-  })
-
-
-# Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneTurnInstance(TailboneCEInstance):
-  PARAMS = dict(TailboneCEInstance.PARAMS, **{
-    "name": "turn-id",
-    "metadata": {
-      "items": [
-        {
-          "key": "startup-script",
-          "value": turn_script,
+          "value": mesh_script,
         },
       ],
     }
@@ -78,7 +63,7 @@ def get_or_create_room(request, name=None, num_words=2, seperator="."):
   room = room_name(name)
   address = memcache.get(room)
   if not address:
-    instance = LoadBalancer.find(TailboneWebsocketInstance, request)
+    instance = LoadBalancer.find(TailboneMeshInstance, request)
     if not instance:
       raise AppError('Instance not yet ready, try again later.')
     address = "ws://{}:{}/{}".format(instance.address, WEBSOCKET_PORT, name)

@@ -234,7 +234,12 @@ Mesh.prototype.connect = function () {
 
         }, function () {
 
-            throw new Error('Could not establish connection with server');
+            console.warn("Error connecting to server, retrying in 10 seconds.");
+            setTimeout(function() {
+                self.connect()
+            }, 10*1000);
+
+            // throw new Error('Could not establish connection with server');
 
         });
 
@@ -335,11 +340,11 @@ Mesh.STATE = {
 
 /**
  * Common Mesh options
- * @type {{apiUrl: null, autoConnect: boolean}}
+ * @type {{api: '/api/mesh', autoConnect: boolean}}
  */
 Mesh.options = {
 
-    apiUrl: null,
+    api: '/api/mesh',
     autoConnect: false,
     autoPeerConnect: true
 
