@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # shared resources and global variables
-from tailbone import as_json, DEBUG, PREFIX, BaseHandler, compile_js, AppError
+from tailbone import as_json, BaseHandler, compile_js, AppError
+from tailbone import config
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
 from tailbone.compute_engine.turn import TailboneTurnInstance
 
@@ -85,7 +86,7 @@ class MeshHandler(BaseHandler):
 
   @as_json
   def delete(self, name):
-    if not users.is_current_user_admin():
+    if not config.is_current_user_admin():
       raise AppError("Unauthorized.")
     if not name:
       raise AppError("Must provide name.")
@@ -101,8 +102,8 @@ EXPORTED_JAVASCRIPT = compile_js([
 ], ["Mesh"])
 
 app = webapp2.WSGIApplication([
-  (r"{}mesh/?(.*)".format(PREFIX), MeshHandler),
-], debug=DEBUG)
+  (r"{}mesh/?(.*)".format(config.PREFIX), MeshHandler),
+], debug=config.DEBUG)
 
 
 # Gibberish generator modified from: https://github.com/greghaskins/gibberish

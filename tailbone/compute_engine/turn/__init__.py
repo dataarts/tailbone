@@ -23,6 +23,8 @@ import hmac
 import md5
 import time
 
+import webapp2
+
 turn_script = open("tailbone/compute_engine/turn/setup_and_run.sh").read()
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -39,19 +41,26 @@ class TailboneTurnInstance(TailboneCEInstance):
     }
   })
 
+
+def credentials(username):
+  timestamp = str(time.mktime(time.gmtime())).split('.')[0]
+  username = "{}:{}".format(username, timestamp)
+  password = hmac.new(SECRET, username, sha1)
+  password = binascii.b2a_base64(password.digest())[-1]
+  return username, password
+
+
 class TurnHandler(BaseHandler):
   @as_json
   def get(self):
     username = self.request.get("username")
     if not username:
       raise AppError("Must provide username.")
-    timestamp = str(time.mktime(time.gmtime())).split('.')[0]
-    username = "{}:{}".format(username, timestamp)
-    password = hmac.new(SECRET, username, sha1)
-    password = binascii.b2a_base64(password.digest())[-1]
+    username, password = credentials(username)
     return {
       "username": username,
-      "password": password
+      "password": password,
+      "turn": "some address"
     }
 
 app = webapp2.WSGIApplication([

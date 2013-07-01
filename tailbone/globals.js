@@ -15,7 +15,7 @@ JSON.parse = function(json) {return JSON._parse(json, function(key, value) {
     return value;
   });
 };
-if (jQuery !== undefined) {
+if (window.jQuery !== undefined) {
   jQuery.parseJSON = JSON.parse;
   jQuery.ajaxSettings.converters["text json"] = JSON.parse;
 }
@@ -27,7 +27,7 @@ if (jQuery !== undefined) {
 var http = {};
 (function() {
 
-if (jQuery !== undefined) {
+if (window.jQuery !== undefined) {
 
 function errorWrapper(fn) {
   if (typeof fn === 'function') {

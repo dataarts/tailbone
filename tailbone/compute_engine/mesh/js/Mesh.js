@@ -236,7 +236,7 @@ Mesh.prototype.connect = function () {
 
             console.warn("Error connecting to server, retrying in 10 seconds.");
             setTimeout(function() {
-                self.connect()
+                self.connect();
             }, 10*1000);
 
             // throw new Error('Could not establish connection with server');
