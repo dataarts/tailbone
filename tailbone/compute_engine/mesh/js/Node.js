@@ -261,6 +261,7 @@ Node.prototype.trigger = function (type, args) {
     // Trigger on self
     if (this.id === null) {
         StateDrive.prototype.trigger.apply(this, arguments);
+        return;
     }
 
     if (!NodeUtils.doesRemoteBindTo(this.id, type)) {
