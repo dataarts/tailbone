@@ -64,7 +64,12 @@ def get_or_create_room(request, name=None, num_words=2, seperator="."):
   room = room_name(name)
   address = memcache.get(room)
   if not address:
-    instance = LoadBalancer.find(TailboneMeshInstance, request)
+    if config.DEBUG:
+      class DebugInstance(object):
+        address = "localhost"
+      instance = DebugInstance()
+    else:
+      instance = LoadBalancer.find(TailboneMeshInstance, request)
     if not instance:
       raise AppError('Instance not yet ready, try again later.')
     address = "ws://{}:{}/{}".format(instance.address, WEBSOCKET_PORT, name)
