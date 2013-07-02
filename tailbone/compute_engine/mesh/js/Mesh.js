@@ -120,6 +120,15 @@ var Mesh = function (id, options) {
     this.id = id;
     this.self = new Node(this, null);
     this.peers = [];
+    ["bind", "unbind", "trigger"].forEach(function(name) {
+        self.peers[name] = function() {
+            var originalArguments = arguments;
+            self.peers.forEach(function (peer) {
+                peer[name].apply(peer, originalArguments);
+            });
+        }
+    });
+
     this.options = {};
 
     this.config(options);
@@ -273,17 +282,9 @@ Mesh.prototype.disconnect = function () {
  */
 Mesh.prototype.bind = function (type, handler) {
 
-    var originalArguments = arguments;
-
-    StateDrive.prototype.bind.apply(this, arguments);
-
     this.self.bind.apply(this.self, arguments);
 
-    this.peers.forEach(function (peer) {
-
-        peer.bind.apply(peer, originalArguments);
-
-    });
+    this.peers.bind.apply(this, arguments);
 
 };
 
@@ -294,17 +295,9 @@ Mesh.prototype.bind = function (type, handler) {
  */
 Mesh.prototype.unbind = function (type, handler) {
 
-    var originalArguments = arguments;
-
-    StateDrive.prototype.unbind.apply(this, arguments);
-
     this.self.unbind.apply(this.self, arguments);
 
-    this.peers.forEach(function (peer) {
-
-        peer.unbind.apply(peer, originalArguments);
-
-    });
+    this.peers.unbind.apply(this, arguments);
 
 };
 
@@ -315,13 +308,9 @@ Mesh.prototype.unbind = function (type, handler) {
  */
 Mesh.prototype.trigger = function (type, args) {
 
-    var originalArguments = arguments;
+    this.self.trigger.apply(this.self, arguments);
 
-    this.peers.forEach(function (peer) {
-
-        peer.trigger.apply(peer, originalArguments);
-
-    });
+    this.peers.trigger.apply(this, arguments);
 
 };
 

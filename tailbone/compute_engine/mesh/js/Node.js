@@ -258,6 +258,11 @@ Node.prototype.trigger = function (type, args) {
 
     var message;
 
+    // Trigger on self
+    if (this.id === null) {
+        StateDrive.prototype.trigger.apply(this, arguments);
+    }
+
     if (!NodeUtils.doesRemoteBindTo(this.id, type)) {
 
         return;
