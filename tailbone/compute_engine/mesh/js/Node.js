@@ -191,6 +191,14 @@ Node.prototype.connect = function () {
     });
 
     this._signalingChannel.open();
+
+    // Broadcast to all newly bound nodes all of your current listeners
+    if (this.mesh.self !== self) {
+        for( var type in this.mesh.self._handlers) {
+            self.bind(type);
+        }
+    }
+
 //    this._signalingChannel.send('["connect"]');
 
 //    if (this.mesh.self !== this) {
@@ -222,13 +230,19 @@ Node.prototype.disconnect = function () {
  */
 Node.prototype.bind = function (type, handler) {
 
-    StateDrive.prototype.bind.apply(this, arguments);
+    if (this === this.mesh.self) {
 
-    if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+        StateDrive.prototype.bind.apply(this, arguments);
 
-        NodeUtils.send(this, '["bind","' + type + '"]');
+    } else {
 
+        if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+
+            NodeUtils.send(this, '["bind","' + type + '"]');
+
+        }
     }
+
 
 };
 
@@ -239,12 +253,17 @@ Node.prototype.bind = function (type, handler) {
  */
 Node.prototype.unbind = function (type, handler) {
 
-    StateDrive.prototype.unbind.apply(this, arguments);
+    if (this === this.mesh.self) {
 
-    if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+        StateDrive.prototype.unbind.apply(this, arguments);
 
-        NodeUtils.send(this, '["unbind","' + type + '"]');
+    } else {
 
+        if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
+
+            NodeUtils.send(this, '["unbind","' + type + '"]');
+
+        }
     }
 
 };
@@ -259,7 +278,7 @@ Node.prototype.trigger = function (type, args) {
     var message;
 
     // Trigger on self
-    if (this.id === null) {
+    if (this === this.mesh.self) {
         StateDrive.prototype.trigger.apply(this, arguments);
         return;
     }
@@ -300,7 +319,6 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
         parsedArguments = [],
         i;
 
-    console.log('got', data);
 
     // we don't want the remote mesh to receive messages from any unrelated node if the channel is common
     if (this._signalingChannel.localNode !== this._signalingChannel.remoteNode && from !== this._signalingChannel.remoteNode.id) {
@@ -308,6 +326,7 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
         return null;
 
     }
+    // console.log(this.id, 'got', data, 'from', from);
 
     switch (type) {
 
@@ -318,13 +337,22 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
         case 'exist':
             parsedArguments.push(type);
             for (i = 1; i < eventArguments.length; ++i) {
-                parsedArguments.push(new Node(this.mesh, eventArguments[i], true));
+                var node = new Node(this.mesh, eventArguments[i], true);
+                parsedArguments.push(node);
             }
             break;
 
         case 'enter':
+            parsedArguments.push(type);
+            for (i = 1; i < eventArguments.length; ++i) {
+                var node = new Node(this.mesh, eventArguments[i], false);
+                parsedArguments.push(node);
+            }
+            break;
+
         case 'leave':
             parsedArguments.push(type);
+            // TODO: these node objects are not equal to those in the peers list
             for (i = 1; i < eventArguments.length; ++i) {
                 parsedArguments.push(new Node(this.mesh, eventArguments[i], false));
             }

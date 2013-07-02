@@ -423,6 +423,32 @@
 
       });
 
+    asyncTest('partial binding', 3, function() {
+        var mesh1 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}), 
+            mesh2 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'});
+        window.mesh1 = mesh1;
+        window.mesh2 = mesh2;
+
+        mesh1.bind('enter', function(node) {
+            ok(true, 'node from mesh2 has entered');
+            mesh2.trigger('test');
+
+            start();
+        });
+
+        mesh1.bind('test', function() {
+            ok(true, 'test triggered on mesh1.');
+        });
+
+        mesh2.bind('test', function() {
+            ok(true, 'test triggered on mesh2');
+        });
+
+        mesh1.connect();
+        mesh2.connect();
+
+    });
+
   </script>
   </body>
 </html>
