@@ -194,6 +194,7 @@
 
           var mesh1 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
           var mesh2 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
+          window.mesh1 = mesh1, window.mesh2 = mesh2;
 
           mesh1.bind('exist', function () {
 
@@ -239,9 +240,12 @@
               equal(mesh1.peers.length, 1, 'node added to Mesh.peers');
 
               mesh1.disconnect();
-              mesh2.disconnect();
               start();
+          
+          });
 
+          mesh2.bind('exist', function() {
+            mesh2.disconnect();
           });
 
           mesh1.connect();
@@ -279,6 +283,27 @@
           mesh1.connect();
 
       });
+
+      asyncTest('simple bind', function() {
+          var mesh1 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'}),
+              mesh2 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
+
+          function identity() {
+
+          }
+          mesh1.bind('open', function() { mesh2.connect(); });
+          mesh2.bind('open', function() {
+            mesh2.bind('test', identity);
+          });
+          // mesh1.bind('bind', function() {
+          //   console.log('bind');
+          //   ok(true, 'sure');
+          //   start();
+          // });
+          mesh1.connect();
+          window.mesh1 = mesh1;
+          window.mesh2 = mesh2;
+      });
 //
       asyncTest('bind', 6, function () {
 
@@ -306,6 +331,7 @@
           });
 
           mesh2.bind('bind', function (type) {
+              console.log('got bind', type);
 
               ok(true, 'mesh2 received mesh1\'s \'bind\'');
               equal(type, 'test', 'received \'bind\' type is \'test\'');
@@ -423,7 +449,7 @@
 
       });
 
-    asyncTest('partial binding', 3, function() {
+    asyncTest('pre binding', 3, function() {
         var mesh1 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}), 
             mesh2 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'});
         window.mesh1 = mesh1;
@@ -432,12 +458,13 @@
         mesh1.bind('enter', function(node) {
             ok(true, 'node from mesh2 has entered');
             mesh2.trigger('test');
-
-            start();
         });
 
         mesh1.bind('test', function() {
             ok(true, 'test triggered on mesh1.');
+            mesh1.disconnect();
+            mesh2.disconnect();
+            start();
         });
 
         mesh2.bind('test', function() {
@@ -448,6 +475,28 @@
         mesh2.connect();
 
     });
+
+    asyncTest('bad agent', function() {
+
+        var mesh1 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}), 
+            mesh2 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
+            mesh3 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'});
+        window.mesh1 = mesh1;
+        window.mesh2 = mesh2;
+        window.mesh3 = mesh3;
+
+        mesh3.bind('exist', function(node1, node2) {
+            ok(arguments.length == 2, 'mesh 3 bound');
+            mesh1.disconnect();
+            mesh2.disconnect();
+            mesh3.disconnect();
+            start();
+        });
+
+        mesh1.connect();
+        mesh2.connect();
+        mesh3.connect();
+    })
 
   </script>
   </body>

@@ -33,8 +33,15 @@ def enter(node, mesh_id):
   mesh_id_by_node[node] = mesh_id
 
   logging.debug('enter (node ID: %s, mesh ID: %s)' % (node.id, mesh_id))
-  send_to_mesh(mesh, node, ['enter', node.id])
-  send_to_node(node, node, ['exist'] + get_exist(mesh, node.id))
+  # exist should be the first thing sent
+  send_to_node(node, node, json.dumps(['exist'] + get_exist(mesh, node.id)))
+  # make the enter call be a self message for routing
+  msg = json.dumps(['enter', node.id])
+  for n in mesh:
+    if n != node:
+      send_to_node(n, n, msg)
+
+  # send_to_mesh(mesh, node, ['enter', node.id])
   return True
 
 
@@ -49,7 +56,10 @@ def leave(node):
   if len(mesh) == 0:
     del meshes_by_id[mesh_id]
   else:
-    send_to_mesh(mesh, node, ['leave', node.id])
+    msg = json.dumps(['leave', node.id])
+    for n in mesh:
+      if n != node:
+        send_to_node(n, n, msg)
   nodes.remove(node)
   del nodes_by_id[node.id]
   try:
@@ -118,7 +128,7 @@ def send_to_node_ids(node_ids, sender_node, message):
   for node_id in node_ids:
     if node_id in nodes_by_id:
       send_to_node(nodes_by_id[node_id], sender_node, message)
-
+ 
 
 def send_to_mesh(mesh, sender_node, message):
   """Sends message to a mesh."""

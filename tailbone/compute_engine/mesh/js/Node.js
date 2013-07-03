@@ -177,15 +177,12 @@ Node.prototype.connect = function () {
     this._channels.forEach(function (channel) {
 
         channel.bind('open', function () {
-
             StateDrive.prototype.trigger.call(self, 'open', channel);
-
         });
 
-        channel.bind('message', function (message) {
-
-            StateDrive.prototype.trigger.apply(self, self.preprocessIncoming.apply(self, message));
-
+        channel.bind('message', function (e) {
+            var args = self.preprocessIncoming(e.data);
+            StateDrive.prototype.trigger.apply(self, args);
         });
 
     });
@@ -230,11 +227,9 @@ Node.prototype.disconnect = function () {
  */
 Node.prototype.bind = function (type, handler) {
 
-    if (this === this.mesh.self) {
+    StateDrive.prototype.bind.apply(this, arguments);
 
-        StateDrive.prototype.bind.apply(this, arguments);
-
-    } else {
+    if (this !== this.mesh.self) {
 
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
 
@@ -253,11 +248,9 @@ Node.prototype.bind = function (type, handler) {
  */
 Node.prototype.unbind = function (type, handler) {
 
-    if (this === this.mesh.self) {
+    StateDrive.prototype.unbind.apply(this, arguments);
 
-        StateDrive.prototype.unbind.apply(this, arguments);
-
-    } else {
+    if (this !== this.mesh.self) {
 
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
 
@@ -290,8 +283,8 @@ Node.prototype.trigger = function (type, args) {
     }
 
     try {
-
-        message = JSON.stringify(Array.prototype.slice.apply(this.preprocessOutgoing.apply(this, arguments)));
+        var outgoing = this.preprocessOutgoing.apply(this, arguments);
+        message = JSON.stringify(Array.prototype.slice.apply(outgoing));
         if (message === 'null') {
             return;
         }
@@ -308,25 +301,12 @@ Node.prototype.trigger = function (type, args) {
 
 /**
  * Pre-processes incoming event before passing it on to the event pipeline
- * @param from {string} from ID
- * @param timestamp {int} timestamp
- * @returns data {array} data
+ * @param eventArguments {array} data
  */
-Node.prototype.preprocessIncoming = function (from, timestamp, data) {
+Node.prototype.preprocessIncoming = function (eventArguments) {
 
-    var eventArguments = Array.prototype.slice.apply(arguments).slice(2)[0],
-        type = eventArguments[0],
-        parsedArguments = [],
-        i;
-
-
-    // we don't want the remote mesh to receive messages from any unrelated node if the channel is common
-    if (this._signalingChannel.localNode !== this._signalingChannel.remoteNode && from !== this._signalingChannel.remoteNode.id) {
-
-        return null;
-
-    }
-    // console.log(this.id, 'got', data, 'from', from);
+    var type = eventArguments[0],
+        parsedArguments = [];
 
     switch (type) {
 
@@ -336,7 +316,7 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
 
         case 'exist':
             parsedArguments.push(type);
-            for (i = 1; i < eventArguments.length; ++i) {
+            for (var i = 1; i < eventArguments.length; ++i) {
                 var node = new Node(this.mesh, eventArguments[i], true);
                 parsedArguments.push(node);
             }
@@ -344,7 +324,7 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
 
         case 'enter':
             parsedArguments.push(type);
-            for (i = 1; i < eventArguments.length; ++i) {
+            for (var i = 1; i < eventArguments.length; ++i) {
                 var node = new Node(this.mesh, eventArguments[i], false);
                 parsedArguments.push(node);
             }
@@ -353,18 +333,18 @@ Node.prototype.preprocessIncoming = function (from, timestamp, data) {
         case 'leave':
             parsedArguments.push(type);
             // TODO: these node objects are not equal to those in the peers list
-            for (i = 1; i < eventArguments.length; ++i) {
+            for (var i = 1; i < eventArguments.length; ++i) {
                 parsedArguments.push(new Node(this.mesh, eventArguments[i], false));
             }
             break;
 
         case 'bind':
-            NodeUtils.acknowledgeRemoteBind(from, eventArguments[1]);
+            NodeUtils.acknowledgeRemoteBind(this.id, eventArguments[1]);
             parsedArguments = eventArguments;
             break;
 
         case 'unbind':
-            NodeUtils.acknowledgeRemoteUnbind(from, eventArguments[1]);
+            NodeUtils.acknowledgeRemoteUnbind(this.id, eventArguments[1]);
             parsedArguments = eventArguments;
             break;
 

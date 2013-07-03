@@ -11,6 +11,8 @@
  */
 var MeshUtils = {
 
+    uidSeed: 1,
+
     /**
      * Adds remote nodes to Mesh.peers
      * @param mesh {Mesh}
@@ -117,10 +119,15 @@ var Mesh = function (id, options) {
 
     }
 
+    var uid = MeshUtils.uidSeed++;
+    this.__defineGetter__('uid', function () {
+        return uid;
+    });
+
     this.id = id;
     this.self = new Node(this, null);
     this.peers = [];
-    ["bind", "unbind", "trigger"].forEach(function(name) {
+    ['bind', 'unbind', 'trigger'].forEach(function(name) {
         self.peers[name] = function() {
             var originalArguments = arguments;
             self.peers.forEach(function (peer) {
@@ -166,6 +173,17 @@ var Mesh = function (id, options) {
  * @type {StateDrive}
  */
 Mesh.prototype = new StateDrive();
+
+/**
+ * Returns unique Mesh string representation.
+ * Essential to make dictionary indexing by Node work.
+ * @returns {string}
+ */
+Mesh.prototype.toString = function () {
+
+    return 'Mesh@' + this.uid;
+
+};
 
 /**
  * Configures mesh
