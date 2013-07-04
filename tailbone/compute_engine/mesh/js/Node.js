@@ -176,23 +176,24 @@ Node.prototype.connect = function () {
 
     this._channels.forEach(function (channel) {
 
-        channel.bind('open', function () {
-            StateDrive.prototype.trigger.call(self, 'open', channel);
-        });
-
         channel.bind('message', function (e) {
             var args = self.preprocessIncoming(e.data);
-            StateDrive.prototype.trigger.apply(self, args);
+            // propogate up
+            EventDispatcher.prototype.trigger.apply(self, args);
+            if (self !== self.mesh.self) {
+                EventDispatcher.prototype.trigger.apply(self.mesh.peers, args);
+            }
+            EventDispatcher.prototype.trigger.apply(self.mesh, args);
         });
 
     });
 
     this._signalingChannel.open();
 
-    // Broadcast to all newly bound nodes all of your current listeners
-    if (this.mesh.self !== self) {
-        for( var type in this.mesh.self._handlers) {
-            self.bind(type);
+    //Broadcast to all newly bound nodes all of your current listeners
+    if (this != this.mesh.self) {
+        for( var type in this.mesh._handlers) {
+            this._bind(type);
         }
     }
 
@@ -226,19 +227,16 @@ Node.prototype.disconnect = function () {
  * @param handler {function}
  */
 Node.prototype.bind = function (type, handler) {
+    EventDispatcher.prototype.bind.apply(this, arguments);
+    this._bind.apply(this, arguments);
+};
 
-    StateDrive.prototype.bind.apply(this, arguments);
-
+Node.prototype._bind = function(type, handler) {
     if (this !== this.mesh.self) {
-
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
-
             NodeUtils.send(this, '["bind","' + type + '"]');
-
         }
     }
-
-
 };
 
 /**
@@ -247,18 +245,16 @@ Node.prototype.bind = function (type, handler) {
  * @param handler {function}
  */
 Node.prototype.unbind = function (type, handler) {
+    EventDispatcher.prototype.unbind.apply(this, arguments);
+    this._unbind.apply(this, arguments);
+};
 
-    StateDrive.prototype.unbind.apply(this, arguments);
-
+Node.prototype._unbind = function(type, handler) {
     if (this !== this.mesh.self) {
-
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
-
             NodeUtils.send(this, '["unbind","' + type + '"]');
-
         }
     }
-
 };
 
 /**
@@ -272,14 +268,14 @@ Node.prototype.trigger = function (type, args) {
 
     // Trigger on self
     if (this === this.mesh.self) {
-        StateDrive.prototype.trigger.apply(this, arguments);
+        EventDispatcher.prototype.trigger.apply(this, arguments);
+        // propogate up
+        EventDispatcher.prototype.trigger.apply(this.mesh, arguments);
         return;
     }
 
     if (!NodeUtils.doesRemoteBindTo(this.id, type)) {
-
         return;
-
     }
 
     try {

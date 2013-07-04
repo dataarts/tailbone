@@ -126,15 +126,27 @@ var Mesh = function (id, options) {
 
     this.id = id;
     this.self = new Node(this, null);
+
     this.peers = [];
-    ['bind', 'unbind', 'trigger'].forEach(function(name) {
-        self.peers[name] = function() {
-            var originalArguments = arguments;
-            self.peers.forEach(function (peer) {
-                peer[name].apply(peer, originalArguments);
-            });
-        }
-    });
+    EventDispatcher.call(this.peers);
+    self.peers.bind = function() {
+        var originalArguments = arguments;
+        self.peers.forEach(function (peer) {
+            peer._bind.apply(peer, originalArguments);
+        });
+    };
+    self.peers.unbind = function() {
+        var originalArguments = arguments;
+        self.peers.forEach(function (peer) {
+            peer._unbind.apply(peer, originalArguments);
+        });
+    };
+    self.peers.trigger = function() {
+        var originalArguments = arguments;
+        self.peers.forEach(function(peer) {
+            peer.trigger.apply(peer, originalArguments);
+        });
+    };
 
     this.options = {};
 
@@ -143,21 +155,15 @@ var Mesh = function (id, options) {
     this.setMinCallState('connect', Mesh.STATE.INITIALISED);
 
     this.self.bind('exist', function () {
-
         MeshUtils.addNodes(self, arguments);
-
     });
 
     this.self.bind('enter', function () {
-
         MeshUtils.addNodes(self, arguments);
-
     });
 
     this.self.bind('leave', function () {
-
         MeshUtils.removeNodes(self, arguments);
-
     });
 
     if (this.options.autoConnect) {
@@ -300,8 +306,7 @@ Mesh.prototype.disconnect = function () {
  */
 Mesh.prototype.bind = function (type, handler) {
 
-    this.self.bind.apply(this.self, arguments);
-
+    EventDispatcher.prototype.bind.apply(this, arguments);
     this.peers.bind.apply(this, arguments);
 
 };
@@ -313,8 +318,7 @@ Mesh.prototype.bind = function (type, handler) {
  */
 Mesh.prototype.unbind = function (type, handler) {
 
-    this.self.unbind.apply(this.self, arguments);
-
+    EventDispatcher.prototype.unbind.apply(this, arguments);
     this.peers.unbind.apply(this, arguments);
 
 };
@@ -327,8 +331,10 @@ Mesh.prototype.unbind = function (type, handler) {
 Mesh.prototype.trigger = function (type, args) {
 
     this.self.trigger.apply(this.self, arguments);
-
-    this.peers.trigger.apply(this, arguments);
+    var originalArguments = arguments;
+    this.peers.forEach(function (peer) {
+        peer.trigger.apply(peer, originalArguments);
+    });
 
 };
 

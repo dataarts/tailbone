@@ -284,25 +284,24 @@
 
       });
 
-      asyncTest('simple bind', function() {
+      asyncTest('simple bind', 1, function() {
           var mesh1 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'}),
               mesh2 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
 
           function identity() {
 
           }
-          mesh1.bind('open', function() { mesh2.connect(); });
+          mesh1.bind('open', function() { 
+            mesh2.connect(); 
+          });
           mesh2.bind('open', function() {
             mesh2.bind('test', identity);
           });
-          // mesh1.bind('bind', function() {
-          //   console.log('bind');
-          //   ok(true, 'sure');
-          //   start();
-          // });
+          mesh1.bind('bind', function() {
+            ok(true, 'sure');
+            start();
+          });
           mesh1.connect();
-          window.mesh1 = mesh1;
-          window.mesh2 = mesh2;
       });
 //
       asyncTest('bind', 6, function () {
@@ -457,6 +456,14 @@
 
         mesh1.bind('enter', function(node) {
             ok(true, 'node from mesh2 has entered');
+        });
+
+        // TODO: the bind signaling of being ready
+        // should happen before the node enters the lobby and is ready
+        // you shouldn't have to listen to bind before you trigger
+        // an event that you had bound
+        mesh2.bind('bind', function() {
+            console.log.apply(console, arguments);
             mesh2.trigger('test');
         });
 
@@ -481,9 +488,6 @@
         var mesh1 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}), 
             mesh2 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
             mesh3 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'});
-        window.mesh1 = mesh1;
-        window.mesh2 = mesh2;
-        window.mesh3 = mesh3;
 
         mesh3.bind('exist', function(node1, node2) {
             ok(arguments.length == 2, 'mesh 3 bound');
