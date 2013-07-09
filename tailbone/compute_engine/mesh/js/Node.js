@@ -16,65 +16,16 @@ var NodeUtils = {
     uidSeed: 1,
     remoteBindsByNodeIds: {},
 
-    upgradeLocal: function (node) {
-
-        console.log('update local');
-
-        switch(node.getState()) {
-
-            case Node.STATE.DISCONNECTED:
-                node.setState(Node.STATE.WAITING_LOCAL);
-                break;
-
-            case Node.STATE.WAITING_REMOTE:
-                NodeUtils.upgradeMutual(node);
-                break;
-
-        }
-
-    },
-
-    upgradeRemote: function (node, from) {
-
-        console.log('update remote from', from, node.getState());
-
-        switch(node.getState()) {
-
-            case Node.STATE.DISCONNECTED:
-                node.setState(Node.STATE.WAITING_REMOTE);
-                break;
-
-            case Node.STATE.WAITING_LOCAL:
-                NodeUtils.upgradeMutual(node);
-                break;
-
-        }
-
-    },
-
-    upgradeMutual: function (node) {
-
-        console.log('mutual upgrade', node.initiator);
-        node._channels.forEach(function (channel) {
-
-            channel.open();
-
-        });
-
-    },
-
     send: function (node, message) {
 
-        var i;
+        var sendChannel = node._channels.filter(function(c) {
+            return c.getState() === Channel.STATE.OPEN;
+        })[0];
 
-        for (i = node._channels.length - 1; i > -1; --i) {
-
-            if (node._channels[i].send(message)) {
-
-                break;
-
-            }
-
+        if (sendChannel) {
+            sendChannel.send(message);
+        } else {
+            console.warn('There is no open send channel.');
         }
 
     },
@@ -105,7 +56,13 @@ var NodeUtils = {
 
     doesRemoteBindTo: function (nodeId, type) {
 
-        return NodeUtils.remoteBindsByNodeIds[nodeId] && NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type) !== -1;
+        // if nothing has been external bound assume all things are
+        var types = NodeUtils.remoteBindsByNodeIds[nodeId];
+        if (types === undefined) {
+            return true;
+        }
+
+        return types && NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type) !== -1;
 
     }
 
@@ -129,6 +86,7 @@ var Node = function (mesh, id, initiator) {
     this.id = id;
     this._channels = [];
     this._signalingChannel = null;
+    this._remotelyBoundTypes = {};
 
     this.__defineGetter__('initiator', function () {
 
@@ -164,46 +122,51 @@ Node.prototype.connect = function () {
 
     var self = this;
 
-    if (this.getState() >= Node.STATE.WAITING_LOCAL) {
+    this._signalingChannel = new SocketChannel(this.mesh.self, this);
 
-        return;
+    if (self !== self.mesh.self) {
+        this._channels.push(new RTCChannel(this.mesh.self, this));
+    }
+    this._channels.push(this._signalingChannel);
 
+    var propagateMessage = function(e) {
+        var args = self.preprocessIncoming(e.data);
+        // propagate up
+        EventDispatcher.prototype.trigger.apply(self, args);
+        if (self !== self.mesh.self) {
+            EventDispatcher.prototype.trigger.apply(self.mesh.peers, args);
+        }
+        EventDispatcher.prototype.trigger.apply(self.mesh, args);
     }
 
-    this._channels.push(new SocketChannel(this.mesh.self, this));
-    this._channels.push(new RTCChannel(this.mesh.self, this));
-    this._signalingChannel = this._channels[0];
-
     this._channels.forEach(function (channel) {
-
-        channel.bind('message', function (e) {
-            var args = self.preprocessIncoming(e.data);
-            // propogate up
-            EventDispatcher.prototype.trigger.apply(self, args);
-            if (self !== self.mesh.self) {
-                EventDispatcher.prototype.trigger.apply(self.mesh.peers, args);
-            }
-            EventDispatcher.prototype.trigger.apply(self.mesh, args);
+        ['open', 'message', 'error', 'close'].forEach(function(type) {
+            channel.bind(type, propagateMessage);
         });
+    });
 
+    this._signalingChannel.bind('open', function(e) {
+        //Broadcast to all newly bound nodes all of your current listeners
+        if (self != self.mesh.self) {
+            var types = Object.keys(self.mesh._handlers);
+            var peers = Object.keys(self.mesh.peers._handlers);
+            peers.forEach(function(type) {
+                if (types.indexOf(type) === -1) {
+                    types.push(type);
+                }
+            });
+            types.forEach(function(type) {
+                self._bind(type);
+            });
+            // open all other channels upgrading to webrtc where possible
+            self._channels.forEach(function(channel) {
+                channel.open();
+            });
+        }
+        self.setState(Node.STATE.CONNECTED);
     });
 
     this._signalingChannel.open();
-
-    //Broadcast to all newly bound nodes all of your current listeners
-    if (this != this.mesh.self) {
-        for( var type in this.mesh._handlers) {
-            this._bind(type);
-        }
-    }
-
-//    this._signalingChannel.send('["connect"]');
-
-//    if (this.mesh.self !== this) {
-//
-//        NodeUtils.upgradeLocal(this);
-//
-//    }
 
 };
 
@@ -234,7 +197,12 @@ Node.prototype.bind = function (type, handler) {
 Node.prototype._bind = function(type, handler) {
     if (this !== this.mesh.self) {
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
-            NodeUtils.send(this, '["bind","' + type + '"]');
+            var bound = this._remotelyBoundTypes[type];
+            if (!bound) {
+                this._remotelyBoundTypes[type] = 0;
+                NodeUtils.send(this, '["bind","' + type + '"]');
+            }
+            this._remotelyBoundTypes[type] += 1;
         }
     }
 };
@@ -252,7 +220,11 @@ Node.prototype.unbind = function (type, handler) {
 Node.prototype._unbind = function(type, handler) {
     if (this !== this.mesh.self) {
         if (NodeUtils.PROTECTED_EVENTS.indexOf(type) === -1) {
-            NodeUtils.send(this, '["unbind","' + type + '"]');
+            this._remotelyBoundTypes[type] -= 1;
+            var bound = this._remotelyBoundTypes[type];
+            if (bound === 0) {
+                NodeUtils.send(this, '["unbind","' + type + '"]');
+            }
         }
     }
 };
@@ -264,12 +236,10 @@ Node.prototype._unbind = function(type, handler) {
  */
 Node.prototype.trigger = function (type, args) {
 
-    var message;
-
     // Trigger on self
     if (this === this.mesh.self) {
         EventDispatcher.prototype.trigger.apply(this, arguments);
-        // propogate up
+        // propagate up
         EventDispatcher.prototype.trigger.apply(this.mesh, arguments);
         return;
     }
@@ -277,6 +247,18 @@ Node.prototype.trigger = function (type, args) {
     if (!NodeUtils.doesRemoteBindTo(this.id, type)) {
         return;
     }
+
+    this._trigger.apply(this, arguments);
+
+};
+
+/**
+ * Sends to remote regardless of if it asked for it.
+ * Useful for upgrading rtc connections before things are bound fully.
+ */
+Node.prototype._trigger = function (type, args) {
+
+    var message;
 
     try {
         var outgoing = this.preprocessOutgoing.apply(this, arguments);
@@ -293,7 +275,7 @@ Node.prototype.trigger = function (type, args) {
 
     NodeUtils.send(this, message);
 
-};
+}
 
 /**
  * Pre-processes incoming event before passing it on to the event pipeline
@@ -376,8 +358,6 @@ Node.prototype.preprocessOutgoing = function (type, args) {
 Node.STATE = {
 
     DISCONNECTED: 1,
-    WAITING_REMOTE: 2,
-    WAITING_LOCAL: 3,
-    CONNECTED: 4
+    CONNECTED: 2
 
 }

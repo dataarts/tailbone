@@ -50,3 +50,8 @@ Channel.prototype.send = function (message) {
     return false;
 
 };
+
+Channel.STATE = {
+    CLOSED: 1,
+    OPEN: 2
+};

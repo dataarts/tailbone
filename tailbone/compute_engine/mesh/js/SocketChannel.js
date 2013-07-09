@@ -14,9 +14,9 @@
 var SocketChannel = function (localNode, remoteNode) {
     Channel.call(this, localNode, remoteNode);
 
-    this.setState(SocketChannel.STATE.CLOSED);
-    this.setMinCallState('send', SocketChannel.STATE.OPEN);
-    this.setMinCallState('close', SocketChannel.STATE.OPEN);
+    this.setState(Channel.STATE.CLOSED);
+    this.setMinCallState('send', Channel.STATE.OPEN);
+    this.setMinCallState('close', Channel.STATE.OPEN);
 
     this.multiplexer = SocketMultiplexer.get(localNode.mesh);
 };
@@ -50,11 +50,3 @@ SocketChannel.prototype.send = function (message) {
     this.multiplexer.send(this, message);
 };
 
-/**
- * SocketChannel states
- * @type {{CONNECTED: number}}
- */
-SocketChannel.STATE = {
-    CLOSED: 1,
-    OPEN: 2
-};
