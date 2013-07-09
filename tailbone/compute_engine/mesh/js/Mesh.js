@@ -358,7 +358,7 @@ Mesh.STATE = {
 Mesh.options = {
 
     api: '/api/mesh',
-    autoConnect: false,
+    autoConnect: true,
     autoPeerConnect: true
 
 };
