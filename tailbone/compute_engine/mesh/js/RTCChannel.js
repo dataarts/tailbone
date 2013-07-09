@@ -276,6 +276,8 @@ var RTCChannel = function (localNode, remoteNode) {
     Channel.call(this, localNode, remoteNode);
 
     this.setState(Channel.STATE.CLOSED);
+    this.setMinCallState('send', Channel.STATE.OPEN);
+    this.setMinCallState('close', Channel.STATE.OPEN);
 
 };
 
