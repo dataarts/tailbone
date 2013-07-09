@@ -16,7 +16,7 @@
 from tailbone import as_json, BaseHandler, compile_js, AppError
 from tailbone import config
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
-from tailbone.compute_engine.turn import TailboneTurnInstance
+from tailbone.compute_engine import turn
 
 import os
 import random
@@ -81,12 +81,16 @@ class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
     room, ws = get_or_create_room(self.request, name)
-    # turn = LoadBalancer.find(TailboneTurnInstance, self.request)
-    turn = None
+    # ts = LoadBalancer.find(turn.TailboneTurnInstance, self.request)
+    username = self.request.get("username", generate_word())
+    username, password = turn.credentials(username)
+    ts = None
     return {
       "ws": ws,
       "name": room,
-      "turn": turn,
+      "turn": ts,
+      "username": username,
+      "password": password,
     }
 
   @as_json

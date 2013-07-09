@@ -95,6 +95,8 @@ var Node = function (mesh, id, initiator) {
     });
 
     this.setState(Node.STATE.DISCONNECTED);
+    this.setMinCallState("connect", Node.STATE.DISCONNECTED);
+    this.setMinCallState("disconnect", Node.STATE.CONNECTED);
 
 };
 
@@ -121,10 +123,16 @@ Node.prototype.toString = function () {
 Node.prototype.connect = function () {
 
     var self = this;
+    var state = this.getState();
+    if (state === Node.STATE.CONNECTING || state === Node.STATE.CONNECTED) {
+        return;
+    }
+
+    self.setState(Node.STATE.CONNECTING);
 
     this._signalingChannel = new SocketChannel(this.mesh.self, this);
 
-    if (self !== self.mesh.self) {
+    if (self !== self.mesh.self && self.mesh.options.useWebRTC) {
         this._channels.push(new RTCChannel(this.mesh.self, this));
     }
     this._channels.push(this._signalingChannel);
@@ -358,6 +366,7 @@ Node.prototype.preprocessOutgoing = function (type, args) {
 Node.STATE = {
 
     DISCONNECTED: 1,
-    CONNECTED: 2
+    CONNECTING: 2,
+    CONNECTED: 3
 
 }

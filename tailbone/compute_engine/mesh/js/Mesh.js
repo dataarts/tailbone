@@ -359,6 +359,7 @@ Mesh.options = {
 
     api: '/api/mesh',
     autoConnect: true,
-    autoPeerConnect: true
+    autoPeerConnect: true,
+    useWebRTC: true,
 
 };
