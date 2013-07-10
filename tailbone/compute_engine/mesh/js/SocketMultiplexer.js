@@ -9,8 +9,9 @@
  * Makes the attached channels behave like direct connections.
  */
 var SocketMultiplexer = function(mesh) {
+    StateDrive.call(this);
     this.mesh = mesh;
-    this.setState(SocketChannel.STATE.CLOSED)
+    this.setState(Channel.STATE.CLOSED)
     this.channels = {};
 };
 
@@ -38,40 +39,45 @@ SocketMultiplexer.prototype.process = function(from, timestamp, data) {
 SocketMultiplexer.prototype.register = function(channel) {
     if (this.channels[channel.remoteNode.id] === undefined) {
         this.channels[channel.remoteNode.id] = channel;
-        channel.setState(this.getState());
+        var state = this.getState();
+        channel.setState(state);
         // if underlying websocket is already open simulate the open for the channel
-        if (this.getState() === SocketChannel.STATE.OPEN) {
-            channel.trigger('open');
+        if (state === Channel.STATE.OPEN) {
+            channel.trigger('open', {
+                timestamp: Date.now(),
+                data: ['open']
+            });
         }
     }
 };
 
 SocketMultiplexer.prototype.unregister = function(channel) {
     delete this.channels[channel.remoteNode.id];
-    channel.setState(SocketChannel.STATE.CLOSED);
+    channel.setState(Channel.STATE.CLOSED);
 };
 
 SocketMultiplexer.prototype.open = function(channel) {
 
-    if (this.getState() == SocketChannel.STATE.OPEN) {
+    if (this.getState() !== Channel.STATE.CLOSED) {
         return;
     }
-    this.setState(SocketChannel.STATE.OPEN);
+    this.setState(Channel.STATE.OPENING);
 
     var self = this;
     var socket = self.socket = new WebSocket(this.mesh.options.ws);
 
     socket.addEventListener('open', function(e) {
+        self.setState(Channel.STATE.OPEN);
         // mark all attached channels as open
         for (var id in self.channels) {
             var channel = self.channels[id];
-            channel.setState(SocketChannel.STATE.OPEN);
-            channel.trigger('message', {
+            channel.setState(Channel.STATE.OPEN);
+            channel.trigger('open', {
                 timestamp: Date.now(),
                 data: ['open']
             });
         }
-    });
+    }, false);
 
     socket.addEventListener('message', function(e) {
         var container;
@@ -97,48 +103,55 @@ SocketMultiplexer.prototype.open = function(channel) {
             self.channels[from] = selfChannel;
         }
         var fromChannel = self.channels[from];
-        console.log('from', fromChannel.remoteNode.id,
-            'to', fromChannel.localNode.id, data);
         if (fromChannel) {
+            console.log('from', fromChannel.remoteNode.id,
+                'to', fromChannel.localNode.id, data);
             fromChannel.trigger('message', {
                 timestamp: timestamp,
                 data: data
             });
+        } else {
+            console.warn('no from channel found', fromChannel);
         }
-    });
+    }, false);
 
     socket.addEventListener('close', function() {
-        self.setState(SocketChannel.STATE.CLOSED);
+        self.setState(Channel.STATE.CLOSED);
         for (var id in self.channels) {
             var channel = self.channels[id];
-            channel.setState(SocketChannel.STATE.CLOSED);
-            channel.trigger('message', {
+            channel.setState(Channel.STATE.CLOSED);
+            channel.trigger('close', {
                 timestamp: Date.now(),
                 data: ['close']
             });
         }
 
-    });
+    }, false);
 
     socket.addEventListener('error', function() {
+        self.setState(Channel.STATE.CLOSED);
         for (var id in self.channels) {
             var channel = self.channels[id];
-            channel.setState(SocketChannel.STATE.CLOSED);
-            channel.trigger('message', {
+            channel.setState(Channel.STATE.CLOSED);
+            channel.trigger('error', {
                 timestamp: Date.now(),
                 data: ['error']
             });
         }
-    });
+    }, false);
 
 };
 
 SocketMultiplexer.prototype.close = function(channel) {
     this.unregister(channel);
-    if (Object.keys(this.channels).length === 0) {
-        this.setState(SocketChannel.STATE.CLOSED);
+    if (channel.remoteNode === channel.localNode.mesh.self) {
+        this.setState(Channel.STATE.CLOSED);
         this.socket.close();
     }
+    // if (Object.keys(this.channels).length === 0) {
+    //     this.setState(Channel.STATE.CLOSED);
+    //     this.socket.close();
+    // }
 };
 
 SocketMultiplexer.prototype.send = function(channel, message) {

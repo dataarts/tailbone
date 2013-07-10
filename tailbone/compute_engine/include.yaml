@@ -23,5 +23,5 @@ handlers:
 
 admin_console:
   pages:
-  - name: Mesh Network
-    url: /admin/mesh
+  - name: Load Balancer
+    url: /admin/compute_engine

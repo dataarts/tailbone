@@ -160,6 +160,7 @@ def new_node_id():
 
 class Handler(tornado.websocket.WebSocketHandler):
   """WebSocket connection and message handler."""
+
   def open(self):
     enter(self, self.request.path[1:])
 

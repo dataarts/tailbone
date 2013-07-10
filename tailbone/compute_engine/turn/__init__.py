@@ -25,6 +25,8 @@ import time
 
 import webapp2
 
+SECRET = "notasecret"
+
 turn_script = open("tailbone/compute_engine/turn/setup_and_run.sh").read()
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -46,7 +48,7 @@ def credentials(username):
   timestamp = str(time.mktime(time.gmtime())).split('.')[0]
   username = "{}:{}".format(username, timestamp)
   password = hmac.new(SECRET, username, sha1)
-  password = binascii.b2a_base64(password.digest())[-1]
+  password = binascii.b2a_base64(password.digest())[:-1]
   return username, password
 
 

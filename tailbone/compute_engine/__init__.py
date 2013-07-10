@@ -55,7 +55,7 @@ SCOPES = ["https://www.googleapis.com/auth/compute",
 # These are just random guesses based on the name I have no idea where they actually are.
 LOCATIONS = {
   "us-central": {
-    "location": (36.0156, 114.7378),
+    "location": (36.0156, -114.7378),
     "zones": ["us-central1-a", "us-central1-b", "us-central2-a"],
   },
   "europe-west": {
@@ -104,7 +104,7 @@ def build_service(service_name, api_version, scopes):
       logging.warn("Please create a service account and download your key.")
       return None
   else:
-    credentials = AppAssertionCredentials(scope=",".join(scopes))
+    credentials = AppAssertionCredentials(scope=scopes)
     http = credentials.authorize(httplib2.Http(memcache))
     service = build(service_name, api_version, http=http)
     return service
@@ -222,11 +222,12 @@ def rebalance_pool(urlsafe_pool_key):
   ]))
   load = [i.load for i in query]
   size = len(load)
-  avg_load = sum(load) / size
-  if avg_load < 0.2:
-    LoadBalancer.decrease_pool(pool, size)
-  elif avg_load > 0.7:
-    LoadBalancer.increase_pool(pool, size)
+  if size > 0:
+    avg_load = sum(load) / size
+    if avg_load < 0.2:
+      LoadBalancer.decrease_pool(pool, size)
+    elif avg_load > 0.7:
+      LoadBalancer.increase_pool(pool, size)
   deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY)
 
 
@@ -310,11 +311,12 @@ class LoadBalancer(object):
       location = tuple([float(x) for x in location.split(",")])
       dist = None
       region = None
+      closest = None
       for r, obj in LOCATIONS.iteritems():
         loc = obj["location"]
         zones = obj["zones"]
         d = haversine_distance(location, loc)
-        if not dist or d < dist:
+        if dist is None or d < dist:
           dist = d
           closest = zones
           region = r
@@ -338,10 +340,14 @@ class LoadBalancer(object):
 
     compute = compute_api()
     if compute:
+      def update_zone(s):
+        return re.sub(r"\/zones\/([^/]*)",
+                      "/zones/{}".format(instance.zone),
+                      s)
       instance.PARAMS.update({
         "name": name,
-        "zone": instance.PARAMS.get("zone").replace(DEFAULT_ZONE, instance.zone),
-        "machineType": instance.PARAMS.get("machineType").replace(DEFAULT_ZONE, instance.zone),
+        "zone": update_zone(instance.PARAMS.get("zone")),
+        "machineType": update_zone(instance.PARAMS.get("machineType")),
       })
       operation = compute.instances().insert(
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()

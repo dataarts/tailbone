@@ -167,9 +167,7 @@ var Mesh = function (id, options) {
     });
 
     if (this.options.autoConnect) {
-
-        this.connect();
-
+        self.connect();
     }
 
 };
@@ -358,7 +356,8 @@ Mesh.STATE = {
 Mesh.options = {
 
     api: '/api/mesh',
-    autoConnect: false,
-    autoPeerConnect: true
+    autoConnect: true,
+    autoPeerConnect: true,
+    useWebRTC: true,
 
 };
