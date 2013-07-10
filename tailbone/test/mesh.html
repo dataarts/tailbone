@@ -154,10 +154,11 @@
             mesh3.connect();
           });
           mesh2.bind('exist', function(n) {
-            mesh2.trigger('test');
+            console.log('exists', n);
+            mesh2.trigger('test', 'some arg');
           });
           mesh1.bind('test', function() {
-            console.log(arguments);
+            console.log.apply(console, arguments);
             ok(true, 'sure');
             start();
           });

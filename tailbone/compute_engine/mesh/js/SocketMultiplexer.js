@@ -67,6 +67,7 @@ SocketMultiplexer.prototype.open = function(channel) {
     var socket = self.socket = new WebSocket(this.mesh.options.ws);
 
     socket.addEventListener('open', function(e) {
+        self.setState(Channel.STATE.OPEN);
         // mark all attached channels as open
         for (var id in self.channels) {
             var channel = self.channels[id];
@@ -109,6 +110,8 @@ SocketMultiplexer.prototype.open = function(channel) {
                 timestamp: timestamp,
                 data: data
             });
+        } else {
+            console.warn('no from channel found', fromChannel);
         }
     }, false);
 
