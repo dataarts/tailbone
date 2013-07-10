@@ -7,45 +7,12 @@
 
 /**
  * Internal Mesh utility functions
- * @type {{addNodes: Function, removeNodes: Function, restGet: Function}}
  */
 var MeshUtils = {
 
   uidSeed: 1,
 
-  /**
-   * Executes an asynchronous HTTP GET request
-   * @param url {string}
-   * @param successHandler {function}
-   * @param failureHandler {function}
-   */
-  restGet: function (url, successHandler, failureHandler) {
-
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-      xmlhttp = new XMLHttpRequest();
-    } else {
-      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-
-    xmlhttp.onreadystatechange = function () {
-      if (xmlhttp.readyState === 4) {
-        if (xmlhttp.status === 200 && typeof successHandler === 'function') {
-          successHandler(xmlhttp.responseText);
-        } else {
-          failureHandler(xmlhttp.status);
-        }
-      }
-    };
-
-    xmlhttp.open('GET', url, true);
-    xmlhttp.send();
-
-  }
-
 };
-
-
 
 
 /**
@@ -78,8 +45,13 @@ var Mesh = function (id, options) {
   this.options = {};
 
   this.config(options);
-  this.setState(Mesh.STATE.INITIALISED);
-  this.setMinCallState('connect', Mesh.STATE.INITIALISED);
+  this.setState(Node.STATE.DISCONNECTED);
+
+  this.setMinCallState('connect', Node.STATE.DISCONNECTED);
+
+  this.setMinCallState('bind', Node.STATE.CONNECTED);
+  this.setMinCallState('unbind', Node.STATE.CONNECTED);
+  this.setMinCallState('trigger', Node.STATE.CONNECTED);
 
   if (this.options.autoConnect) {
     self.connect();
@@ -151,7 +123,7 @@ Mesh.prototype.connect = function () {
 
   } else if (this.options.api) {
 
-    MeshUtils.restGet(this.options.api + '/' + (this.id || ''), function (response) {
+    http.GET(this.options.api + '/' + (this.id || ''), function (response) {
 
       try {
         var options = JSON.parse(response);
@@ -229,18 +201,6 @@ Mesh.prototype.trigger = function (type, args) {
 
 };
 
-/**
- * Supported Mesh StateDrive states
- * @type {{INVALID: number, UNDEFINED: number, INITIALISED: number, CONNECTED: number}}
- */
-Mesh.STATE = {
-
-  INVALID: -1,
-  UNDEFINED: 0,
-  INITIALISED: 1,
-  CONNECTED: 2
-
-};
 
 /**
  * Common Mesh options

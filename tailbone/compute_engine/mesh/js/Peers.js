@@ -1,6 +1,14 @@
+// TODO: should forEach and filter and such be moved to more compatible syntax?
+
 var Peers = function() {
   Array.call(this);
   StateDrive.call(this);
+
+  this.setState(Node.STATE.DISCONNECTED);
+
+  this.setMinCallState('bind', Node.STATE.CONNECTED);
+  this.setMinCallState('unbind', Node.STATE.CONNECTED);
+  this.setMinCallState('trigger', Node.STATE.CONNECTED);
 };
 
 Peers.prototype = [];

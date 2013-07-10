@@ -175,12 +175,8 @@
     mesh3 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
     triggerCount = 0;
 
-    mesh2.bind('connect', function() {
-      mesh2.peers.trigger('test');
-    });
-    mesh3.bind('connect', function() {
-      mesh3.peers.trigger('test');
-    });
+    mesh2.peers.trigger('test');
+    mesh3.peers.trigger('test');
 
     mesh1.peers.bind('test', function () {
 
@@ -194,8 +190,6 @@
       }
 
     });
-
-    mesh1.connect();
 
   });
 

@@ -12,6 +12,7 @@ var SocketMultiplexer = function(mesh) {
   StateDrive.call(this);
   this.mesh = mesh;
   this.setState(Channel.STATE.CLOSED);
+  this.setMinCallState('send', Channel.STATE.OPEN);
   this.channels = {};
 };
 

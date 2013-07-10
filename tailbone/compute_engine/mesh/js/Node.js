@@ -169,11 +169,8 @@ Node.prototype.connect = function (callback) {
       self._channels.forEach(function(channel) {
         channel.open();
       });
-      self.setState(Node.STATE.CONNECTED);
-    } else {
-      self.setState(Node.STATE.CONNECTED);
-      self.mesh.setState(Mesh.STATE.CONNECTED);
     }
+    self.setState(Node.STATE.CONNECTED);
   });
 
   this._signalingChannel.open();
@@ -318,6 +315,9 @@ Node.prototype.preprocessIncoming = function (eventArguments) {
       parsedArguments.unshift(this);
       // transform the exist call to another enter call
       parsedArguments.unshift('enter');
+      // mark mesh and peers as connected
+      this.mesh.peers.setState(Node.STATE.CONNECTED);
+      this.mesh.setState(Node.STATE.CONNECTED);
       // trigger connect with self node
       this.trigger('connect', this);
       break;

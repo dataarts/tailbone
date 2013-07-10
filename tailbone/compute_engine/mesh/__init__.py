@@ -18,6 +18,7 @@ from tailbone import config
 from tailbone.compute_engine import LoadBalancer, TailboneCEInstance
 from tailbone.compute_engine import turn
 
+import base64
 import os
 import random
 import string
@@ -26,13 +27,22 @@ import webapp2
 from google.appengine.api import users
 from google.appengine.api import memcache
 from google.appengine.api import app_identity
+from google.appengine.api import lib_config 
 
 APP_VERSION = os.environ.get("CURRENT_VERSION_ID", "").split('.')[0]
 HOSTNAME = APP_VERSION + "-dot-" + app_identity.get_default_version_hostname()
 WEBSOCKET_PORT = 2345
-ROOM_EXPIRATION = 86400  # one day in seconds
 
 mesh_script = open("tailbone/compute_engine/mesh/setup_and_run.sh").read()
+
+class _ConfigDefaults(object):
+  ROOM_EXPIRATION = 86400  # one day in seconds
+
+  def generate_room_name():
+    return generate_word() + "." + generate_word()
+
+
+_config = lib_config.register('mesh', _ConfigDefaults.__dict__)
 
 # TODO: Use an image instead of a startup-script for downloading dependencies
 
@@ -51,18 +61,23 @@ class TailboneMeshInstance(TailboneCEInstance):
   })
 
 
-def room_name(name):
-  return "tailbone-mesh-room-{}".format(name)
+def room_hash(name):
+  return "tailbone-mesh-room-{}".format(base64.b64encode(name))
 
-
-def get_or_create_room(request, name=None, num_words=2, seperator="."):
-  if not name:
-    name = []
-    for i in range(num_words):
-      name.append(generate_word())
-    name = seperator.join(name)
-  room = room_name(name)
+def unique_name():
+  name = _config.generate_room_name()
+  room = room_hash(name)
   address = memcache.get(room)
+  if address:
+    return unique_name()
+  return name, room, address
+
+def get_or_create_room(request, name=None):
+  if not name:
+    name, room, address = unique_name()
+  else:
+    room = room_hash(name)
+    address = memcache.get(room)
   if not address:
     if config.DEBUG:
       class DebugInstance(object):
@@ -73,7 +88,7 @@ def get_or_create_room(request, name=None, num_words=2, seperator="."):
     if not instance:
       raise AppError('Instance not yet ready, try again later.')
     address = "ws://{}:{}/{}".format(instance.address, WEBSOCKET_PORT, name)
-    memcache.set(room, address, time=ROOM_EXPIRATION)
+    memcache.set(room, address, time=_config.ROOM_EXPIRATION)
   return name, address
 
 
