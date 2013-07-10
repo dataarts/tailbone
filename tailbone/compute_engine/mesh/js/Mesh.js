@@ -11,95 +11,42 @@
  */
 var MeshUtils = {
 
-    uidSeed: 1,
+  uidSeed: 1,
 
-    /**
-     * Adds remote nodes to Mesh.peers
-     * @param mesh {Mesh}
-     * @param nodes {array(string)}
-     */
-    addNodes: function (mesh, nodes) {
+  /**
+   * Executes an asynchronous HTTP GET request
+   * @param url {string}
+   * @param successHandler {function}
+   * @param failureHandler {function}
+   */
+  restGet: function (url, successHandler, failureHandler) {
 
-        var i, node;
-
-        for (i = 0; i < nodes.length; ++i) {
-
-            node = nodes[i];
-            mesh.peers.push(node);
-
-            if (mesh.options.autoPeerConnect) {
-
-                node.connect();
-
-            }
-
-        }
-
-    },
-
-    /**
-     * Removes remote nodes from Mesh.peers
-     * @param mesh {Mesh}
-     * @param nodes {array(string)}
-     */
-    removeNodes: function (mesh, nodes) {
-
-        var i, node;
-
-        for (i = 0; i < nodes.length; ++i) {
-
-            node = nodes[i];
-            node.disconnect();
-            mesh.peers.splice(mesh.peers.indexOf(node), 1);
-
-        }
-
-    },
-
-    /**
-     * Executes an asynchronous HTTP GET request
-     * @param url {string}
-     * @param successHandler {function}
-     * @param failureHandler {function}
-     */
-    restGet: function (url, successHandler, failureHandler) {
-
-        var xmlhttp;
-
-        if (window.XMLHttpRequest) {
-
-            xmlhttp = new XMLHttpRequest();
-
-        } else {
-
-            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-
-        }
-
-        xmlhttp.onreadystatechange = function () {
-
-            if (xmlhttp.readyState === 4) {
-
-                if (xmlhttp.status === 200 && typeof successHandler === 'function') {
-
-                    successHandler(xmlhttp.responseText);
-
-                } else {
-
-                    failureHandler(xmlhttp.status);
-
-                }
-
-            }
-
-        };
-
-        xmlhttp.open('GET', url, true);
-        xmlhttp.send();
-
+    var xmlhttp;
+    if (window.XMLHttpRequest) {
+      xmlhttp = new XMLHttpRequest();
+    } else {
+      xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
     }
 
+    xmlhttp.onreadystatechange = function () {
+      if (xmlhttp.readyState === 4) {
+        if (xmlhttp.status === 200 && typeof successHandler === 'function') {
+          successHandler(xmlhttp.responseText);
+        } else {
+          failureHandler(xmlhttp.status);
+        }
+      }
+    };
+
+    xmlhttp.open('GET', url, true);
+    xmlhttp.send();
+
+  }
+
 };
+
+
+
 
 /**
  * Mesh
@@ -109,66 +56,34 @@ var MeshUtils = {
  */
 var Mesh = function (id, options) {
 
-    var self = this;
+  var self = this;
 
-    StateDrive.call(this);
+  StateDrive.call(this);
 
-    if (id && typeof id !== 'string') {
+  if (id && typeof id !== 'string') {
 
-        throw new Error('Invalid type ID');
+    throw new Error('Invalid type ID');
 
-    }
+  }
 
-    var uid = MeshUtils.uidSeed++;
-    this.__defineGetter__('uid', function () {
-        return uid;
-    });
+  var uid = MeshUtils.uidSeed++;
+  this.__defineGetter__('uid', function () {
+    return uid;
+  });
 
-    this.id = id;
-    this.self = new Node(this, null);
+  this.id = id;
+  this.self = new Node(this, null);
 
-    this.peers = [];
-    EventDispatcher.call(this.peers);
-    self.peers.bind = function() {
-        var originalArguments = arguments;
-        self.peers.forEach(function (peer) {
-            peer._bind.apply(peer, originalArguments);
-        });
-    };
-    self.peers.unbind = function() {
-        var originalArguments = arguments;
-        self.peers.forEach(function (peer) {
-            peer._unbind.apply(peer, originalArguments);
-        });
-    };
-    self.peers.trigger = function() {
-        var originalArguments = arguments;
-        self.peers.forEach(function(peer) {
-            peer.trigger.apply(peer, originalArguments);
-        });
-    };
+  this.peers = new Peers();
+  this.options = {};
 
-    this.options = {};
+  this.config(options);
+  this.setState(Mesh.STATE.INITIALISED);
+  this.setMinCallState('connect', Mesh.STATE.INITIALISED);
 
-    this.config(options);
-    this.setState(Mesh.STATE.INITIALISED);
-    this.setMinCallState('connect', Mesh.STATE.INITIALISED);
-
-    this.self.bind('exist', function () {
-        MeshUtils.addNodes(self, arguments);
-    });
-
-    this.self.bind('enter', function () {
-        MeshUtils.addNodes(self, arguments);
-    });
-
-    this.self.bind('leave', function () {
-        MeshUtils.removeNodes(self, arguments);
-    });
-
-    if (this.options.autoConnect) {
-        self.connect();
-    }
+  if (this.options.autoConnect) {
+    self.connect();
+  }
 
 };
 
@@ -185,7 +100,7 @@ Mesh.prototype = new StateDrive();
  */
 Mesh.prototype.toString = function () {
 
-    return 'Mesh@' + this.uid;
+  return 'Mesh@' + this.uid;
 
 };
 
@@ -195,27 +110,19 @@ Mesh.prototype.toString = function () {
  */
 Mesh.prototype.config = function (options) {
 
-    var field;
+  var field;
 
-    for (field in Mesh.options) {
+  for (field in Mesh.options) {
+    this.options[field] = this.options[field] === undefined ? Mesh.options[field] : this.options[field];
+  }
 
-        this.options[field] = this.options[field] === undefined ? Mesh.options[field] : this.options[field];
-
+  if (typeof options === 'string') {
+    this.options.api = options;
+  } else if (typeof options === 'object') {
+    for (field in options) {
+      this.options[field] = options[field];
     }
-
-    if (typeof options === 'string') {
-
-        this.options.api = options;
-
-    } else if (typeof options === 'object') {
-
-        for (field in options) {
-
-            this.options[field] = options[field];
-
-        }
-
-    }
+  }
 
 };
 
@@ -226,59 +133,50 @@ Mesh.prototype.config = function (options) {
  */
 Mesh.prototype.connect = function () {
 
-    var self = this,
-        options,
-        idMatch;
+  var self = this,
+    options,
+    idMatch;
 
-    if (this.options.ws) {
+  if (this.options.ws) {
 
-        idMatch = this.options.ws.match('[^\/]+$');
-        if (idMatch) {
-
-            this.id = idMatch[0];
-
-        }
-
-        this.self.connect();
-
-        this.peers.forEach(function (peer) {
-
-            peer.connect();
-
-        });
-
-    } else if (this.options.api) {
-
-        MeshUtils.restGet(this.options.api + '/' + (this.id || ''), function (response) {
-
-            try {
-
-                var options = JSON.parse(response);
-                self.config(options);
-                self.connect();
-
-            } catch (e) {
-
-                throw new Error('Could not establish connection with server');
-
-            }
-
-        }, function () {
-
-            console.warn("Error connecting to server, retrying in 10 seconds.");
-            setTimeout(function() {
-                self.connect();
-            }, 10*1000);
-
-            // throw new Error('Could not establish connection with server');
-
-        });
-
-    } else {
-
-        throw new Error('Invalid options');
-
+    idMatch = this.options.ws.match('[^\/]+$');
+    if (idMatch) {
+      this.id = idMatch[0];
     }
+
+    this.self.connect();
+    this.peers.forEach(function (peer) {
+      peer.connect();
+    });
+
+  } else if (this.options.api) {
+
+    MeshUtils.restGet(this.options.api + '/' + (this.id || ''), function (response) {
+
+      try {
+        var options = JSON.parse(response);
+        self.config(options);
+        self.connect();
+      } catch (e) {
+        throw new Error('Could not establish connection with server');
+      }
+
+    }, function () {
+
+      console.warn("Error connecting to server, retrying in 10 seconds.");
+      setTimeout(function() {
+        self.connect();
+      }, 10*1000);
+
+      // throw new Error('Could not establish connection with server');
+
+    });
+
+  } else {
+
+    throw new Error('Invalid options');
+
+  }
 
 };
 
@@ -287,13 +185,11 @@ Mesh.prototype.connect = function () {
  */
 Mesh.prototype.disconnect = function () {
 
-    this.self.disconnect();
+  this.self.disconnect();
 
-    this.peers.forEach(function (peer) {
-
-        peer.disconnect();
-
-    });
+  this.peers.forEach(function (peer) {
+    peer.disconnect();
+  });
 
 };
 
@@ -304,8 +200,8 @@ Mesh.prototype.disconnect = function () {
  */
 Mesh.prototype.bind = function (type, handler) {
 
-    EventDispatcher.prototype.bind.apply(this, arguments);
-    this.peers.bind.apply(this, arguments);
+  EventDispatcher.prototype.bind.apply(this, arguments);
+  this.peers._bind.apply(this.peers, arguments);
 
 };
 
@@ -316,8 +212,8 @@ Mesh.prototype.bind = function (type, handler) {
  */
 Mesh.prototype.unbind = function (type, handler) {
 
-    EventDispatcher.prototype.unbind.apply(this, arguments);
-    this.peers.unbind.apply(this, arguments);
+  EventDispatcher.prototype.unbind.apply(this, arguments);
+  this.peers._unbind.apply(this.peers, arguments);
 
 };
 
@@ -328,11 +224,8 @@ Mesh.prototype.unbind = function (type, handler) {
  */
 Mesh.prototype.trigger = function (type, args) {
 
-    this.self.trigger.apply(this.self, arguments);
-    var originalArguments = arguments;
-    this.peers.forEach(function (peer) {
-        peer.trigger.apply(peer, originalArguments);
-    });
+  this.self.trigger.apply(this.self, arguments);
+  this.peers.trigger.apply(this.peers, arguments);
 
 };
 
@@ -342,10 +235,10 @@ Mesh.prototype.trigger = function (type, args) {
  */
 Mesh.STATE = {
 
-    INVALID: -1,
-    UNDEFINED: 0,
-    INITIALISED: 1,
-    CONNECTED: 2
+  INVALID: -1,
+  UNDEFINED: 0,
+  INITIALISED: 1,
+  CONNECTED: 2
 
 };
 
@@ -355,9 +248,9 @@ Mesh.STATE = {
  */
 Mesh.options = {
 
-    api: '/api/mesh',
-    autoConnect: true,
-    autoPeerConnect: true,
-    useWebRTC: true,
+  api: '/api/mesh',
+  autoConnect: true,
+  autoPeerConnect: true,
+  useWebRTC: true
 
 };

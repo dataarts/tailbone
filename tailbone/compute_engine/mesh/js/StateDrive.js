@@ -11,10 +11,10 @@
  */
 var StateDrive = function () {
 
-    EventDispatcher.call(this);
+  EventDispatcher.call(this);
 
-    this._state = 0;
-    this._callQueue = {};
+  this._state = 0;
+  this._callQueue = {};
 
 };
 
@@ -30,7 +30,7 @@ StateDrive.prototype = new EventDispatcher();
  */
 StateDrive.prototype.getState = function () {
 
-    return this._state;
+  return this._state;
 
 };
 
@@ -40,8 +40,8 @@ StateDrive.prototype.getState = function () {
  */
 StateDrive.prototype.setState = function (state) {
 
-    this._state = state;
-    this._executeQueuedCalls();
+  this._state = state;
+  this._executeQueuedCalls();
 
 };
 
@@ -54,34 +54,23 @@ StateDrive.prototype.setState = function (state) {
  */
 StateDrive.prototype.setMinCallState = function (funcName, validators, state) {
 
-    var originalFunction = this[funcName],
-        stateId = arguments[arguments.length - 1],
-        argumentValidators = arguments.length > 2 ? Array.prototype.slice.apply(arguments).slice(1, arguments.length - 1) : [],
-        i;
+  var originalFunction = this[funcName],
+    stateId = arguments[arguments.length - 1],
+    argumentValidators = arguments.length > 2 ? Array.prototype.slice.apply(arguments).slice(1, arguments.length - 1) : [],
+    i;
 
-    this[funcName] = function () {
-
-        if (this._state >= stateId || arguments.length < argumentValidators.length) {
-
-            return originalFunction.apply(this, arguments);
-
-        } else {
-
-            for (i = 0; i < argumentValidators.length; ++i) {
-
-                if (!arguments[i].match(argumentValidators[i])) {
-
-                    return originalFunction.apply(this, arguments);
-
-                }
-
-            }
-
-            return this._queueCall(funcName, arguments, stateId);
-
+  this[funcName] = function () {
+    if (this._state >= stateId || arguments.length < argumentValidators.length) {
+      return originalFunction.apply(this, arguments);
+    } else {
+      for (i = 0; i < argumentValidators.length; ++i) {
+        if (!arguments[i].match(argumentValidators[i])) {
+          return originalFunction.apply(this, arguments);
         }
-
-    };
+      }
+      return this._queueCall(funcName, arguments, stateId);
+    }
+  };
 
 };
 
@@ -93,8 +82,8 @@ StateDrive.prototype.setMinCallState = function (funcName, validators, state) {
  */
 StateDrive.prototype._queueCall = function (funcName, args, state) {
 
-    this._callQueue[state] = this._callQueue[state] || [];
-    this._callQueue[state].push({name: funcName, args: args});
+  this._callQueue[state] = this._callQueue[state] || [];
+  this._callQueue[state].push({name: funcName, args: args});
 
 };
 
@@ -103,22 +92,14 @@ StateDrive.prototype._queueCall = function (funcName, args, state) {
  */
 StateDrive.prototype._executeQueuedCalls = function () {
 
-    var i, j;
-
-    for (i = 0; i <= this._state; ++i) {
-
-        if (this._callQueue[i]) {
-
-            for (j = 0; j < this._callQueue[i].length; ++j) {
-
-                this[this._callQueue[i][j].name].apply(this, this._callQueue[i][j].args);
-
-            }
-
-            this._callQueue[i] = [];
-
-        }
-
+  var i, j;
+  for (i = 0; i <= this._state; ++i) {
+    if (this._callQueue[i]) {
+      for (j = 0; j < this._callQueue[i].length; ++j) {
+        this[this._callQueue[i][j].name].apply(this, this._callQueue[i][j].args);
+      }
+      this._callQueue[i] = [];
     }
+  }
 
 };

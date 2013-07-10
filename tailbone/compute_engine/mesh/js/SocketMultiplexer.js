@@ -9,153 +9,146 @@
  * Makes the attached channels behave like direct connections.
  */
 var SocketMultiplexer = function(mesh) {
-    StateDrive.call(this);
-    this.mesh = mesh;
-    this.setState(Channel.STATE.CLOSED)
-    this.channels = {};
+  StateDrive.call(this);
+  this.mesh = mesh;
+  this.setState(Channel.STATE.CLOSED);
+  this.channels = {};
 };
 
 SocketMultiplexer._byMesh = {};
 
 SocketMultiplexer.get = function(mesh) {
-    var multiplexer = SocketMultiplexer._byMesh[mesh];
-    if(!multiplexer) {
-        multiplexer = new SocketMultiplexer(mesh);
-        SocketMultiplexer._byMesh[mesh] = multiplexer;
-    }
-    return multiplexer;
+  var multiplexer = SocketMultiplexer._byMesh[mesh];
+  if(!multiplexer) {
+    multiplexer = new SocketMultiplexer(mesh);
+    SocketMultiplexer._byMesh[mesh] = multiplexer;
+  }
+  return multiplexer;
 };
 
 SocketMultiplexer.prototype = new StateDrive();
 
-SocketMultiplexer.prototype.process = function(from, timestamp, data) {
-    // trigger the data on the from channel
-    var from = self.channels[from];
-    if (from) {
-        from.trigger.apply(from, data);
-    }
-};
-
 SocketMultiplexer.prototype.register = function(channel) {
-    if (this.channels[channel.remoteNode.id] === undefined) {
-        this.channels[channel.remoteNode.id] = channel;
-        var state = this.getState();
-        channel.setState(state);
-        // if underlying websocket is already open simulate the open for the channel
-        if (state === Channel.STATE.OPEN) {
-            channel.trigger('open', {
-                timestamp: Date.now(),
-                data: ['open']
-            });
-        }
+  if (this.channels[channel.remoteNode.id] === undefined) {
+    this.channels[channel.remoteNode.id] = channel;
+    var state = this.getState();
+    channel.setState(state);
+    // if underlying websocket is already open simulate the open for the channel
+    if (state === Channel.STATE.OPEN) {
+      channel.trigger('open', {
+        timestamp: Date.now(),
+        data: ['open']
+      });
     }
+  }
 };
 
 SocketMultiplexer.prototype.unregister = function(channel) {
-    delete this.channels[channel.remoteNode.id];
-    channel.setState(Channel.STATE.CLOSED);
+  delete this.channels[channel.remoteNode.id];
+  channel.setState(Channel.STATE.CLOSED);
 };
 
 SocketMultiplexer.prototype.open = function(channel) {
 
-    if (this.getState() !== Channel.STATE.CLOSED) {
-        return;
+  if (this.getState() !== Channel.STATE.CLOSED) {
+    return;
+  }
+  this.setState(Channel.STATE.OPENING);
+
+  var self = this;
+  var socket = self.socket = new WebSocket(this.mesh.options.ws);
+
+  socket.addEventListener('open', function(e) {
+    self.setState(Channel.STATE.OPEN);
+    // mark all attached channels as open
+    for (var id in self.channels) {
+      var channel = self.channels[id];
+      channel.setState(Channel.STATE.OPEN);
+      channel.trigger('open', {
+        timestamp: Date.now(),
+        data: ['open']
+      });
     }
-    this.setState(Channel.STATE.OPENING);
+  }, false);
 
-    var self = this;
-    var socket = self.socket = new WebSocket(this.mesh.options.ws);
+  socket.addEventListener('message', function(e) {
+    var container;
+    try {
+      container = JSON.parse(e.data);
+    } catch (err) {
+      throw new Error('Invalid container received', container);
+    }
+    var from = container[0];
+    var timestamp = container[1];
+    var data;
+    try {
+      data = JSON.parse(container[2]);
+    } catch (err) {
+      throw new Error('Invalid data received', data);
+    }
+    // one time upgrade of self id upon connection
+    if (data[0] === 'exist') {
+      // find a null self node and upgrade it
+      var selfChannel = self.channels[null];
+      selfChannel.localNode.id = from;
+      delete self.channels[null];
+      self.channels[from] = selfChannel;
+    }
+    var fromChannel = self.channels[from];
+    if (fromChannel) {
+      console.log('from', fromChannel.remoteNode.id,
+        'to', fromChannel.localNode.id, data);
+      fromChannel.trigger('message', {
+        timestamp: timestamp,
+        data: data
+      });
+    } else {
+      // console.warn('no from channel found', from);
+    }
+  }, false);
 
-    socket.addEventListener('open', function(e) {
-        self.setState(Channel.STATE.OPEN);
-        // mark all attached channels as open
-        for (var id in self.channels) {
-            var channel = self.channels[id];
-            channel.setState(Channel.STATE.OPEN);
-            channel.trigger('open', {
-                timestamp: Date.now(),
-                data: ['open']
-            });
-        }
-    }, false);
+  socket.addEventListener('close', function() {
+    self.setState(Channel.STATE.CLOSED);
+    for (var id in self.channels) {
+      var channel = self.channels[id];
+      channel.setState(Channel.STATE.CLOSED);
+      channel.trigger('close', {
+        timestamp: Date.now(),
+        data: ['close']
+      });
+    }
 
-    socket.addEventListener('message', function(e) {
-        var container;
-        try {
-            container = JSON.parse(e.data);
-        } catch (err) {
-            throw new Error('Invalid container received', container);
-        }
-        var from = container[0];
-        var timestamp = container[1];
-        var data;
-        try {
-            data = JSON.parse(container[2]);
-        } catch (err) {
-            throw new Error('Invalid data received', data);
-        }
-        // one time upgrade of self id upon connection
-        if (data[0] === 'exist') {
-            // find a null self node and upgrade it
-            var selfChannel = self.channels[null];
-            selfChannel.localNode.id = from;
-            delete self.channels[null];
-            self.channels[from] = selfChannel;
-        }
-        var fromChannel = self.channels[from];
-        if (fromChannel) {
-            console.log('from', fromChannel.remoteNode.id,
-                'to', fromChannel.localNode.id, data);
-            fromChannel.trigger('message', {
-                timestamp: timestamp,
-                data: data
-            });
-        } else {
-            console.warn('no from channel found', fromChannel);
-        }
-    }, false);
+  }, false);
 
-    socket.addEventListener('close', function() {
-        self.setState(Channel.STATE.CLOSED);
-        for (var id in self.channels) {
-            var channel = self.channels[id];
-            channel.setState(Channel.STATE.CLOSED);
-            channel.trigger('close', {
-                timestamp: Date.now(),
-                data: ['close']
-            });
-        }
-
-    }, false);
-
-    socket.addEventListener('error', function() {
-        self.setState(Channel.STATE.CLOSED);
-        for (var id in self.channels) {
-            var channel = self.channels[id];
-            channel.setState(Channel.STATE.CLOSED);
-            channel.trigger('error', {
-                timestamp: Date.now(),
-                data: ['error']
-            });
-        }
-    }, false);
+  socket.addEventListener('error', function() {
+    self.setState(Channel.STATE.CLOSED);
+    for (var id in self.channels) {
+      var channel = self.channels[id];
+      channel.setState(Channel.STATE.CLOSED);
+      channel.trigger('error', {
+        timestamp: Date.now(),
+        data: ['error']
+      });
+    }
+  }, false);
 
 };
 
 SocketMultiplexer.prototype.close = function(channel) {
-    this.unregister(channel);
-    if (channel.remoteNode === channel.localNode.mesh.self) {
-        this.setState(Channel.STATE.CLOSED);
-        this.socket.close();
-    }
-    // if (Object.keys(this.channels).length === 0) {
-    //     this.setState(Channel.STATE.CLOSED);
-    //     this.socket.close();
-    // }
+  this.unregister(channel);
+  if (channel.remoteNode === channel.localNode.mesh.self) {
+    this.setState(Channel.STATE.CLOSED);
+    this.socket.close();
+  }
+  // if (Object.keys(this.channels).length === 0) {
+  //     this.setState(Channel.STATE.CLOSED);
+  //     this.socket.close();
+  // }
 };
 
 SocketMultiplexer.prototype.send = function(channel, message) {
-    // TODO: user defer to batch send messages
-    var encoded = JSON.stringify([[channel.remoteNode.id], message]);
-    return this.socket.send(encoded);
-}
+  // TODO: user defer to batch send messages
+  var encoded = JSON.stringify([[channel.remoteNode.id], message]);
+  return this.socket.send(encoded);
+};
+
