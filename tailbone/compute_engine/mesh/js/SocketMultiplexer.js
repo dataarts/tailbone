@@ -129,6 +129,7 @@ SocketMultiplexer.prototype.open = function(channel) {
     }, false);
 
     socket.addEventListener('error', function() {
+        self.setState(Channel.STATE.CLOSED);
         for (var id in self.channels) {
             var channel = self.channels[id];
             channel.setState(Channel.STATE.CLOSED);
