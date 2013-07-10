@@ -340,10 +340,14 @@ class LoadBalancer(object):
 
     compute = compute_api()
     if compute:
+      def update_zone(s):
+        return re.sub(r"\/zones\/([^/]*)",
+                      "/zones/{}".format(instance.zone),
+                      s)
       instance.PARAMS.update({
         "name": name,
-        "zone": instance.PARAMS.get("zone").replace(DEFAULT_ZONE, instance.zone),
-        "machineType": instance.PARAMS.get("machineType").replace(DEFAULT_ZONE, instance.zone),
+        "zone": update_zone(instance.PARAMS.get("zone")),
+        "machineType": update_zone(instance.PARAMS.get("machineType")),
       })
       operation = compute.instances().insert(
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
