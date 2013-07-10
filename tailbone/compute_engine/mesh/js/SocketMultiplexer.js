@@ -77,7 +77,7 @@ SocketMultiplexer.prototype.open = function(channel) {
         var container;
         try {
             container = JSON.parse(e.data);
-        } catch (e) {
+        } catch (err) {
             throw new Error('Invalid container received', container);
         }
         var from = container[0];
@@ -85,7 +85,7 @@ SocketMultiplexer.prototype.open = function(channel) {
         var data;
         try {
             data = JSON.parse(container[2]);
-        } catch (e) {
+        } catch (err) {
             throw new Error('Invalid data received', data);
         }
         // one time upgrade of self id upon connection
@@ -97,7 +97,7 @@ SocketMultiplexer.prototype.open = function(channel) {
             self.channels[from] = selfChannel;
         }
         var fromChannel = self.channels[from];
-        console.log('from', fromChannel.remoteNode.id, 
+        console.log('from', fromChannel.remoteNode.id,
             'to', fromChannel.localNode.id, data);
         if (fromChannel) {
             fromChannel.trigger('message', {
