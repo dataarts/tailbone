@@ -97,6 +97,9 @@ var Node = function (mesh, id, initiator) {
     this.setState(Node.STATE.DISCONNECTED);
     this.setMinCallState("connect", Node.STATE.DISCONNECTED);
     this.setMinCallState("disconnect", Node.STATE.CONNECTED);
+    this.setMinCallState("_bind", Node.STATE.CONNECTED);
+    this.setMinCallState("_unbind", Node.STATE.CONNECTED);
+    this.setMinCallState("_trigger", Node.STATE.CONNECTED);
 
 };
 

@@ -53,5 +53,6 @@ Channel.prototype.send = function (message) {
 
 Channel.STATE = {
     CLOSED: 1,
-    OPEN: 2
+    OPENING: 2,
+    OPEN: 3
 };

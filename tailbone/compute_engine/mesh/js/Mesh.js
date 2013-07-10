@@ -167,9 +167,7 @@ var Mesh = function (id, options) {
     });
 
     if (this.options.autoConnect) {
-
-        this.connect();
-
+        self.connect();
     }
 
 };

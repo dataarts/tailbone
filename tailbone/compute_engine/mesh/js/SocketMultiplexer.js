@@ -39,9 +39,10 @@ SocketMultiplexer.prototype.process = function(from, timestamp, data) {
 SocketMultiplexer.prototype.register = function(channel) {
     if (this.channels[channel.remoteNode.id] === undefined) {
         this.channels[channel.remoteNode.id] = channel;
-        channel.setState(this.getState());
+        var state = this.getState();
+        channel.setState(state);
         // if underlying websocket is already open simulate the open for the channel
-        if (this.getState() === Channel.STATE.OPEN) {
+        if (state === Channel.STATE.OPEN) {
             channel.trigger('open', {
                 timestamp: Date.now(),
                 data: ['open']
@@ -57,10 +58,10 @@ SocketMultiplexer.prototype.unregister = function(channel) {
 
 SocketMultiplexer.prototype.open = function(channel) {
 
-    if (this.getState() == Channel.STATE.OPEN) {
+    if (this.getState() !== Channel.STATE.CLOSED) {
         return;
     }
-    this.setState(Channel.STATE.OPEN);
+    this.setState(Channel.STATE.OPENING);
 
     var self = this;
     var socket = self.socket = new WebSocket(this.mesh.options.ws);
@@ -75,7 +76,7 @@ SocketMultiplexer.prototype.open = function(channel) {
                 data: ['open']
             });
         }
-    });
+    }, false);
 
     socket.addEventListener('message', function(e) {
         var container;
@@ -101,15 +102,15 @@ SocketMultiplexer.prototype.open = function(channel) {
             self.channels[from] = selfChannel;
         }
         var fromChannel = self.channels[from];
-        console.log('from', fromChannel.remoteNode.id, 
-            'to', fromChannel.localNode.id, data);
         if (fromChannel) {
+            console.log('from', fromChannel.remoteNode.id, 
+                'to', fromChannel.localNode.id, data);
             fromChannel.trigger('message', {
                 timestamp: timestamp,
                 data: data
             });
         }
-    });
+    }, false);
 
     socket.addEventListener('close', function() {
         self.setState(Channel.STATE.CLOSED);
@@ -122,7 +123,7 @@ SocketMultiplexer.prototype.open = function(channel) {
             });
         }
 
-    });
+    }, false);
 
     socket.addEventListener('error', function() {
         for (var id in self.channels) {
@@ -133,16 +134,20 @@ SocketMultiplexer.prototype.open = function(channel) {
                 data: ['error']
             });
         }
-    });
+    }, false);
 
 };
 
 SocketMultiplexer.prototype.close = function(channel) {
     this.unregister(channel);
-    if (Object.keys(this.channels).length === 0) {
+    if (channel.remoteNode === channel.localNode.mesh.self) {
         this.setState(Channel.STATE.CLOSED);
         this.socket.close();
     }
+    // if (Object.keys(this.channels).length === 0) {
+    //     this.setState(Channel.STATE.CLOSED);
+    //     this.socket.close();
+    // }
 };
 
 SocketMultiplexer.prototype.send = function(channel, message) {
