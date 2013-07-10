@@ -62,6 +62,14 @@
     }
   });
 
+  asyncTest('connect', 1, function() {
+    var mesh1 = new tailbone.Mesh('id2', {ws: 'ws://localhost:2345/id2'});
+    mesh1.bind('connect', function() {
+      ok(true, 'connected');
+      start();
+    });
+  });
+
   asyncTest('exist', 5, function () {
 
     var mesh1 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
@@ -112,7 +120,7 @@
 
       mesh1.disconnect();
       start();
-      
+
     });
 
     mesh2.bind('exist', function() {

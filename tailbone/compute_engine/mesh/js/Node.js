@@ -11,7 +11,7 @@
  */
 var NodeUtils = {
 
-  PROTECTED_EVENTS: ['open', 'exist', 'enter', 'leave', 'bind', 'unbind'],
+  PROTECTED_EVENTS: ['open', 'exist', 'enter', 'leave', 'bind', 'unbind', 'connect'],
 
   uidSeed: 1,
   remoteBindsByNodeIds: {},
@@ -179,6 +179,7 @@ Node.prototype.connect = function (callback) {
     } else {
       self.setState(Node.STATE.CONNECTED);
       self.mesh.setState(Mesh.STATE.CONNECTED);
+      self.trigger('connect');
     }
   });
 
