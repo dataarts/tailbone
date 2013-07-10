@@ -160,8 +160,6 @@ def new_node_id():
 
 class Handler(tornado.websocket.WebSocketHandler):
   """WebSocket connection and message handler."""
-  def set_default_headers(self):
-    self.set_header("Access-Control-Allow-Origin", "*")
 
   def open(self):
     enter(self, self.request.path[1:])
