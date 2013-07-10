@@ -100,6 +100,7 @@ class MeshHandler(BaseHandler):
     username = self.request.get("username", generate_word())
     username, password = turn.credentials(username)
     ts = None
+    # ts = "turn:173.255.117.180"
     return {
       "ws": ws,
       "name": room,
