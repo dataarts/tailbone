@@ -33,11 +33,8 @@ var NodeUtils = {
   acknowledgeRemoteBind: function (nodeId, type) {
 
     NodeUtils.remoteBindsByNodeIds[nodeId] = NodeUtils.remoteBindsByNodeIds[nodeId] || [];
-
     if (NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type) === -1) {
-
       NodeUtils.remoteBindsByNodeIds[nodeId].push(type);
-
     }
 
   },
@@ -45,11 +42,8 @@ var NodeUtils = {
   acknowledgeRemoteUnbind: function (nodeId, type) {
 
     var index;
-
     if (NodeUtils.remoteBindsByNodeIds[nodeId] && (index = NodeUtils.remoteBindsByNodeIds[nodeId].indexOf(type))) {
-
       NodeUtils.remoteBindsByNodeIds[nodeId].splice(index, 1);
-
     }
 
   },
@@ -179,7 +173,6 @@ Node.prototype.connect = function (callback) {
     } else {
       self.setState(Node.STATE.CONNECTED);
       self.mesh.setState(Mesh.STATE.CONNECTED);
-      self.trigger('connect');
     }
   });
 
@@ -308,7 +301,7 @@ Node.prototype.preprocessIncoming = function (eventArguments) {
   switch (type) {
 
     case 'exist':
-      parsedArguments.push(type);
+      // parsedArguments.push(type);
       for (i = 1; i < eventArguments.length; ++i) {
         node = new Node(this.mesh, eventArguments[i], true);
         parsedArguments.push(node);
@@ -318,6 +311,15 @@ Node.prototype.preprocessIncoming = function (eventArguments) {
           node.connect();
         }
       }
+      if (this != this.mesh.self) {
+        console.warn('Expected exist triggered only on self node.')
+      }
+      // add yourself
+      parsedArguments.unshift(this);
+      // transform the exist call to another enter call
+      parsedArguments.unshift('enter');
+      // trigger connect with self node
+      this.trigger('connect', this);
       break;
 
     case 'enter':

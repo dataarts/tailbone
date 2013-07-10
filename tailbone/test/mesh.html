@@ -70,40 +70,42 @@
     });
   });
 
-  asyncTest('exist', 5, function () {
+  // Exist no longer supported just enter
+  // asyncTest('exist', 5, function () {
 
-    var mesh1 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
-    var mesh2 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
+  //   var mesh1 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
+  //   var mesh2 = new tailbone.Mesh('id3', {ws: 'ws://localhost:2345/id3'});
 
-    mesh1.bind('exist', function () {
+  //   mesh1.bind('exist', function () {
 
-      ok(true, '\'exist\' triggered upon connection when there are no peer nodes');
-      equal(arguments.length, 0, 'arguments.length === 0 when there are no peer nodes already in the mesh');
+  //     ok(true, '\'exist\' triggered upon connection when there are no peer nodes');
+  //     equal(arguments.length, 0, 'arguments.length === 0 when there are no peer nodes already in the mesh');
 
-      mesh2.connect();
+  //     mesh2.connect();
 
-    });
+  //   });
 
-    mesh2.bind('exist', function() {
+  //   mesh2.bind('exist', function() {
 
-      ok(true, '\'exist\' triggered upon connection when peer nodes exist');
-      equal(arguments.length, 1, 'arguments.length === 1 when there is one peer node already in the mesh');
-      ok(typeof arguments[0], 'object', 'arguments are Node class instances');
+  //     ok(true, '\'exist\' triggered upon connection when peer nodes exist');
+  //     equal(arguments.length, 1, 'arguments.length === 1 when there is one peer node already in the mesh');
+  //     ok(typeof arguments[0], 'object', 'arguments are Node class instances');
 
-      mesh1.disconnect();
-      mesh2.disconnect();
-      start();
+  //     mesh1.disconnect();
+  //     mesh2.disconnect();
+  //     start();
 
-    });
+  //   });
 
-    mesh1.connect();
+  //   mesh1.connect();
 
-  });
+  // });
 
-  asyncTest('enter', 4, function () {
+  asyncTest('enter', 7, function () {
 
     var mesh1 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
     var mesh2 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
+    var triggerCount = 0;
 
     mesh1.bind('open', function () {
 
@@ -113,21 +115,18 @@
 
     mesh1.bind('enter', function () {
 
-      ok(true, '\'enter\' triggered upon peer connection');
+      ok(true, '\'enter\' triggered upon connection');
       equal(arguments.length, 1, 'arguments.length === 1 when one peer connected');
       equal(typeof arguments[0], 'object', 'arguments are Node class instances');
-      equal(mesh1.peers.length, 1, 'node added to Mesh.peers');
 
-      mesh1.disconnect();
-      start();
+      if (++triggerCount >= 2) {
+          equal(mesh1.peers.length, 1, 'node added to Mesh.peers');
+          mesh1.disconnect();
+          mesh2.disconnect();
+          start();
+      }
 
     });
-
-    mesh2.bind('exist', function() {
-      mesh2.disconnect();
-    });
-
-    mesh1.connect();
 
   });
 
@@ -136,7 +135,7 @@
     var mesh1 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
     var mesh2 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
 
-    mesh2.bind('exist', function () {
+    mesh2.bind('connect', function () {
 
       mesh2.disconnect();
 
@@ -160,7 +159,7 @@
     var mesh1 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
     var mesh2 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
 
-    mesh2.bind('exist', function(n) {
+    mesh2.bind('connect', function(n) {
       mesh2.trigger('test', 'some arg');
     });
     mesh1.bind('test', function(x) {
@@ -176,10 +175,10 @@
     mesh3 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
     triggerCount = 0;
 
-    mesh2.bind('exist', function() {
+    mesh2.bind('connect', function() {
       mesh2.peers.trigger('test');
     });
-    mesh3.bind('exist', function() {
+    mesh3.bind('connect', function() {
       mesh3.peers.trigger('test');
     });
 
@@ -207,7 +206,7 @@
 
     window.mesh1 = mesh1;
 
-    mesh3.bind('exist', function() {
+    mesh3.bind('connect', function() {
       var n = mesh3.peers.getById(mesh1.self.id);
       n.trigger('a');
       n.bind('b', function() {
@@ -240,7 +239,7 @@
       mesh1.unbind('a');
     });
 
-    mesh2.bind('exist', function(n) {
+    mesh2.bind('connect', function(n) {
       ok(true, 'triggering');
       mesh2.trigger('a');
     });
@@ -300,7 +299,7 @@
     var mesh1 = new tailbone.Mesh('id11', {ws: 'ws://localhost:2345/id11'});
     var mesh2 = new tailbone.Mesh('id11', {ws: 'ws://localhost:2345/id11'});
 
-    mesh2.bind('exist', function(n) {
+    mesh2.bind('connect', function(n) {
       ok(mesh2.peers[0]._channels.length == 2, 'Two channels.');
       var c = mesh2.peers[0]._channels[0];
       c.bind('open', function() {
