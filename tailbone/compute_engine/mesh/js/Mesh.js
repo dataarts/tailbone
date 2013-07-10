@@ -123,15 +123,10 @@ Mesh.prototype.connect = function () {
 
   } else if (this.options.api) {
 
-    http.GET(this.options.api + '/' + (this.id || ''), function (response) {
+    http.GET(this.options.api + '/' + (this.id || ''), function (options) {
 
-      try {
-        var options = JSON.parse(response);
-        self.config(options);
-        self.connect();
-      } catch (e) {
-        throw new Error('Could not establish connection with server');
-      }
+      self.config(options);
+      self.connect();
 
     }, function () {
 

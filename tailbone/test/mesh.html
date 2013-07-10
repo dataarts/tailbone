@@ -70,6 +70,14 @@
     });
   });
 
+  asyncTest('connect /api/mesh', 1, function() {
+    var mesh1 = new tailbone.Mesh();
+    mesh1.bind('connect', function() {
+      ok(true, 'connected');
+      start();
+    });
+  });
+
   // Exist no longer supported just enter
   // asyncTest('exist', 5, function () {
 
