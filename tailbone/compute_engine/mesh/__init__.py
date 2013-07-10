@@ -81,7 +81,7 @@ def get_or_create_room(request, name=None):
   if not address:
     if config.DEBUG:
       class DebugInstance(object):
-        address = "localhost"
+        address = request.remote_addr
       instance = DebugInstance()
     else:
       instance = LoadBalancer.find(TailboneMeshInstance, request)
