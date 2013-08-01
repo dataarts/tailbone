@@ -15,73 +15,15 @@ JSON.parse = function(json) {return JSON._parse(json, function(key, value) {
     return value;
   });
 };
-if (jQuery !== undefined) {
+if (window.jQuery !== undefined) {
   jQuery.parseJSON = JSON.parse;
   jQuery.ajaxSettings.converters["text json"] = JSON.parse;
 }
 
 })();
 
-// Should probably just use jquery but put this here if you don't
-// TODO: need a better fix for how to handle ajax
 var http = {};
 (function() {
-
-if (jQuery !== undefined) {
-
-function errorWrapper(fn) {
-  if (typeof fn === 'function') {
-    return function(jqXHR, textStatus, errorThrown) {
-      var data = jqXHR.responseText;
-      try { data = JSON.parse(data); } catch(e) {}
-      fn(data, textStatus, jqXHR, errorThrown);
-    }
-  }
-}
-
-http.HEAD = function(url, load, error, context) {
-  $.ajax({
-    type: 'HEAD',
-    url: url,
-    success: load,
-    error: errorWrapper(error),
-    context: context
-  });
-};
-http.GET = function(url, load, error, context) {
-  $.ajax({
-    type: 'GET',
-    url: url,
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json',
-    context: context
-  });
-};
-http.POST = function(url, data, load, error, context) {
-  $.ajax({
-    type: 'POST',
-    url: url,
-    data: JSON.stringify(data),
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json',
-    contentType: 'application/json',
-    context: context
-  });
-};
-http.DELETE = function(url, load, error, context) {
-  $.ajax({
-    type: 'DELETE',
-    url: url,
-    success: load,
-    error: errorWrapper(error),
-    dataType: 'json',
-    context: context
-  });
-};
-
-} else {
 
 function json_request(kind, url, success, error, context) {
   var xhr;
@@ -129,5 +71,4 @@ http.DELETE = function(url, load, error, context) {
   xhr.send();
 };
 
-}
 })();

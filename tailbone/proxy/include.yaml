@@ -13,5 +13,5 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/proxy
+  - url: /api/proxy/?.*
     script: tailbone.proxy.app

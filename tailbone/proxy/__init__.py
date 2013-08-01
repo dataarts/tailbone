@@ -17,6 +17,15 @@ import webapp2
 from tailbone import DEBUG
 
 from google.appengine.api import urlfetch
+from google.appengine.api import lib_config
+
+
+class _ConfigDefaults(object):
+  # list of valid domain to restrict proxy to defaults to anything
+  RESTRICTED_DOMAINS = None
+
+_config = lib_config.register('tailboneProxy', _ConfigDefaults.__dict__)
+
 
 # Simple Proxy Server
 # ---------------------
@@ -26,13 +35,20 @@ from google.appengine.api import urlfetch
 class ProxyHandler(webapp2.RequestHandler):
   def proxy(self, *args, **kwargs):
     url = urllib.unquote(self.request.get('url'))
+    # TODO: check agains RESTRICTED_DOMAINS 
     if url:
+      if _config.RESTRICTED_DOMAINS:
+        if url not in _config.RESTRICTED_DOMAINS:
+          self.error(500)
+          self.response.out.write("Restricted domain.")
+          return
       resp = urlfetch.fetch(url, method=self.request.method, headers=self.request.headers)
       for k,v in resp.headers.iteritems():
         self.response.headers[k] = v
       self.response.status = resp.status_code
       self.response.out.write(resp.content)
     else:
+      self.error(500)
       self.response.out.write("Must provide a 'url' parameter.")
   def get(self, *args, **kwargs):
     self.proxy(*args, **kwargs)

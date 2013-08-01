@@ -13,7 +13,11 @@
 # limitations under the License.
 
 # shared resources and global variables
-from tailbone import *
+from tailbone import AppError
+from tailbone import as_json
+from tailbone import BreakError
+from tailbone import config
+from tailbone import DEBUG
 
 import re
 import urllib
@@ -26,7 +30,6 @@ try:
 except:
   HAS_PIL = False
 
-from google.appengine.api import users
 from google.appengine.ext.ndb import blobstore
 from google.appengine.ext import blobstore as bs
 from google.appengine.ext.webapp import blobstore_handlers
@@ -59,7 +62,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
   @as_json
   def get(self, key):
     if key == "":  # query
-      if not users.is_current_user_admin():
+      if not config.is_current_user_admin():
         raise AppError("User must be administrator.")
       return query(self, BlobInfo)
     elif key == "create":
@@ -85,7 +88,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
 
   @as_json
   def delete(self, key):
-    if not users.is_current_user_admin():
+    if not config.is_current_user_admin():
       raise AppError("User must be administrator.")
     key = blobstore.BlobKey(str(urllib.unquote(key)))
     blob_info = BlobInfo.get(key)

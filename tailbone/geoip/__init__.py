@@ -12,26 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from tailbone import as_json
+from tailbone import BaseHandler
+from tailbone import DEBUG
+
 import webapp2
 
-
-class Middleware(object):
-  def __init__(self, app):
-    self.app = app
-
-  def __call__(self, environ, start_response):
-    req = webapp2.Request(environ)
-    resp = req.get_response(self.app)
-
-    def copy_header(k):
-      v = req.headers.get(k)
-      if v:
-        resp.headers[k] = v
-
+class GeoIPHandler(BaseHandler):
+  @as_json
+  def get(self):
+    resp = {}
     for x in ["Country", "Region", "City", "CityLatLong"]:
       k = "X-AppEngine-" + x
-      copy_header(k)
+      resp[x] = self.request.headers.get(k)
+    resp["IP"] = self.request.remote_addr
+    return resp
 
-    resp.headers["REMOTE_ADDR"] = req.remote_addr
-
-    return resp(environ, start_response)
+app = webapp2.WSGIApplication([
+  (r".*", GeoIPHandler),
+  ], debug=DEBUG)

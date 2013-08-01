@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <title></title>
+  <link rel="stylesheet" href="extras/qunit-git.css">
+</head>
+<body>
+  <div id="qunit"></div>
+  <script src="extras/qunit-git.js" type="text/javascript"></script>
+  <script src="extras/jquery.min.js"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+  module('tailbone.Mesh exports');
+
+  test('export', function () {
+    ok(tailbone.Mesh, 'Mesh exported as tailbone.Mesh');
+  });
+
+  module('tailbone.Mesh basics', {
+    setup: function() {
+      this.defaultOptions = tailbone.Mesh.options;
+      tailbone.Mesh.options.autoConnect = false;
+    },
+    teardown: function() {
+      tailbone.Mesh.options = this.defaultOptions;
+    }
+  });
+
+  test('constructor', function() {
+
+    ok(new tailbone.Mesh(), 'new tailbone.Mesh() succeeds');
+    ok(new tailbone.Mesh('id'), 'new tailbone.Mesh((string) id) succeeds');
+    ok(new tailbone.Mesh('id', '/api/mesh'), 'new tailbone.Mesh((string) id, (string) api) succeeds');
+    ok(new tailbone.Mesh('id', {ws: 'ws://localhost:2345/id'}), 'new tailbone.Mesh((string) id, (object) options) succeeds');
+    ok(new tailbone.Mesh(null, '/api/mesh'), 'new tailbone.Mesh(null, (string) api) succeeds');
+    ok(new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}), 'new tailbone.Mesh(null, (object) options) succeeds');
+
+    throws(function () {
+      new tailbone.Mesh(1);
+    }, 'new tailbone.Mesh((number) id) throws Error, id needs to be string');
+
+  });
+
+  test('options', function() {
+
+    equal(new tailbone.Mesh(null, '/api/mesh').options.api, '/api/mesh', 'new tailbone.Mesh(null, (string) options): options is considered options.api');
+    equal(new tailbone.Mesh(null, {api: '/api/mesh'}).options.api, '/api/mesh', 'new tailbone.Mesh(null, (object) options) transcribes options.api');
+    equal(new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}).options.ws, 'ws://localhost:2345/id', 'new tailbone.Mesh(null, (object) options) transcribes options.ws');
+    equal(new tailbone.Mesh(null, {custom: 123}).options.custom, 123, 'new tailbone.Mesh(null, (object) options) transcribes custom properties');
+
+  });
+
+  module('tailbone.Mesh connections', {
+    setup: function() {
+      this.defaultOptions = tailbone.Mesh.options;
+      tailbone.Mesh.options.autoConnect = true;
+      tailbone.Mesh.options.useWebRTC = false;
+    },
+    teardown: function() {
+      tailbone.Mesh.options = this.defaultOptions;
+    }
+  });
+
+  asyncTest('connect', 1, function() {
+    var mesh1 = new tailbone.Mesh('id2', {ws: 'ws://localhost:2345/id2'});
+    mesh1.bind('connect', function() {
+      ok(true, 'connected');
+      start();
+    });
+  });
+
+  asyncTest('connect /api/mesh', 1, function() {
+    var mesh1 = new tailbone.Mesh();
+    mesh1.bind('connect', function() {
+      ok(true, 'connected');
+      start();
+    });
+  });
+
+  asyncTest('enter', 4, function () {
+
+    var mesh1 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
+    var mesh2 = new tailbone.Mesh('id4', {ws: 'ws://localhost:2345/id4'});
+
+    mesh1.bind('connect', function () {
+
+      mesh2.connect();
+
+    });
+
+    mesh1.bind('enter', function () {
+
+      ok(true, '\'enter\' triggered upon connection');
+      equal(arguments.length, 1, 'arguments.length === 1 when one peer connected');
+      equal(typeof arguments[0], 'object', 'arguments are Node class instances');
+      equal(mesh1.peers.length, 1, 'node added to Mesh.peers');
+      mesh1.disconnect();
+      mesh2.disconnect();
+      start();
+
+    });
+
+  });
+
+  asyncTest('leave', 4, function () {
+
+    var mesh1 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
+    var mesh2 = new tailbone.Mesh('id5', {ws: 'ws://localhost:2345/id5'});
+
+    mesh2.bind('connect', function () {
+
+      mesh2.disconnect();
+
+    });
+
+    mesh1.bind('leave', function () {
+
+      ok(true, '\'leave\' triggered upon peer disconnection');
+      equal(arguments.length, 1, 'arguments.length === 1 when one peer disconnected');
+      equal(typeof arguments[0], 'object', 'arguments are Node class instances');
+      equal(mesh1.peers.length, 0, 'no peers left');
+
+      mesh1.disconnect();
+      start();
+
+    });
+
+  });
+
+  asyncTest('bind mesh', 1, function() {
+    var mesh1 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
+    var mesh2 = new tailbone.Mesh('id6', {ws: 'ws://localhost:2345/id6'});
+
+    mesh2.bind('connect', function(n) {
+      mesh2.trigger('test', 'some arg');
+    });
+    mesh1.bind('test', function(x) {
+      ok(x === 'some arg', 'sure');
+      start();
+    });
+  });
+
+  asyncTest('bind peers', 2, function () {
+
+    var mesh1 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
+    mesh2 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
+    mesh3 = new tailbone.Mesh('id7', {ws: 'ws://localhost:2345/id7'}),
+    triggerCount = 0;
+
+    mesh2.peers.trigger('test');
+    mesh3.peers.trigger('test');
+
+    mesh1.peers.bind('test', function () {
+
+      ok(true, 'mesh1 received \'test\' after binding to it');
+
+      if (++triggerCount === 2) {
+        mesh1.disconnect();
+        mesh2.disconnect();
+        mesh3.disconnect();
+        start();
+      }
+
+    });
+
+  });
+
+  asyncTest('bind node', 2, function() {
+    var mesh1 = new tailbone.Mesh('id8', {ws: 'ws://localhost:2345/id8'}),
+    mesh2 = new tailbone.Mesh('id8', {ws: 'ws://localhost:2345/id8'}),
+    mesh3 = new tailbone.Mesh('id8', {ws: 'ws://localhost:2345/id8'});
+
+    window.mesh1 = mesh1;
+
+    mesh3.bind('connect', function() {
+      var n = mesh3.peers.getById(mesh1.self.id);
+      n.trigger('a');
+      n.bind('b', function() {
+        ok(true, 'mesh3 received trigger');
+        mesh1.disconnect();
+        mesh2.disconnect();
+        mesh3.disconnect();
+        start();
+      });
+    });
+
+    mesh1.peers.bind('a', function() {
+      ok(true, 'mesh1 received trigger');
+      mesh2.trigger('b');
+      mesh1.trigger('b');
+    });
+
+  });
+
+  asyncTest('unbind', 5, function () {
+
+    var mesh1 = new tailbone.Mesh('id9', {ws: 'ws://localhost:2345/id9'}),
+    mesh2 = new tailbone.Mesh('id9', {ws: 'ws://localhost:2345/id9'});
+
+    mesh1.bind('a', function() {
+      ok(true, 'mesh1');
+      mesh1.trigger('b');
+      var h = mesh1._handlers['a'] || [];
+      ok(h.length === 1, 'a is bound');
+      mesh1.unbind('a');
+    });
+
+    mesh2.bind('connect', function(n) {
+      ok(true, 'triggering');
+      mesh2.trigger('a');
+    });
+
+    mesh2.bind('b', function() {
+      ok(true, 'triggering');
+      mesh2.trigger('a');
+      var h = mesh1._handlers['a'] || [];
+      ok(h.length === 0, 'a is unbound');
+      start();
+    });
+
+  });
+
+  asyncTest('trigger', 3, function () {
+
+    var mesh1 = new tailbone.Mesh('id10', {ws: 'ws://localhost:2345/id10'}),
+    mesh2 = new tailbone.Mesh('id10', {ws: 'ws://localhost:2345/id10'});
+
+    mesh1.bind('enter', function (node) {
+
+      node.bind('gyro', function () {});
+
+    });
+
+    mesh2.bind('bind', function (type) {
+
+      ok(true, 'mesh3 received mesh2\'s \'bind\'');
+      equal(type, 'gyro', 'received \'bind\' type is \'test\'');
+      mesh2.trigger('gyro', 123.34, 241.22, 90.01);
+
+    });
+
+    mesh1.bind('gyro', function () {
+
+      ok(true, 'mesh1 received \'gyro\' after binding to it');
+      mesh1.disconnect();
+      mesh2.disconnect();
+      start();
+
+    });
+
+  });
+
+  module('tailbone.Mesh webRTC', {
+    setup: function() {
+      this.defaultOptions = tailbone.Mesh.options;
+      tailbone.Mesh.options.autoConnect = true;
+      tailbone.Mesh.options.useWebRTC = true;
+    },
+    teardown: function() {
+      tailbone.Mesh.options = this.defaultOptions;
+    }
+  });
+
+  asyncTest('bind mesh', 3, function() {
+    var mesh1 = new tailbone.Mesh('id11', {ws: 'ws://localhost:2345/id11'});
+    var mesh2 = new tailbone.Mesh('id11', {ws: 'ws://localhost:2345/id11'});
+
+    mesh2.bind('connect', function(n) {
+      ok(mesh2.peers[0]._channels.length == 2, 'Two channels.');
+      var c = mesh2.peers[0]._channels[0];
+      c.bind('open', function() {
+        ok(c.getState() === 3, 'State is ' + c.getState() + ' should be 3');
+        mesh2.trigger('test', 'some arg');
+      });
+    });
+    mesh1.bind('test', function(x) {
+      ok(x == 'some arg', 'sure');
+      start();
+    });
+  });
+
+  </script>
+</body>
+</html>

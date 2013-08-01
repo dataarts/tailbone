@@ -13,5 +13,15 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/geoip
-    script: tailbone.geoip.app
+  - url: /api/compute_engine/?.*
+    script: tailbone.compute_engine.app
+    login: admin
+  - url: /admin/compute_engine
+    static_files: tailbone/compute_engine/admin.html
+    upload: tailbone/compute_engine/admin.html
+    login: admin
+
+admin_console:
+  pages:
+  - name: Load Balancer
+    url: /admin/compute_engine

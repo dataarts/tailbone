@@ -13,5 +13,10 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/geoip
-    script: tailbone.geoip.app
+  - url: (/?[^.]*)[^/]
+    script: tailbone.add_slash
+  - url: (/?.*)/
+    static_files: client/app\1/index.html
+    upload: client/app(.*)/index.html
+  - url: /
+    static_dir: client/app

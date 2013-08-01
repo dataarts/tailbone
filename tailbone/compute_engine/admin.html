@@ -1,0 +1,39 @@
+<!doctype html>
+<html ng-app>
+<head>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.7/angular.min.js"></script>
+  <script>
+  function AdminCtrl($scope, $http) {
+    $http.get('/api/compute_engine').success(function(methods) {
+      $scope.methods = methods;
+      console.log(methods);
+    });
+    $scope.Call = function(method) {
+      var params = $("#" + method[0]).serializeArray().map(function(x) { return x.value; });
+      $http.post('/api/compute_engine/', {
+        method: method[0],
+        params: params
+      }).success(function(resp) {
+        console.log('resp', resp);
+      });
+    }
+  }
+  </script>
+</head>
+<body>
+  <div ng-controller="AdminCtrl">
+    <h3>
+    Admin panel for monitoring the mesh network
+    </h3>
+    <ul>
+      <li ng-repeat="method in methods">
+        <form id="{{method[0]}}" ng-submit="Call(method, this)">
+          <span>{{method[2]}}</span>
+          <input type="text" ng-repeat="arg in method[1]" name="{{arg}}" placeholder="{{arg}}"></input>
+          <input type="submit" value="{{method[0]}}"></input>
+        </form>
+      </li>
+  </div>
+</body>
+</html>

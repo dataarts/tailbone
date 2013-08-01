@@ -342,47 +342,6 @@ asyncTest('Delete by Id', function() {
   });
 });
 
-module('Nested Models', moduleConfig);
-asyncTest('Nested creation', function() {
-  var models = this.models;
-  var kind = this.kind;
-  var submodels = 'sub' + Math.random().toString(36).substr(2,10);
-  var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
-  var submodel = {SubNeed: 'stuff', SubToBig: 'do not want', subsecret: 'not for you'};
-  http.POST(models, model, function(d) {
-    http.POST(models + d.Id + '/' + submodels, submodel, function(sub) {
-      submodel.Id = sub.Id;
-      submodel.owners = sub.owners;
-      submodel.viewers = sub.viewers;
-      submodel[kind] = d.Id;
-      deepEqual(sub, submodel, 'Created nested model.');
-      http.DELETE(models + d.Id + '/' + submodels + '/' + sub.Id, function() {
-        http.DELETE(models + d.Id, start);
-      });
-    });
-  });
-});
-
-asyncTest('Nested fetch', function() {
-  var models = this.models;
-  var kind = this.kind;
-  var submodels = 'sub' + Math.random().toString(36).substr(2,10);
-  var model = {Need: 'stuff', ToBig: 'do not want', secret: 'not for you'};
-  var submodel = {SubNeed: 'stuff', SubToBig: 'do not want', subsecret: 'not for you'};
-  http.POST(models, model, function(d) {
-    http.POST(models + d.Id + '/' + submodels, submodel, function(sub) {
-      setTimeout(function() {
-        http.GET(models + d.Id + '/' + submodels, function(subGet) {
-          deepEqual(subGet, [sub], 'Fetched nested model.');
-          http.DELETE(models + d.Id + '/' + submodels + '/' + sub.Id, function() {
-            http.DELETE(models + d.Id, start);
-          });
-        });
-      }, WAIT);
-    });
-  });
-});
-
 
 module('Users');
 

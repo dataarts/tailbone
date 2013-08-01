@@ -1,8 +1,8 @@
-client
-index.yaml
 .DS_Store
 *.pyc
 Gemfile.lock
 .sass-cache
+*.idea
+credentials.json
 *.p12
 *.pem

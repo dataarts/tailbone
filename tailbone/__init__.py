@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import sys
 try:
   import traceback
 except:
@@ -28,6 +29,11 @@ import yaml
 from google.appengine import api
 from google.appengine.ext import ndb
 
+sys.path.insert(0, "tailbone/dependencies.zip")
+from oauth2client.appengine import AppAssertionCredentials
+import httplib2
+from apiclient.discovery import build
+
 PREFIX = "/api/"
 DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
 
@@ -36,11 +42,8 @@ PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECAS
 
 class _ConfigDefaults(object):
   JSONP = False
-  METADATA = False
-  PREFIX = "/api/"
-  DEBUG = os.environ.get("SERVER_SOFTWARE", "").startswith("Dev")
-  PROTECTED = [re.compile("(mesh|messages|files|events|admin|proxy)", re.IGNORECASE),
-               re.compile("tailbone.*", re.IGNORECASE)]
+  SERVICE_EMAIL = None
+  SERVICE_KEY_PATH = None
 
   def is_current_user_admin(*args, **kwargs):
     return api.users.is_current_user_admin(*args, **kwargs)
@@ -53,7 +56,6 @@ class _ConfigDefaults(object):
 
   def create_logout_url(*args, **kwargs):
     return api.users.create_logout_url(*args, **kwargs)
- 
 
 
 config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)
@@ -175,8 +177,32 @@ def parse_body(self):
   return data or {}
 
 
+def build_service(service_name, api_version, scopes):
+  """Get an authorized service account http connection"""
+  if DEBUG:
+    if config.SERVICE_EMAIL and config.SERVICE_KEY_PATH and os.path.exists(config.SERVICE_KEY_PATH):
+      from oauth2client.client import SignedJwtAssertionCredentials
+      # must extract key first since pycrypto doesn't support p12 files
+      # openssl pkcs12 -passin pass:notasecret -in privatekey.p12 -nocerts -passout pass:notasecret -out key.pem
+      # openssl pkcs8 -nocrypt -in key.pem -passin pass:notasecret -topk8 -out privatekey.pem
+      # rm key.pem
+      key_str = open(config.SERVICE_KEY_PATH).read()
+      credentials = SignedJwtAssertionCredentials(
+        config.SERVICE_EMAIL,
+        key_str,
+        scopes)
+      http = credentials.authorize(httplib2.Http(api.memcache))
+      return build(service_name, api_version, http=http)
+    else:
+      logging.warn("Please create a service account and download your key add to appengine_config.py.")
+      raise AppError("Service '{}' not availble from localhost without a service account set up and added to appengine_config.py.".format(service_name))
+  credentials = AppAssertionCredentials(scope=scopes)
+  http = credentials.authorize(httplib2.Http(api.memcache))
+  return build(service_name, api_version, http=http)
+
+
 # Leave minification etc up to PageSpeed
-def compile_js(files, exports=None):
+def compile_js(files, exports=None, raw_js=None):
   js = "(function(root) {\n" if exports else ""
   for fname in files:
     with open(fname) as f:
@@ -190,6 +216,8 @@ def compile_js(files, exports=None):
     #     submodule = ".".join(submodules[:i+1])
     #     js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
     #   js += "root.{} = {};\n".format(public, private)
+    if raw_js:
+      js += "\n{}\n".format(raw_js)
     js += "})(this);\n"
   return js
 
@@ -255,3 +283,13 @@ app = webapp2.WSGIApplication([
   (r"/tailbone.js", js_handler()),
 ], debug=DEBUG)
 
+class AddSlashHandler(webapp2.RequestHandler):
+  def get(self):
+    url = self.request.path + "/"
+    if self.request.query_string:
+      url += "?" + self.request.query_string
+    self.redirect(url)
+
+add_slash = webapp2.WSGIApplication([
+  (r".*", AddSlashHandler)
+], debug=DEBUG)

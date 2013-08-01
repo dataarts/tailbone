@@ -13,5 +13,7 @@
 # limitations under the License.
 
 handlers:
-  - url: /api/geoip
-    script: tailbone.geoip.app
+  - url: /api/channel/?.*
+    script: tailbone.mesh.channel.app
+  - url: /_ah/channel/(dis)?connected/
+    script: tailbone.mesh.channel.connected

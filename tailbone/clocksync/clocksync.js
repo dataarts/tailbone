@@ -181,7 +181,7 @@ var ajaxSyncMethod = function() {
   var start = Date.now();
   xhr.onreadystatechange = function(e) {
     if (xhr.readyState === xhr.DONE) {
-      var server_time = parseFloat(xhr.getResponseHeader('Current-Time'));
+      var server_time = parseFloat(xhr.getResponseHeader('Last-Modified'));
       clocksync.syncResponse({
         clientLocalTime: start,
         serverLocalTime: server_time

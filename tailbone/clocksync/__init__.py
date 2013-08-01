@@ -20,7 +20,7 @@ import webapp2
 
 class ClockSyncHandler(BaseHandler):
   def head(self):
-    self.response.headers['Current-Time'] = "{:f}".format(time.time()*1000)
+    self.response.headers['Last-Modified'] = "{:f}".format(time.time()*1000)
 
   @as_json
   def get(self):

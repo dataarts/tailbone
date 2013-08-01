@@ -15,14 +15,22 @@
 # Rewrites any path to the index.html file for html5mode history and location.
 
 # shared resources and global variables
-from tailbone import *
+from tailbone import DEBUG
+from tailbone.static.protected import _config
 
 import webapp2
+import yaml
 
 # index.html is symlinked to api/client/index.html
 index = None
 with open('tailbone/pathrewrite/index.html') as f:
   index = f.read()
+
+is_protected = False
+with open("app.yaml") as f:
+  appyaml = yaml.load(f)
+  includes = [i for i in appyaml.get("includes", [])]
+  is_protected = "tailbone/static/protected" in includes
 
 # Pathrewrite Handler
 # ------------
@@ -30,8 +38,14 @@ with open('tailbone/pathrewrite/index.html') as f:
 # Proxies any page to the base url
 class PathrewriteHandler(webapp2.RequestHandler):
   def get(self):
+    if is_protected:
+      authorized = _config.is_authorized(self.request)
+      if not authorized:
+        self.response.out.write(
+          _config.unauthorized_response(self.request))
+        return
     self.response.out.write(index)
 
 app = webapp2.WSGIApplication([
   (r"^[^.]*$", PathrewriteHandler),
-  ], debug=DEBUG)
+], debug=DEBUG)
