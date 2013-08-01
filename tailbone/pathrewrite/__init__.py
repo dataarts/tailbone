@@ -23,7 +23,7 @@ import yaml
 
 # index.html is symlinked to api/client/index.html
 index = None
-with open('tailbone/pathrewrite/index.html') as f:
+with open("tailbone/pathrewrite/index.html") as f:
   index = f.read()
 
 is_protected = False
@@ -31,6 +31,10 @@ with open("app.yaml") as f:
   appyaml = yaml.load(f)
   includes = [i for i in appyaml.get("includes", [])]
   is_protected = "tailbone/static/protected" in includes
+  path = "client/" + _config.BASE_PATH + "/index.html"
+  with open(path) as f:
+    index = f.read()
+
 
 # Pathrewrite Handler
 # ------------
