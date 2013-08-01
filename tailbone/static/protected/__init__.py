@@ -40,6 +40,7 @@ You must be an approved logged in user.
 
 # Example of password auth
 class _ConfigDefaults(object):
+  BASE_PATH = "app"
   PASSWORD = "notasecret"
 
   def is_authorized(request):
