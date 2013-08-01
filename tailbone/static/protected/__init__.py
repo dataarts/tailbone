@@ -23,6 +23,7 @@ from google.appengine.api import lib_config
 
 # Example of admin auth
 class _ConfigDefaults(object):
+  BASE_PATH = "app"
   def is_authorized(request):
     return config.is_current_user_admin()
 
@@ -89,7 +90,7 @@ class ProtectedHandler(webapp2.RequestHandler):
         _config.unauthorized_response(self.request))
       return
     path = self.request.path
-    path = "client/app" + path
+    path = "client/" + _config.BASE_PATH + path
     if path[-1] == "/":
       path += "index.html"
     mimetype, _ = mimetypes.guess_type(path)

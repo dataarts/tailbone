@@ -62,6 +62,8 @@
 
 ## Protected site
 # tailboneStaticProtected_PASSWORD = "mypassword"
+## the base path for the protected site can change to deploy or something else defaults to app
+# tailboneStaticProtected_BASE_PATH = "app"
 
 ## Custom load balanced compute engine instance
 # tailboneCustomCE_STARTUP_SCRIPT = """
