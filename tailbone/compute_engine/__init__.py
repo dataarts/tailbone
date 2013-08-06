@@ -214,7 +214,8 @@ def rebalance_pool(urlsafe_pool_key):
       LoadBalancer.decrease_pool(pool, size)
     elif avg_load > 0.7:
       LoadBalancer.increase_pool(pool, size)
-  deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY)
+  name = "rebalance_pool_{}".format(pool.key.urlsafe())
+  deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY, _name=name)
 
 
 class TailboneCEPool(polymodel.PolyModel):
@@ -279,9 +280,11 @@ def update_instance_status(urlsafe_key):
         stats = json.loads(resp.content)
         instance.load = instance.calc_load(stats)
         instance.put()
-    deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY)
+    name = "update_instance_status_{}".format(urlsafe_key)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY, _name=name)
   elif status in [InstanceStatus.PENDING, InstanceStatus.STAGING]:
-    deferred.defer(update_instance_status, urlsafe_key, _countdown=STARTING_STATUS_DELAY)
+    name = "update_instance_status_{}".format(urlsafe_key)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=STARTING_STATUS_DELAY, _name=name)
   elif status in [InstanceStatus.STOPPING, InstanceStatus.TERMINATED]:
     LoadBalancer.stop_instance(instance, False)
   else:
@@ -339,7 +342,8 @@ class LoadBalancer(object):
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
       instance.status = operation.get("status")
-      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY)
+      name = "update_instance_status_{}".format(instance.key.urlsafe())
+      deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY, _name=name)
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -364,7 +368,8 @@ class LoadBalancer(object):
     """Drain a particular instance"""
     instance.status = InstanceStatus.DRAINING
     instance.put()
-    deferred.defer(remove_draining_instance, instance.key.urlsafe(), _countdown=DRAIN_DELAY)
+    name = "remove_draining_instance_{}".format(instance.key.urlsafe())
+    deferred.defer(remove_draining_instance, instance.key.urlsafe(), _countdown=DRAIN_DELAY, _name=name)
 
   @staticmethod
   def find(instance_class, request):
@@ -407,7 +412,8 @@ class LoadBalancer(object):
             instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
             instance.pool = pool.key
             instance.put()
-            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY)
+            name = "update_instance_status_{}".format(instance.key.urlsafe())
+            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY, _name=name)
             size += 1
       # start any additional instances need to meet pool min_size
       for i in range(pool.min_size - size):
@@ -424,7 +430,8 @@ class LoadBalancer(object):
       pool = TailboneCEPool(region=region, instance_type=instance_class_str)
       pool.put()
       # start rebalancer
-      deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY)
+      name = "rebalance_pool_{}".format(pool.key.urlsafe())
+      deferred.defer(rebalance_pool, pool.key.urlsafe(), _countdown=REBALANCE_DELAY, _name=name)
       LoadBalancer.fill_pool(pool)
     return pool
 
