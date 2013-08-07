@@ -150,6 +150,7 @@ class InstanceStatus(object):
   TERMINATED = "TERMINATED"
   DRAINING = "DRAINING"
   ERROR = "ERROR"
+  UNKNOWN = "UNKNOWN"
 
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
@@ -252,6 +253,24 @@ def update_instance_status(urlsafe_key):
   instance = ndb.Key(urlsafe=urlsafe_key).get()
   if not instance:
     return
+  if instance.status == InstanceStatus.DRAINING:
+    return
+  info = None
+  if instance.status == InstanceStatus.RUNNING:
+    # check load
+    address = "http://{}:{}".format(instance.address, STATS_PORT)
+    resp = urlfetch.fetch(url=address,
+                          method=urlfetch.GET)
+    if resp.status_code == 200:
+      stats = json.loads(resp.content)
+      instance.load = instance.calc_load(stats)
+      instance.put()
+    else:
+      instance.status = InstanceStatus.UNKNOWN
+      instance.put()
+    name = "update_instance_status_{}".format(urlsafe_key)
+    deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY, _name=name)
+    return
   try:
     info = compute_api().instances().get(
       project=PROJECT_ID, zone=instance.zone,
@@ -265,21 +284,9 @@ def update_instance_status(urlsafe_key):
   logging.info("Instance status {}".format(info))
   status = info.get("status")
   if status == InstanceStatus.RUNNING:
-    if instance.status == InstanceStatus.DRAINING:
-      # Don't update the instance it should be drained
-      return
-    if status != instance.status:
-      instance.status = status
-      instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-      instance.put()
-    else:  # check load
-      address = "http://{}:{}".format(instance.address, STATS_PORT)
-      resp = urlfetch.fetch(url=address,
-                            method=urlfetch.GET)
-      if resp.status_code == 200:
-        stats = json.loads(resp.content)
-        instance.load = instance.calc_load(stats)
-        instance.put()
+    instance.status = status
+    instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+    instance.put()
     name = "update_instance_status_{}".format(urlsafe_key)
     deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY, _name=name)
   elif status in [InstanceStatus.PENDING, InstanceStatus.STAGING]:
