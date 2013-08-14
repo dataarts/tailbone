@@ -34,6 +34,10 @@ function json_request(kind, url, success, error, context) {
   }
   xhr.open(kind, url, true);
   xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+  xhr.setRequestHeader("If-None-Match", "some-random-string");
+  xhr.setRequestHeader("Cache-Control", "no-cache,max-age=0");
+  xhr.setRequestHeader("Pragma", "no-cache");
+
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       var data = xhr.responseText;

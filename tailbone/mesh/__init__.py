@@ -106,7 +106,8 @@ def get_or_create_room(request, name=None):
       if not instance:
         raise AppError('Instance not yet ready, try again later.')
       address = "ws://{}:{}/{}".format(instance.address, TailboneWebsocketInstance.PORT, name)
-    memcache.set(room, address, time=_config.ROOM_EXPIRATION)
+    if not memcache.add(room, address, time=_config.ROOM_EXPIRATION):
+      return get_or_create_room(request, name, client)
   return name, address
 
 
