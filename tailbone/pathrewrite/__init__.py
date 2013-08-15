@@ -31,9 +31,10 @@ with open("app.yaml") as f:
   appyaml = yaml.load(f)
   includes = [i for i in appyaml.get("includes", [])]
   is_protected = "tailbone/static/protected" in includes
-  path = "client/" + _config.BASE_PATH + "/index.html"
-  with open(path) as f:
-    index = f.read()
+  if is_protected:
+    path = "client/" + _config.BASE_PATH + "/index.html"
+    with open(path) as f:
+        index = f.read()
 
 
 # Pathrewrite Handler
