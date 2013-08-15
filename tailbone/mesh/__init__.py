@@ -106,19 +106,22 @@ def get_or_create_room(request, name=None):
       if not instance:
         raise AppError('Instance not yet ready, try again later.')
       address = "ws://{}:{}/{}".format(instance.address, TailboneWebsocketInstance.PORT, name)
+    else:
+      address = "/api/channel/{}".format(name) 
     if not memcache.add(room, address, time=_config.ROOM_EXPIRATION):
-      return get_or_create_room(request, name, client)
+      return get_or_create_room(request, name)
   return name, address
 
 
 class MeshHandler(BaseHandler):
   @as_json
   def get(self, name):
-    room, ws = get_or_create_room(self.request, name)
-    resp = {
-      "ws": ws,
-      "name": room,
-    }
+    room, address = get_or_create_room(self.request, name)
+    resp = {"name": room}
+    if _config.ENABLE_WEBSOCKET:
+      resp["ws"] = address
+    else:
+      resp["channel"] = address
     if _config.ENABLE_TURN:
       ts = LoadBalancer.find(turn.TailboneTurnInstance, self.request)
       if ts:

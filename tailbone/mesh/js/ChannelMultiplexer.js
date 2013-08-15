@@ -89,9 +89,16 @@ ChannelMultiplexer.prototype.open = function(channel) {
         if (data[0] === 'connect') {
           // find a null self node and upgrade it
           var selfChannel = self.channels[null];
-          selfChannel.localNode.id = from;
-          delete self.channels[null];
-          self.channels[from] = selfChannel;
+          if (selfChannel) {
+            selfChannel.localNode.id = from;
+            delete self.channels[null];
+            self.channels[from] = selfChannel;
+          } else {
+            console.warn('Connection already defined for', from);
+          }
+          if (self.channels[from] == undefined) {
+            console.warn('Channel for', from, 'not defined.')
+          }
         }
         var fromChannel = self.channels[from];
         if (fromChannel) {

@@ -121,6 +121,15 @@ Mesh.prototype.connect = function () {
       peer.connect();
     });
 
+  } else if (this.options.channel) {
+
+    this.id = this.options.name;
+
+    this.self.connect();
+    this.peers.forEach(function (peer) {
+      peer.connect();
+    });
+
   } else if (this.options.api) {
 
     http.GET(this.options.api + '/' + (this.id || ''), function (options) {

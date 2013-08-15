@@ -165,7 +165,7 @@ class TailboneCEInstance(polymodel.PolyModel):
   @staticmethod
   def calc_load(stats):
     """Calculate load value 0 to 1 from the stats object."""
-    return stats.get("mem", 0) / 100
+    return stats.get("mem", 0)
 
   PARAMS = {
     "kind": "compute#instance",

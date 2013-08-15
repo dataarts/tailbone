@@ -18,25 +18,46 @@ import json
 from multiprocessing import Process, Value
 import psutil
 import time
+from itertools import izip, tee
+
+def pairwise(iterable):
+  a, b = tee(iterable)
+  next(b, None)
+  return izip(a, b)
 
 
-def UpdateStats(cpu, memory):
+def UpdateStats(cpu, memory, net_in, net_out):
   mem_history = []
   cpu_history = []
-  buffer_len = 100
+  net_in_history = []
+  net_out_history = []
+  buffer_len = 120
+  # to baseline the cpu call
+  psutil.cpu_percent(interval=1)
   # TODO: remove outliers
   while True:
     vmem = psutil.virtual_memory()
-    mem_history.append(vmem.percent)
+    mem_history.append(vmem.percent / 100)
     mem_history = mem_history[-buffer_len:]
     memory.value = sum(mem_history) / len(mem_history)
-    cpu_history.append(psutil.cpu_percent(0))
+    cpu_history.append(psutil.cpu_percent(0) / 100)
     cpu_history = cpu_history[-buffer_len:]
     cpu.value = sum(cpu_history) / len(cpu_history)
-    time.sleep(20)
+    net = psutil.network_io_counters()
+    net_in_history.append(net.bytes_rec)
+    net_in_history = net_in_history[-buffer_len:]
+    bytes = [y-x for x,y in pairwise(net_in_history)]
+    if bytes:
+      net_in.value = sum(bytes) / len(bytes)
+    net_out_history.append(net.bytes_sent)
+    net_out_history = net_out_history[-buffer_len:]
+    bytes = [y-x for x,y in pairwise(net_out_history)]
+    if bytes:
+      net_out.value = sum(bytes) / len(bytes)
+    time.sleep(10)
 
 
-def ReportServer(cpu, memory):
+def ReportServer(cpu, memory, net_in, net_out):
 
   class ReportHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -45,7 +66,9 @@ def ReportServer(cpu, memory):
       self.end_headers()
       self.wfile.write(json.dumps({
         "cpu": cpu.value,
-        "mem": memory.value
+        "mem": memory.value,
+        "net_in": net_in.value,
+        "net_out": net_out.value,
       }))
 
   PORT_NUMBER = 8888
@@ -58,5 +81,7 @@ def ReportServer(cpu, memory):
 if __name__ == '__main__':
   cpu = Value('d', 0)
   memory = Value('d', 0)
-  server = Process(target=ReportServer, args=(cpu, memory)).start()
-  stats = Process(target=UpdateStats, args=(cpu, memory)).start()
+  net_in = Value('d', 0)
+  net_out = Value('d', 0)
+  server = Process(target=ReportServer, args=(cpu, memory, net_in, net_out)).start()
+  stats = Process(target=UpdateStats, args=(cpu, memory, net_in, net_out)).start()
