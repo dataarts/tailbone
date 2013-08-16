@@ -369,7 +369,7 @@ asyncTest('Upload file', function() {
   var img = canvas.toDataURL();
   data.append('blob', toBlob(img), 'image_filename');
   document.body.removeChild(canvas);
-  $.get('/api/files', function(d) {
+  $.get('/api/files/create', function(d) {
     $.ajax({
       type: 'POST',
       url: d.upload_url,

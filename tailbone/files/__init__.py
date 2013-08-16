@@ -18,9 +18,11 @@ from tailbone import as_json
 from tailbone import BreakError
 from tailbone import config
 from tailbone import DEBUG
+from tailbone import restful
 
 import re
 import urllib
+import webapp2
 
 HAS_PIL = True
 try:
@@ -34,7 +36,6 @@ from google.appengine.ext.ndb import blobstore
 from google.appengine.ext import blobstore as bs
 from google.appengine.ext.webapp import blobstore_handlers
 
-from tailbone.restful import query
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
 
@@ -64,7 +65,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
     if key == "":  # query
       if not config.is_current_user_admin():
         raise AppError("User must be administrator.")
-      return query(self, BlobInfo)
+      return restful.query(self, BlobInfo)
     elif key == "create":
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
