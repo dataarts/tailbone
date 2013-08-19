@@ -14,6 +14,7 @@
 
 # shared resources and global variables
 from tailbone import AppError
+from tailbone import PREFIX
 from tailbone import as_json
 from tailbone import BreakError
 from tailbone import config
