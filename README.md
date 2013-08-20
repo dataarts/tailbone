@@ -61,6 +61,7 @@ via the [Google Blobstore](https://developers.google.com/appengine/docs/python/b
     - [restful](#restful)
     - [search](#search)
     - [files](#files)
+    - [cloudstore](#cloudstore)
     - [geoip](#geoip)
     - [pathrewrite](#pathrewrite)
     - [proxy](#proxy)
@@ -389,6 +390,14 @@ asyncTest('Upload file', function() {
   });
 });
 ```
+
+## cloudstore
+
+    GET /api/cloudstore/path/to/your/file.webm
+      Fetches files from cloudstore
+
+Fetch files from cloudstore. Useful for serving large files off of cloudstorage without making things fully public add your applications service account as a reader of the file you uploaded to cloud storage.
+
 
 ## geoip
 

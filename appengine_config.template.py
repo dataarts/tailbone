@@ -51,6 +51,9 @@
 ## Proxy can only be used for the restricted domains if specified
 # tailboneProxy_RESTRICTED_DOMAINS = ["google.com"]
 
+## Cloud store bucket to use default is your application id
+# tailboneCloudstore_BUCKET = "mybucketname"
+
 # tailboneTurn_RESTIRCTED_DOMAINS = ["localhost"]
 # tailboneTurn_SECRET = "notasecret"
 

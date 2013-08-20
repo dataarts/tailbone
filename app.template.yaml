@@ -17,6 +17,10 @@ includes:
   # - tailbone/geoip
   ## Full text search must provide a searchable.json at the root level
   # - tailbone/search
+  ## Storing and fetching files with the blobstore api
+  # - tailbone/files
+  ## Read access to any of your cloud storage objects.
+  # - tailbone/cloudstore
   ## Simple reverse proxy sometimes useful for cors purposes (note: don't use if you don't have to it
   ## will cost you bandwidth and has no auth you can domain restrict in appengine_config.py)
   # - tailbone/proxy
