@@ -44,7 +44,7 @@ def UpdateStats(cpu, memory, net_in, net_out):
     cpu_history = cpu_history[-buffer_len:]
     cpu.value = sum(cpu_history) / len(cpu_history)
     net = psutil.network_io_counters()
-    net_in_history.append(net.bytes_rec)
+    net_in_history.append(net.bytes_recv)
     net_in_history = net_in_history[-buffer_len:]
     bytes = [y-x for x,y in pairwise(net_in_history)]
     if bytes:
