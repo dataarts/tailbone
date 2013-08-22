@@ -75,7 +75,8 @@ SCOPES = ["https://www.googleapis.com/auth/compute",
 LOCATIONS = {
   "us-central": {
     "location": (36.0156, -114.7378),
-    "zones": ["us-central1-a", "us-central1-b", "us-central2-a"],
+    # "zones": ["us-central1-a", "us-central1-b", "us-central2-a"],
+    "zones": ["us-central1-b", "us-central2-a"],
   },
   "europe-west": {
     "location": (52.5233, 13.4127),
@@ -143,6 +144,31 @@ def string_to_class(str):
   return cls
 
 
+def _blocking_call(gce_service, response):
+  """Blocks until the operation status is done for the given operation."""
+
+  status = response['status']
+  while status != 'DONE' and response:
+    time.sleep(2)
+    operation_id = response['name']
+
+    # Identify if this is a per-zone resource
+    if 'zone' in response:
+      zone_name = response['zone'].split('/')[-1]
+      request = gce_service.zoneOperations().get(
+          project=PROJECT_ID,
+          operation=operation_id,
+          zone=zone_name)
+    else:
+      request = gce_service.globalOperations().get(
+           project=PROJECT_ID, operation=operation_id)
+
+    response = request.execute()
+    if response:
+      status = response['status']
+  return response
+
+
 class InstanceStatus(object):
   PENDING = "PENDING"
   RUNNING = "RUNNING"
@@ -166,6 +192,8 @@ class TailboneCEInstance(polymodel.PolyModel):
   def calc_load(stats):
     """Calculate load value 0 to 1 from the stats object."""
     return stats.get("mem", 0)
+
+  SOURCE_SNAPSHOT = None
 
   PARAMS = {
     "kind": "compute#instance",
@@ -230,8 +258,12 @@ class TailboneCEPool(polymodel.PolyModel):
     """Pick an instance from this pool."""
     query = TailboneCEInstance.query(TailboneCEInstance.pool == self.key,
                                      TailboneCEInstance.status == InstanceStatus.RUNNING)
-    query = query.order(TailboneCEInstance.load)
-    return query.get()
+    instances = [i for i in query]
+    if instances:
+      return random.choice(instances)
+    return None
+    # query = query.order(TailboneCEInstance.load)
+    # return query.get()
 
   def size(self):
     query = TailboneCEInstance.query()
@@ -337,6 +369,27 @@ class LoadBalancer(object):
 
     compute = compute_api()
     if compute:
+      # create disk from source snapshot
+      if instance.SOURCE_SNAPSHOT:
+        operation = compute.disks().insert(
+          project=PROJECT_ID, zone=instance.zone, body={
+            "name": name,
+            "sizeGb": 10,
+            "sourceSnapshot": instance.SOURCE_SNAPSHOT,
+          }).execute()
+        _blocking_call(compute, operation)
+        instance.PARAMS.update({
+          "disks": [{
+            "kind": "compute#attachedDisk",
+            "boot": True,
+            "type": "PERSISTENT",
+            "mode": "READ_WRITE",
+            "deviceName": name,
+            "zone": update_zone(instance.PARAMS.get("zone")),
+            "source": api_url(PROJECT_ID, "zones", instance.zone, "disks", name),
+          }],
+        })
+
       def update_zone(s):
         return re.sub(r"\/zones\/([^/]*)",
                       "/zones/{}".format(instance.zone),
@@ -364,8 +417,12 @@ class LoadBalancer(object):
     # TODO: need some way of clearing externally assciated instances
     compute = compute_api()
     if compute:
+      name = instance.key.id()
+      if instance.SOURCE_SNAPSHOT:
+        compute.disks().delete(
+          project=PROJECT_ID, zone=instance.zone, disk=name).execute()
       compute.instances().delete(
-        project=PROJECT_ID, zone=instance.zone, instance=instance.key.id()).execute()
+        project=PROJECT_ID, zone=instance.zone, instance=name).execute()
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -446,7 +503,7 @@ class LoadBalancer(object):
   @staticmethod
   def increase_pool(pool, current_size):
     """Double pool size."""
-    new_size = min(pool.max_size, current_size * 2)
+    new_size = int(min(pool.max_size, current_size * 2))
     toadd = new_size - current_size
     if toadd <= 0:
       return {}
@@ -468,11 +525,12 @@ class LoadBalancer(object):
   @staticmethod
   def decrease_pool(pool, current_size):
     """Half pool size."""
-    new_size = max(pool.min_size, round(current_size * 0.5))
+    new_size = int(max(pool.min_size, round(current_size * 0.5)))
     if current_size != new_size:
       dropped = current_size - new_size
-      query = TailboneCEInstance.query(TailboneCEInstance.pool == pool.key)
-      query = TailboneCEInstance.query(TailboneCEInstance.status == InstanceStatus.RUNNING)
+      query = TailboneCEInstance.query()
+      query = query.filter(TailboneCEInstance.pool == pool.key)
+      query = query.filter(TailboneCEInstance.status == InstanceStatus.RUNNING)
       query = query.order(TailboneCEInstance.load)
       instances = query.fetch(dropped)
       for i in instances:

@@ -32,6 +32,7 @@ def UpdateStats(cpu, memory, net_in, net_out):
   net_in_history = []
   net_out_history = []
   buffer_len = 120
+  window = buffer_len / 2
   # to baseline the cpu call
   psutil.cpu_percent(interval=1)
   # TODO: remove outliers
@@ -39,21 +40,25 @@ def UpdateStats(cpu, memory, net_in, net_out):
     vmem = psutil.virtual_memory()
     mem_history.append(vmem.percent / 100)
     mem_history = mem_history[-buffer_len:]
-    memory.value = sum(mem_history) / len(mem_history)
+    l = sorted(mem_history, reverse=True)[:window]
+    memory.value = sum(l) / len(l)
     cpu_history.append(psutil.cpu_percent(0) / 100)
     cpu_history = cpu_history[-buffer_len:]
-    cpu.value = sum(cpu_history) / len(cpu_history)
+    l = sorted(cpu_history, reverse=True)[:window]
+    cpu.value = sum(l) / len(l)
     net = psutil.network_io_counters()
     net_in_history.append(net.bytes_recv)
     net_in_history = net_in_history[-buffer_len:]
     bytes = [y-x for x,y in pairwise(net_in_history)]
     if bytes:
-      net_in.value = sum(bytes) / len(bytes)
+      l = sorted(bytes, reverse=True)[:window]
+      net_in.value = sum(l) / len(l)
     net_out_history.append(net.bytes_sent)
     net_out_history = net_out_history[-buffer_len:]
     bytes = [y-x for x,y in pairwise(net_out_history)]
     if bytes:
-      net_out.value = sum(bytes) / len(bytes)
+      l = sorted(bytes, reverse=True)[:window]
+      net_out.value = sum(l) / len(l)
     time.sleep(10)
 
 
