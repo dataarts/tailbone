@@ -87,7 +87,10 @@ class TurnHandler(BaseHandler):
     return {
       "username": username,
       "password": password,
-      "turn": instance.address
+      "uris": [
+        "turn:{}:3478?transport=udp".format(instance.address),
+        "turn:{}:3478?transport=tcp".format(instance.address),
+      ],
     }
 
 app = webapp2.WSGIApplication([
