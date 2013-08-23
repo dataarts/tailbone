@@ -24,6 +24,10 @@
 ## Use JSONP for all apis
 # tailbone_JSONP = False
 
+## Use CORS for all apis
+# tailbone_CORS = True
+# tailbone_CORS_RESTRICTED_DOMAINS = ["http://localhost"]
+
 ## modify the below functions to change how users are identified
 # tailbone_is_current_user_admin = 
 # tailbone_get_current_user = 

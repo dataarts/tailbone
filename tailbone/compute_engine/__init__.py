@@ -41,6 +41,7 @@ import uuid
 import webapp2
 
 from google.appengine.api import app_identity
+from google.appengine.api import lib_config
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
@@ -48,6 +49,11 @@ from google.appengine.ext import deferred
 from google.appengine.ext.ndb import polymodel
 
 from apiclient.errors import HttpError
+
+class _ConfigDefaults(object):
+  PROJECT_ID = app_identity.get_application_id()
+
+_config = lib_config.register('tailboneComputeEngine', _ConfigDefaults.__dict__)
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
@@ -88,7 +94,6 @@ ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z["zones"]]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
-PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 DEFAULT_TYPE = "n1-standard-1"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
@@ -156,12 +161,12 @@ def _blocking_call(gce_service, response):
     if 'zone' in response:
       zone_name = response['zone'].split('/')[-1]
       request = gce_service.zoneOperations().get(
-          project=PROJECT_ID,
+          project=_config.PROJECT_ID,
           operation=operation_id,
           zone=zone_name)
     else:
       request = gce_service.globalOperations().get(
-           project=PROJECT_ID, operation=operation_id)
+           project=_config.PROJECT_ID, operation=operation_id)
 
     response = request.execute()
     if response:
@@ -198,13 +203,13 @@ class TailboneCEInstance(polymodel.PolyModel):
   PARAMS = {
     "kind": "compute#instance",
     "name": "default",
-    "zone": api_url(PROJECT_ID, "zones", DEFAULT_ZONE),
+    "zone": api_url(_config.PROJECT_ID, "zones", DEFAULT_ZONE),
     "image": api_url("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
-    "machineType": api_url(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", DEFAULT_TYPE),
+    "machineType": api_url(_config.PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", DEFAULT_TYPE),
     "networkInterfaces": [
       {
         "kind": "compute#networkInterface",
-        "network": api_url(PROJECT_ID, "global", "networks", "default"),
+        "network": api_url(_config.PROJECT_ID, "global", "networks", "default"),
         "accessConfigs": [
           {
             "type": "ONE_TO_ONE_NAT",
@@ -306,7 +311,7 @@ def update_instance_status(urlsafe_key):
     return
   try:
     info = compute_api().instances().get(
-      project=PROJECT_ID, zone=instance.zone,
+      project=_config.PROJECT_ID, zone=instance.zone,
       instance=instance.key.id()).execute()
   except HttpError as e:
     logging.info("Instance no longer exists, remove it.")
@@ -372,7 +377,7 @@ class LoadBalancer(object):
       # create disk from source snapshot
       if instance.SOURCE_SNAPSHOT:
         operation = compute.disks().insert(
-          project=PROJECT_ID, zone=instance.zone, body={
+          project=_config.PROJECT_ID, zone=instance.zone, body={
             "name": name,
             "sizeGb": 10,
             "sourceSnapshot": instance.SOURCE_SNAPSHOT,
@@ -386,7 +391,7 @@ class LoadBalancer(object):
             "mode": "READ_WRITE",
             "deviceName": name,
             "zone": update_zone(instance.PARAMS.get("zone")),
-            "source": api_url(PROJECT_ID, "zones", instance.zone, "disks", name),
+            "source": api_url(_config.PROJECT_ID, "zones", instance.zone, "disks", name),
           }],
         })
 
@@ -400,7 +405,7 @@ class LoadBalancer(object):
         "machineType": update_zone(instance.PARAMS.get("machineType")),
       })
       operation = compute.instances().insert(
-        project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
+        project=_config.PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
       instance.status = operation.get("status")
       name = "update_instance_status_{}_{}".format(instance.key.urlsafe(), int(time.time()))
@@ -420,9 +425,9 @@ class LoadBalancer(object):
       name = instance.key.id()
       if instance.SOURCE_SNAPSHOT:
         compute.disks().delete(
-          project=PROJECT_ID, zone=instance.zone, disk=name).execute()
+          project=_config.PROJECT_ID, zone=instance.zone, disk=name).execute()
       compute.instances().delete(
-        project=PROJECT_ID, zone=instance.zone, instance=name).execute()
+        project=_config.PROJECT_ID, zone=instance.zone, instance=name).execute()
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -461,7 +466,7 @@ class LoadBalancer(object):
       name_filter = "name eq {}".format(name_match)
       size = 0
       for zone in LOCATIONS[pool.region]["zones"]:
-        resp = compute.instances().list(project=PROJECT_ID,
+        resp = compute.instances().list(project=_config.PROJECT_ID,
                                         zone=zone,
                                         filter=name_filter).execute()
         logging.info("List of instances {}".format(resp))
@@ -569,7 +574,7 @@ class LoadBalancerApi(object):
     compute = compute_api()
     items = []
     for zone in ZONES:
-      resp = compute.instances().list(project=PROJECT_ID,
+      resp = compute.instances().list(project=_config.PROJECT_ID,
                                       zone=zone).execute()
       items.append(resp)
     return items

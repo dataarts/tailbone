@@ -44,6 +44,8 @@ class _ConfigDefaults(object):
   JSONP = False
   SERVICE_EMAIL = None
   SERVICE_KEY_PATH = None
+  CORS = False
+  CORS_RESTRICTED_DOMAINS = None
 
   def is_current_user_admin(*args, **kwargs):
     return api.users.is_current_user_admin(*args, **kwargs)
@@ -123,6 +125,12 @@ def as_json(func):
       if callback:
         self.response.headers["Content-Type"] = "text/javascript"
         resp = "%s(%s);".format(callback, resp)
+    if config.CORS:
+      origin = self.request.headers.get("Origin")
+      if not config.CORS_RESTRICTED_DOMAINS:
+        self.response.headers.add_header("Access-Control-Allow-Origin", "*")
+      elif origin in config.CORS_RESTRICTED_DOMAINS:
+        self.response.headers.add_header("Access-Control-Allow-Origin", origin)
     self.response.out.write(resp)
   return wrapper
 
