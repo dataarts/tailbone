@@ -62,6 +62,9 @@ var NodeUtils = {
 
 };
 
+// Proxy send function so it can be overridden with out a performance hit
+NodeUtils.sendWrapper = NodeUtils.send;
+
 /**
  * Node
  * @param mesh {Mesh} Mesh to which the node belongs
@@ -211,7 +214,7 @@ Node.prototype._bind = function(type, handler) {
       var bound = this._remotelyBoundTypes[type];
       if (!bound) {
         this._remotelyBoundTypes[type] = 0;
-        NodeUtils.send(this, '["bind","' + type + '"]');
+        NodeUtils.sendWrapper(this, '["bind","' + type + '"]');
       }
       this._remotelyBoundTypes[type] += 1;
     }
@@ -234,7 +237,7 @@ Node.prototype._unbind = function(type, handler) {
       this._remotelyBoundTypes[type] -= 1;
       var bound = this._remotelyBoundTypes[type];
       if (bound === 0) {
-        NodeUtils.send(this, '["unbind","' + type + '"]');
+        NodeUtils.sendWrapper(this, '["unbind","' + type + '"]');
       }
     }
   }
@@ -284,7 +287,7 @@ Node.prototype._trigger = function (type, args) {
 
   }
 
-  NodeUtils.send(this, message);
+  NodeUtils.sendWrapper(this, message);
 
 };
 

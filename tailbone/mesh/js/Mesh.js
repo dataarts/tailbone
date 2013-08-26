@@ -96,6 +96,28 @@ Mesh.prototype.config = function (options) {
     }
   }
 
+  // Debug tool to add artificial delays to the mesh call for testing
+  var delay = this.options.delay;
+  if (typeof delay  == "number") {
+    if (delay > 0) {
+      NodeUtils.sendWrapper = function() {
+        var ctx = this;
+        var args = arguments;
+        setTimeout(function() {
+          NodeUtils.send.apply(ctx, args);
+        }, delay);
+      }
+    }
+  } else if (typeof delay === "function") {
+    NodeUtils.sendWrapper = function() {
+      var ctx = this;
+      var args = arguments;
+      setTimeout(function() {
+        NodeUtils.send.apply(ctx, args);
+      }, delay())
+    }
+  }
+
 };
 
 /**
@@ -215,6 +237,7 @@ Mesh.options = {
   api: '/api/mesh',
   autoConnect: true,
   autoPeerConnect: true,
-  useWebRTC: true
+  useWebRTC: true,
+  delay: undefined
 
 };
