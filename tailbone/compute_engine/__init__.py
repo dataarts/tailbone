@@ -27,6 +27,7 @@ from tailbone import DEBUG
 from tailbone import PREFIX
 from tailbone import build_service
 
+import datetime
 import importlib
 import inspect
 import json
@@ -41,7 +42,6 @@ import uuid
 import webapp2
 
 from google.appengine.api import app_identity
-from google.appengine.api import lib_config
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
@@ -49,11 +49,6 @@ from google.appengine.ext import deferred
 from google.appengine.ext.ndb import polymodel
 
 from apiclient.errors import HttpError
-
-class _ConfigDefaults(object):
-  PROJECT_ID = app_identity.get_application_id()
-
-_config = lib_config.register('tailboneComputeEngine', _ConfigDefaults.__dict__)
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
@@ -77,23 +72,11 @@ python load_reporter.py &
 
 SCOPES = ["https://www.googleapis.com/auth/compute",
           "https://www.googleapis.com/auth/devstorage.read_write"]
-# These are just random guesses based on the name I have no idea where they actually are.
-LOCATIONS = {
-  "us-central": {
-    "location": (36.0156, -114.7378),
-    # "zones": ["us-central1-a", "us-central1-b", "us-central2-a"],
-    "zones": ["us-central1-b", "us-central2-a"],
-  },
-  "europe-west": {
-    "location": (52.5233, 13.4127),
-    "zones": ["europe-west1-a", "europe-west1-b"],
-  }
-}
 
-ZONES = [zone for l, z in LOCATIONS.iteritems() for zone in z["zones"]]
 API_VERSION = "v1beta15"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
+PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 DEFAULT_TYPE = "n1-standard-1"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
@@ -103,6 +86,83 @@ DRAIN_DELAY = 15*60
 REBALANCE_DELAY = 5*60
 STARTING_STATUS_DELAY = 20
 STATUS_DELAY = 2*60
+
+# These are just random guesses based on the name I have no idea where they actually are.
+# POSITIONS = {
+#   "us-west": (37.7833, -122.4167),
+#   "us-central": (36.0156, -114.7378),
+#   "us-east": (40.6700, -73.9400),
+#   "europe-east": (53.3478, 6.2597),
+#   "europe-central": (52.5233, 13.4127),
+#   "europe-west": (52.2333, 21.0167),
+#   "asia-east": (53.3478, 66.2597),
+#   "asia-central": (52.5233, 100.4127),
+#   "asia-west": (52.2333, 139.6917),
+# }
+
+POSITIONS = {
+  "us": (36.0156, -114.7378),
+  "europe": (52.5233, 13.4127),
+  "asia": (30, 100),
+}
+
+def isoparse(s):
+  d, tz = s.split(".")
+  d = datetime.datetime.strptime(d, "%Y-%m-%dT%H:%M:%S")
+  hr, mn = [int(x) for x in tz[-6:].split(":")]
+  tz = datetime.timedelta(hours=hr,minutes=mn)
+  return d + tz
+
+
+def get_locations():
+  req = webapp2.get_request()
+  locations = req.environ.get("LOCATIONS")
+  if locations:
+    return locations
+  locations = memcache.get("LOCATIONS")
+  if locations:
+    req.environ["LOCATIONS"] = locations
+    return locations
+  compute = compute_api()
+  resp = compute.zones().list(project=PROJECT_ID).execute()
+  locations = {}
+  for zone in resp.get("items", []):
+    # zone is up
+    status = zone.get("status")
+    if status != "UP":
+      continue
+
+    # zone not down for maintence
+    now = datetime.datetime.now()
+    timebuf = datetime.timedelta(days=1)
+    maintenance = False
+    for win in zone.get("maintenanceWindows", []):
+      begin = isoparse(win.get("beginTime"))
+      begin = begin - timebuf
+      end = isoparse(win.get("endTime"))
+      end = end + timebuf
+      if now > begin and now < end:
+        maintenance = True
+        break
+    if maintenance:
+      continue
+
+    # add zone to list
+    name = zone.get("name")
+    n = name.split("-")[0]
+    pos = POSITIONS.get(n)
+    if not pos:
+      logging.warn("Location not found {} : {}".format(name, pos))
+      continue
+    l = locations.get(n)
+    if not l:
+      l = {"location": pos, "zones": []}
+    l["zones"].append(name)
+    locations[n] = l
+
+  req.environ["LOCATIONS"] = locations
+  memcache.set("LOCATIONS", locations, time=datetime.timedelta(hours=6).total_seconds())
+  return locations
 
 
 def compute_api():
@@ -161,12 +221,12 @@ def _blocking_call(gce_service, response):
     if 'zone' in response:
       zone_name = response['zone'].split('/')[-1]
       request = gce_service.zoneOperations().get(
-          project=_config.PROJECT_ID,
+          project=PROJECT_ID,
           operation=operation_id,
           zone=zone_name)
     else:
       request = gce_service.globalOperations().get(
-           project=_config.PROJECT_ID, operation=operation_id)
+           project=PROJECT_ID, operation=operation_id)
 
     response = request.execute()
     if response:
@@ -203,13 +263,13 @@ class TailboneCEInstance(polymodel.PolyModel):
   PARAMS = {
     "kind": "compute#instance",
     "name": "default",
-    "zone": api_url(_config.PROJECT_ID, "zones", DEFAULT_ZONE),
+    "zone": api_url(PROJECT_ID, "zones", DEFAULT_ZONE),
     "image": api_url("debian-cloud", "global", "images", "debian-7-wheezy-v20130515"),
-    "machineType": api_url(_config.PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", DEFAULT_TYPE),
+    "machineType": api_url(PROJECT_ID, "zones", DEFAULT_ZONE, "machineTypes", DEFAULT_TYPE),
     "networkInterfaces": [
       {
         "kind": "compute#networkInterface",
-        "network": api_url(_config.PROJECT_ID, "global", "networks", "default"),
+        "network": api_url(PROJECT_ID, "global", "networks", "default"),
         "accessConfigs": [
           {
             "type": "ONE_TO_ONE_NAT",
@@ -311,7 +371,7 @@ def update_instance_status(urlsafe_key):
     return
   try:
     info = compute_api().instances().get(
-      project=_config.PROJECT_ID, zone=instance.zone,
+      project=PROJECT_ID, zone=instance.zone,
       instance=instance.key.id()).execute()
   except HttpError as e:
     logging.info("Instance no longer exists, remove it.")
@@ -339,14 +399,16 @@ def update_instance_status(urlsafe_key):
 class LoadBalancer(object):
 
   @staticmethod
-  def nearest_zone(request):
+  def nearest_zone():
+    request = webapp2.get_request()
     location = request.headers.get("X-AppEngine-CityLatLong")
     if location:
       location = tuple([float(x) for x in location.split(",")])
       dist = None
       region = None
       closest = None
-      for r, obj in LOCATIONS.iteritems():
+      locations = get_locations()
+      for r, obj in locations.iteritems():
         loc = obj["location"]
         zones = obj["zones"]
         d = haversine_distance(location, loc)
@@ -355,8 +417,9 @@ class LoadBalancer(object):
           closest = zones
           region = r
       return region, random.choice(closest)
-    region = random.choice(LOCATIONS.keys())
-    return region, random.choice(LOCATIONS[region]["zones"])
+    locations = get_locations()
+    region = random.choice(locations.keys())
+    return region, random.choice(locations[region]["zones"])
 
   @staticmethod
   def start_instance(pool):
@@ -369,15 +432,19 @@ class LoadBalancer(object):
     name = "{}-{}".format(name, uuid.uuid4())[:63]
     instance = instance_class(id=name)
     instance.pool = pool.key
-    instance.zone = random.choice(LOCATIONS[pool.region]["zones"])
-    instance.put()
+    locations = get_locations()
+    instance.zone = random.choice(locations[pool.region]["zones"])
 
     compute = compute_api()
     if compute:
+      def update_zone(s):
+        return re.sub(r"\/zones\/([^/]*)",
+                      "/zones/{}".format(instance.zone),
+                      s)
       # create disk from source snapshot
       if instance.SOURCE_SNAPSHOT:
         operation = compute.disks().insert(
-          project=_config.PROJECT_ID, zone=instance.zone, body={
+          project=PROJECT_ID, zone=instance.zone, body={
             "name": name,
             "sizeGb": 10,
             "sourceSnapshot": instance.SOURCE_SNAPSHOT,
@@ -391,21 +458,17 @@ class LoadBalancer(object):
             "mode": "READ_WRITE",
             "deviceName": name,
             "zone": update_zone(instance.PARAMS.get("zone")),
-            "source": api_url(_config.PROJECT_ID, "zones", instance.zone, "disks", name),
+            "source": api_url(PROJECT_ID, "zones", instance.zone, "disks", name),
           }],
         })
 
-      def update_zone(s):
-        return re.sub(r"\/zones\/([^/]*)",
-                      "/zones/{}".format(instance.zone),
-                      s)
       instance.PARAMS.update({
         "name": name,
         "zone": update_zone(instance.PARAMS.get("zone")),
         "machineType": update_zone(instance.PARAMS.get("machineType")),
       })
       operation = compute.instances().insert(
-        project=_config.PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
+        project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
       instance.status = operation.get("status")
       name = "update_instance_status_{}_{}".format(instance.key.urlsafe(), int(time.time()))
@@ -413,6 +476,9 @@ class LoadBalancer(object):
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
+
+    # finally put the instance after the resource has been created
+    instance.put()
 
   @staticmethod
   def stop_instance(instance):
@@ -425,9 +491,9 @@ class LoadBalancer(object):
       name = instance.key.id()
       if instance.SOURCE_SNAPSHOT:
         compute.disks().delete(
-          project=_config.PROJECT_ID, zone=instance.zone, disk=name).execute()
+          project=PROJECT_ID, zone=instance.zone, disk=name).execute()
       compute.instances().delete(
-        project=_config.PROJECT_ID, zone=instance.zone, instance=name).execute()
+        project=PROJECT_ID, zone=instance.zone, instance=name).execute()
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -442,12 +508,12 @@ class LoadBalancer(object):
     deferred.defer(remove_draining_instance, instance.key.urlsafe(), _countdown=DRAIN_DELAY, _name=name)
 
   @staticmethod
-  def find(instance_class, request):
+  def find(instance_class):
     """Return an instance of this instance type from the nearest pool or create it."""
     if DEBUG:
       # check to make sure we can access the api before we do anything
       compute_api()
-    region, zone = LoadBalancer.nearest_zone(request)
+    region, zone = LoadBalancer.nearest_zone()
     instance_str = class_to_string(instance_class)
     pool = LoadBalancer.get_or_create_pool(instance_str, region)
 
@@ -465,8 +531,9 @@ class LoadBalancer(object):
       name_match = ".*{}.*".format(rfc1035(instance_class.__name__))
       name_filter = "name eq {}".format(name_match)
       size = 0
-      for zone in LOCATIONS[pool.region]["zones"]:
-        resp = compute.instances().list(project=_config.PROJECT_ID,
+      locations = get_locations()
+      for zone in locations[pool.region]["zones"]:
+        resp = compute.instances().list(project=PROJECT_ID,
                                         zone=zone,
                                         filter=name_filter).execute()
         logging.info("List of instances {}".format(resp))
@@ -475,15 +542,17 @@ class LoadBalancer(object):
           status = info.get("status")
           # if instance is new or running add it to the pool
           if status in [InstanceStatus.RUNNING, InstanceStatus.PENDING, InstanceStatus.STAGING]:
-            logging.info("instance {}".format(info))
-            instance = instance_class(id=info.get("name"))
-            instance.zone = info.get("zone").split("/")[-1]
-            instance.status = status
-            instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-            instance.pool = pool.key
-            instance.put()
-            name = "update_instance_status_{}_{}".format(instance.key.urlsafe(), int(time.time()))
-            deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY, _name=name)
+            instance_id = info.get("name")
+            instance = instance_class.get_by_id(instance_id)
+            if not instance:
+              instance = instance_class(id=instance_id)
+              instance.zone = info.get("zone").split("/")[-1]
+              instance.status = status
+              instance.address = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+              instance.pool = pool.key
+              instance.put()
+              name = "update_instance_status_{}_{}".format(instance.key.urlsafe(), int(time.time()))
+              deferred.defer(update_instance_status, instance.key.urlsafe(), _countdown=STARTING_STATUS_DELAY, _name=name)
             size += 1
       # start any additional instances need to meet pool min_size
       for i in range(pool.min_size - size):
@@ -573,8 +642,10 @@ class LoadBalancerApi(object):
     """List instances."""
     compute = compute_api()
     items = []
-    for zone in ZONES:
-      resp = compute.instances().list(project=_config.PROJECT_ID,
+    locations = get_locations()
+    zones = [zone for l, z in locations.iteritems() for zone in z["zones"]]
+    for zone in zones:
+      resp = compute.instances().list(project=PROJECT_ID,
                                       zone=zone).execute()
       items.append(resp)
     return items
@@ -587,7 +658,8 @@ class LoadBalancerApi(object):
   @staticmethod
   def test(request):
     """Nearest zone."""
-    return LoadBalancer.nearest_zone(request)
+    return get_locations()
+    # return LoadBalancer.nearest_zone()
 
 
 class LoadBalanceAdminHandler(BaseHandler):

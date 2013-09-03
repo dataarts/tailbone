@@ -33,7 +33,8 @@ from google.appengine.api import lib_config
 
 
 class _ConfigDefaults(object):
-  PARAMS = None
+  PARAMS = {}
+  SOURCE_SNAPSHOT = None
   STARTUP_SCRIPT = """
 echo "You should edit the appengine_config.py file with your own startup_script."
 """
@@ -45,7 +46,8 @@ _config = lib_config.register('tailboneCustomCE', _ConfigDefaults.__dict__)
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneCustomInstance(TailboneCEInstance):
-  PARAMS = dict(TailboneCEInstance.PARAMS, **{
+  SOURCE_SNAPSHOT = _config.SOURCE_SNAPSHOT
+  PARAMS = dict(dict(TailboneCEInstance.PARAMS, **{
     "name": "custom-id",
     "metadata": {
       "items": [
@@ -55,7 +57,7 @@ class TailboneCustomInstance(TailboneCEInstance):
         },
       ],
     }
-  }) if not _config.PARAMS else dict(TailboneCEInstance.PARAMS, **_config.PARAMS)
+  }), **_config.PARAMS)
 
   @staticmethod
   def calc_load(stats):

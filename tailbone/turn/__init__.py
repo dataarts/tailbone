@@ -35,12 +35,15 @@ from google.appengine.ext import ndb
 class _ConfigDefaults(object):
   SECRET = "notasecret"
   RESTRICTED_DOMAINS = ["localhost"]
+  SOURCE_SNAPSHOT = None
+  PARAMS = {}
 
 _config = lib_config.register('tailboneTurn', _ConfigDefaults.__dict__)
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
 class TailboneTurnInstance(TailboneCEInstance):
-  PARAMS = dict(TailboneCEInstance.PARAMS, **{
+  SOURCE_SNAPSHOT = _config.SOURCE_SNAPSHOT
+  PARAMS = dict(dict(TailboneCEInstance.PARAMS, **{
     "name": "turn-id",
     "metadata": {
       "items": [
@@ -59,7 +62,7 @@ turnserver --use-auth-secret -v -a -X $IP -f --static-auth-secret %s %s
         },
       ],
     }
-  })
+  }), **_config.PARAMS)
 
   secret = ndb.StringProperty(default=_config.SECRET)
 

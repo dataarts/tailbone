@@ -37,9 +37,25 @@ from google.appengine.api import lib_config
 # TODO: Use an image instead of a startup-script for downloading dependencies
 
 # Prefixing internal models with Tailbone to avoid clobbering when using RESTful API
-class TailboneWebsocketInstance(TailboneCEInstance):
+
+class _ConfigDefaults(object):
+  ROOM_EXPIRATION = 86400  # one day in seconds
+  ENABLE_WEBSOCKET = False
+  ENABLE_TURN = False
   PORT = 2345
-  PARAMS = dict(TailboneCEInstance.PARAMS, **{
+  SOURCE_SNAPSHOT = None
+  PARAMS = {}
+
+  def generate_room_name():
+    return generate_word() + "." + generate_word()
+
+
+_config = lib_config.register('tailboneMesh', _ConfigDefaults.__dict__)
+
+class TailboneWebsocketInstance(TailboneCEInstance):
+  PORT = _config.PORT
+  SOURCE_SNAPSHOT = _config.SOURCE_SNAPSHOT
+  PARAMS = dict(dict(TailboneCEInstance.PARAMS, **{
     "name": "websocket-id",
     "metadata": {
       "items": [
@@ -64,19 +80,8 @@ python websocket.py
         },
       ],
     }
-  })
+  }), **_config.PARAMS)
 
-
-class _ConfigDefaults(object):
-  ROOM_EXPIRATION = 86400  # one day in seconds
-  ENABLE_WEBSOCKET = False
-  ENABLE_TURN = False
-
-  def generate_room_name():
-    return generate_word() + "." + generate_word()
-
-
-_config = lib_config.register('tailboneMesh', _ConfigDefaults.__dict__)
 
 def room_hash(name):
   return "tailbone-mesh-room-{}".format(base64.b64encode(name))
