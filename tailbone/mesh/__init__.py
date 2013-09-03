@@ -107,7 +107,7 @@ def get_or_create_room(request, name=None):
           address = request.remote_addr if str(request.remote_addr) != "::1" else "localhost"
         instance = DebugInstance()
       else:
-        instance = LoadBalancer.find(TailboneWebsocketInstance, request)
+        instance = LoadBalancer.find(TailboneWebsocketInstance)
       if not instance:
         raise AppError('Instance not yet ready, try again later.')
       address = "ws://{}:{}/{}".format(instance.address, TailboneWebsocketInstance.PORT, name)
@@ -128,7 +128,7 @@ class MeshHandler(BaseHandler):
     else:
       resp["channel"] = address
     if _config.ENABLE_TURN:
-      ts = LoadBalancer.find(turn.TailboneTurnInstance, self.request)
+      ts = LoadBalancer.find(turn.TailboneTurnInstance)
       if ts:
         username = self.request.get("username", generate_word())
         username, password = turn.credentials(username, ts.secret)

@@ -67,7 +67,7 @@ class TailboneCustomInstance(TailboneCEInstance):
 class CustomHandler(BaseHandler):
   @as_json
   def get(self):
-    instance = LoadBalancer.find(TailboneCustomInstance, self.request)
+    instance = LoadBalancer.find(TailboneCustomInstance)
     if not instance:
       raise AppError('Instance not found, try again later.')
     return {

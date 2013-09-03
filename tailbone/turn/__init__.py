@@ -84,7 +84,7 @@ class TurnHandler(BaseHandler):
     username = self.request.get("username")
     if not username:
       raise AppError("Must provide username.")
-    instance = LoadBalancer.find(TailboneTurnInstance, self.request)
+    instance = LoadBalancer.find(TailboneTurnInstance)
     if not instance:
       raise AppError('Instance not found, try again later.')
     username, password = credentials(username, instance.secret)
