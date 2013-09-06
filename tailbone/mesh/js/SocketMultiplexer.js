@@ -172,33 +172,33 @@ SocketMultiplexer._send = debounce(function() {
 });
 
 SocketMultiplexer.prototype.send = function(channel, message) {
-  this.send._queuedMessages = this.send._queuedMessages || {};
-  var targets = this.send._queuedMessages[message] || [];
-  targets.push(channel.remoteNode.id);
-  this.send._queuedMessages[message] = targets;
+  // this.send._queuedMessages = this.send._queuedMessages || {};
+  // var targets = this.send._queuedMessages[message] || [];
+  // targets.push(channel.remoteNode.id);
+  // this.send._queuedMessages[message] = targets;
 
-  var self = this;
-  if (!this.send.sendInterval) {
-    this.send.sendInterval = setInterval(function() {
-      var msgs = Object.keys(self.send._queuedMessages);
-      if (msgs.length === 0) {
-        return;
-      }
-      var packets = [];
-      msgs.forEach(function(msg) {
-        var recipients = self.send._queuedMessages[msg];
-        packets.push([recipients, msg]);
-        delete self.send._queuedMessages[msg];
-      });
-      var encoded = JSON.stringify(packets);
-      self.socket.send(encoded);
-    }, 100);
-  }
+  // var self = this;
+  // if (!this.send.sendInterval) {
+  //   this.send.sendInterval = setInterval(function() {
+  //     var msgs = Object.keys(self.send._queuedMessages);
+  //     if (msgs.length === 0) {
+  //       return;
+  //     }
+  //     var packets = [];
+  //     msgs.forEach(function(msg) {
+  //       var recipients = self.send._queuedMessages[msg];
+  //       packets.push([recipients, msg]);
+  //       delete self.send._queuedMessages[msg];
+  //     });
+  //     var encoded = JSON.stringify(packets);
+  //     self.socket.send(encoded);
+  //   }, 100);
+  // }
 
-  return true;
+  // return true;
 
   // TODO: user defer to batch send messages
-  // var encoded = JSON.stringify([[channel.remoteNode.id], message]);
-  // return this.socket.send(encoded);
+  var encoded = JSON.stringify([[channel.remoteNode.id], message]);
+  return this.socket.send(encoded);
 };
 

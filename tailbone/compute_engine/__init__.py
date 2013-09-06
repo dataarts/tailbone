@@ -52,6 +52,9 @@ from apiclient.errors import HttpError
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
+# update open files limit
+ulimit -n 10000
+
 # install deps
 apt-get install -y build-essential python-dev
 
@@ -82,23 +85,12 @@ DEFAULT_TYPE = "n1-standard-1"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
 STATS_PORT = 8888
 
-DRAIN_DELAY = 15*60
-REBALANCE_DELAY = 5*60
-STARTING_STATUS_DELAY = 20
-STATUS_DELAY = 2*60
-
-# These are just random guesses based on the name I have no idea where they actually are.
-# POSITIONS = {
-#   "us-west": (37.7833, -122.4167),
-#   "us-central": (36.0156, -114.7378),
-#   "us-east": (40.6700, -73.9400),
-#   "europe-east": (53.3478, 6.2597),
-#   "europe-central": (52.5233, 13.4127),
-#   "europe-west": (52.2333, 21.0167),
-#   "asia-east": (53.3478, 66.2597),
-#   "asia-central": (52.5233, 100.4127),
-#   "asia-west": (52.2333, 139.6917),
-# }
+SECONDS = 1
+MINUTES = 60*SECONDS
+DRAIN_DELAY = 30*MINUTES
+REBALANCE_DELAY = 2*MINUTES
+STARTING_STATUS_DELAY = 20*SECONDS
+STATUS_DELAY = 1*MINUTES
 
 POSITIONS = {
   "us": (36.0156, -114.7378),
@@ -303,7 +295,11 @@ def rebalance_pool(urlsafe_pool_key):
   ]))
   load = [i.load for i in query]
   size = len(load)
-  if size > 0:
+  if size > pool.max_size:
+    LoadBalancer.decrease_pool(pool, size)
+  elif size < pool.min_size:
+    LoadBalancer.increase_pool(pool, size)
+  elif size > 0:
     avg_load = sum(load) / size
     if avg_load < 0.2:
       LoadBalancer.decrease_pool(pool, size)
@@ -357,18 +353,25 @@ def update_instance_status(urlsafe_key):
   if instance.status == InstanceStatus.RUNNING:
     # check load
     address = "http://{}:{}".format(instance.address, STATS_PORT)
-    resp = urlfetch.fetch(url=address,
-                          method=urlfetch.GET)
-    if resp.status_code == 200:
-      stats = json.loads(resp.content)
-      instance.load = instance.calc_load(stats)
-      instance.put()
-    else:
+    try:
+      resp = urlfetch.fetch(url=address,
+                            method=urlfetch.GET,
+                            deadline=30)
+      if resp.status_code == 200:
+        stats = json.loads(resp.content)
+        instance.load = instance.calc_load(stats)
+        instance.put()
+      else:
+        instance.status = InstanceStatus.UNKNOWN
+        instance.put()
+    except Exception:
       instance.status = InstanceStatus.UNKNOWN
       instance.put()
+
     name = "update_instance_status_{}_{}".format(urlsafe_key, int(time.time()))
     deferred.defer(update_instance_status, urlsafe_key, _countdown=STATUS_DELAY, _name=name)
     return
+
   try:
     info = compute_api().instances().get(
       project=PROJECT_ID, zone=instance.zone,
@@ -613,29 +616,29 @@ class LoadBalancer(object):
 
 
 class LoadBalancerApi(object):
-  @staticmethod
-  def fill_pool(request, instance_class_str, region):
-    """Start a new instance pool."""
-    return LoadBalancer.get_or_create_pool(instance_class_str, region)
+  # @staticmethod
+  # def fill_pool(request, instance_class_str, region):
+  #   """Start a new instance pool."""
+  #   return LoadBalancer.get_or_create_pool(instance_class_str, region)
 
-  @staticmethod
-  def increase_pool(request, urlsafe_pool_key):
-    """Double pool size."""
-    pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
-    size = pool.size()
-    return LoadBalancer.increase_pool(pool, size)
+  # @staticmethod
+  # def increase_pool(request, urlsafe_pool_key):
+  #   """Double pool size."""
+  #   pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+  #   size = pool.size()
+  #   return LoadBalancer.increase_pool(pool, size)
 
-  @staticmethod
-  def decrease_pool(request, urlsafe_pool_key):
-    """Half pool size."""
-    pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
-    size = pool.size()
-    return LoadBalancer.decrease_pool(pool, size)
+  # @staticmethod
+  # def decrease_pool(request, urlsafe_pool_key):
+  #   """Half pool size."""
+  #   pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+  #   size = pool.size()
+  #   return LoadBalancer.decrease_pool(pool, size)
 
-  @staticmethod
-  def resize_pool(request, params):
-    """Update a pools params."""
-    pass
+  # @staticmethod
+  # def resize_pool(request, params):
+  #   """Update a pools params."""
+  #   pass
 
   @staticmethod
   def list_instances(request):
@@ -658,8 +661,17 @@ class LoadBalancerApi(object):
   @staticmethod
   def test(request):
     """Nearest zone."""
-    return get_locations()
-    # return LoadBalancer.nearest_zone()
+    return LoadBalancer.nearest_zone()
+
+  @staticmethod
+  def set_pool_constraints(request, urlsafe_pool_key, min_size, max_size):
+    min_size = int(min_size)
+    max_size = int(max_size)
+    pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
+    pool.min_size = min_size 
+    pool.max_size = max_size 
+    pool.put()
+    return pool
 
 
 class LoadBalanceAdminHandler(BaseHandler):

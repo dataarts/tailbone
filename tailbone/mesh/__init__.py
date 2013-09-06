@@ -147,7 +147,7 @@ class MeshHandler(BaseHandler):
       raise AppError("Must provide name.")
 
 EXPORTED_JAVASCRIPT = compile_js([
-  "tailbone/mesh/js/msgpack.js",
+  # "tailbone/mesh/js/msgpack.js",
   "tailbone/mesh/js/EventDispatcher.js",
   "tailbone/mesh/js/StateDrive.js",
   "tailbone/mesh/js/Channel.js",
