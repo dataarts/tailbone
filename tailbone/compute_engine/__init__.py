@@ -602,7 +602,7 @@ class LoadBalancer(object):
   @staticmethod
   def decrease_pool(pool, current_size):
     """Half pool size."""
-    new_size = int(max(pool.min_size, round(current_size * 0.5)))
+    new_size = int(max(pool.min_size, round(current_size * 0.8)))
     if current_size != new_size:
       dropped = current_size - new_size
       query = TailboneCEInstance.query()
