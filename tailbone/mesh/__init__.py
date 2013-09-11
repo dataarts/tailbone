@@ -74,9 +74,9 @@ rm tornado-3.0.1.tar.gz
 cat >websocket.py <<EOL
 %s
 EOL
-python websocket.py 
+python websocket.py -p %s
 
-""" % (open("tailbone/mesh/websocket.py").read(),),
+""" % (open("tailbone/mesh/websocket.py").read(), _config.PORT),
         },
       ],
     }
