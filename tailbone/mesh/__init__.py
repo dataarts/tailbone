@@ -53,7 +53,6 @@ class _ConfigDefaults(object):
 _config = lib_config.register('tailboneMesh', _ConfigDefaults.__dict__)
 
 class TailboneWebsocketInstance(TailboneCEInstance):
-  PORT = _config.PORT
   SOURCE_SNAPSHOT = _config.SOURCE_SNAPSHOT
   PARAMS = dict(dict(TailboneCEInstance.PARAMS, **{
     "name": "websocket-id",
@@ -110,7 +109,7 @@ def get_or_create_room(request, name=None):
         instance = LoadBalancer.find(TailboneWebsocketInstance)
       if not instance:
         raise AppError('Instance not yet ready, try again later.')
-      address = "ws://{}:{}/{}".format(instance.address, TailboneWebsocketInstance.PORT, name)
+      address = "ws://{}:{}/{}".format(instance.address, _config.PORT, name)
     else:
       address = "/api/channel/{}".format(name) 
     if not memcache.add(room, address, time=_config.ROOM_EXPIRATION):
