@@ -34,6 +34,7 @@ from google.appengine.ext import ndb
 
 class _ConfigDefaults(object):
   SECRET = "notasecret"
+  REALM = "localhost"
   RESTRICTED_DOMAINS = ["localhost"]
   SOURCE_SNAPSHOT = None
   PARAMS = {}
@@ -55,10 +56,10 @@ curl -O http://rfc5766-turn-server.googlecode.com/files/turnserver-1.8.7.0-binar
 tar xvfz turnserver-1.8.7.0-binary-linux-wheezy-ubuntu-mint-x86-64bits.tar.gz
 dpkg -i rfc5766-turn-server_1.8.7.0-1_amd64.deb
 apt-get -fy install
-IP=$(gcutil getinstance $(hostname) 2>&1 | grep external-ip | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}") 
-turnserver --use-auth-secret -v -a -X $IP -f --static-auth-secret %s %s
+IP=$(gcutil getinstance $(hostname) 2>&1 | grep external-ip | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
+turnserver --use-auth-secret -v -a -X $IP -f --static-auth-secret %s -r %s
 
-""" % (_config.SECRET, " ".join(["-r " + str(d) for d in _config.RESTRICTED_DOMAINS]),)
+""" % (_config.SECRET, _config.REALM)
         },
       ],
     }
@@ -81,6 +82,9 @@ def credentials(username, secret=None):
 class TurnHandler(BaseHandler):
   @as_json
   def get(self):
+    if _config.RESTRICTED_DOMAINS:
+      if self.request.host_url not in _config.RESTRICTED_DOMAINS:
+        raise AppError("Invalid host.")
     username = self.request.get("username")
     if not username:
       raise AppError("Must provide username.")
@@ -94,6 +98,8 @@ class TurnHandler(BaseHandler):
       "uris": [
         "turn:{}:3478?transport=udp".format(instance.address),
         "turn:{}:3478?transport=tcp".format(instance.address),
+        "turn:{}:3479?transport=udp".format(instance.address),
+        "turn:{}:3479?transport=tcp".format(instance.address),
       ],
     }
 
