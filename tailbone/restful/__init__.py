@@ -266,7 +266,7 @@ re_composite_filter = re.compile(r"^(AND|OR)\((.*)\)$")
 re_split = re.compile(r",\W*")
 
 
-def convert_value(value):
+def convert_value(value, parseFloat=True):
   if value == "true":
     value = True
   elif value == "false":
@@ -276,7 +276,7 @@ def convert_value(value):
       value = ndb.Key(urlsafe=value)
     except TypeError:
       pass
-  else:
+  elif parseFloat:
     try:
       value = float(value)
     except:
@@ -333,7 +333,7 @@ def construct_filter_json(f):
       return ndb.query.OR(*filters)
     else:
       name, opsymbol, value = f
-      return ndb.query.FilterNode(name, convert_opsymbol(opsymbol), convert_value(value))
+      return ndb.query.FilterNode(name, convert_opsymbol(opsymbol), convert_value(value, parseFloat=False))
   else:
     return f
 
