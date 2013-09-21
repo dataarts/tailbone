@@ -438,7 +438,6 @@ class RestfulHandler(BaseHandler):
     model = model.lower()
     cls = None
     if _config.DEFINED_MODELS:
-      logging.info("\n\nwtf\n\n")
       cls = users if model == "users" else _config.DEFINED_MODELS.get(model)
       if not cls and _config.RESTRICT_TO_DEFINED_MODELS:
         raise RestrictedModelError
