@@ -15,5 +15,5 @@
 handlers:
   - url: /tailbone.js
     script: tailbone.app
-  - url: /api/log(in|out)/?
+  - url: /api/log(in|out|up)/?
     script: tailbone.auth
