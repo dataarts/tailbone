@@ -267,6 +267,8 @@ re_split = re.compile(r",\W*")
 
 
 def convert_value(value, parseFloat=True):
+  if type(value) not in [str, unicode]:
+    return value
   if value == "true":
     value = True
   elif value == "false":
