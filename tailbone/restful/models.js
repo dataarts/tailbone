@@ -284,11 +284,4 @@ var Model = function(type, opt_schema) {
 // additional functionality built in.
 var User = new Model('users');
 
-// Constructs a login url.
-User.logout_url = function(redirect_url) {
-  return '/api/login?url=' + (redirect_url || '/');
-};
 
-User.login_url = function(redirect_url) {
-  return '/api/login?url=' + (redirect_url || '/');
-};

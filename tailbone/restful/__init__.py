@@ -88,6 +88,7 @@ _config = api.lib_config.register('tailboneRestful', _ConfigDefaults.__dict__)
 
 re_public = re.compile(r"^[A-Z].*")
 re_type = type(re_public)
+re_admin = re.compile(r"^(A|a)dmin.*")
 
 acl_attributes = [u"owners", u"viewers"]
 
@@ -108,17 +109,39 @@ def current_user(required=False):
     raise LoginError("User must be logged in.")
   return None
 
+class HookedModel(ndb.Model):
+
+  _previous = None
+
+  def _pre_put_hook(self):
+    if self.key.id():
+      self._previous = self.key.get()
+
+  def _post_put_hook(self, future):
+    future.wait()
+    search.put(self)
+    if _config.METADATA and self._previous is None:
+      counter.increment(self.__class__.__name__)
+
+  @classmethod
+  def _post_delete_hook(cls, key, future):
+    future.wait()
+    search.delete(key)
+    if _config.METADATA:
+      counter.decrement(cls.__name__)
 
 # Model
 # -----
 # A modifed Expando class that all models derive from, this allows app engine to work as an
 # arbitrary document store for your json objects as well as scope the public private nature of
 # objects based on the capitolization of the property.
-class ScopedModel(ndb.Model):
+class ScopedModel(HookedModel):
   owners = ndb.StringProperty(repeated=True)
   viewers = ndb.StringProperty(repeated=True)
 
   def can_write(self, u):
+    if config.is_current_user_admin():
+      return True
     try:
       owners = self.owners
     except ndb.UnprojectedPropertyError:
@@ -128,6 +151,8 @@ class ScopedModel(ndb.Model):
     return False
 
   def can_read(self, u):
+    if config.is_current_user_admin():
+      return True
     try:
       owners = self.owners
     except ndb.UnprojectedPropertyError:
@@ -150,6 +175,29 @@ class ScopedModel(ndb.Model):
     result["Id"] = self.key.urlsafe()
     return result
 
+  def _pre_put_hook(self):
+    super(ScopedModel, self)._pre_put_hook()
+    if config.is_current_user_admin():
+      return
+    # check for writable and for any admin properties
+    if self._previous is not None:
+      u = current_user(required=True)
+      if not self._previous.can_write(u):
+          raise AppError("You do not have sufficient privileges.")
+      keys = [p._code_name for p in self._properties.itervalues()]
+      for k in keys:
+        if re_admin.match(k):
+          attr = getattr(self._previous, k, None)
+          if attr:
+            setattr(self, k, attr)
+          else:
+            delattr(self, k)
+    else:
+      keys = [p._code_name for p in self._properties.itervalues()]
+      for k in keys:
+        if re_admin.match(k):
+          delattr(self, k)
+
   @classmethod
   def _pre_delete_hook(cls, key):
     m = key.get()
@@ -163,7 +211,7 @@ class ScopedExpando(ScopedModel, ndb.Expando):
 # User
 # ----
 # User is an special model that can only be written to by the google account owner.
-class users(ndb.Expando):
+class users(HookedModel, ndb.Expando):
   def to_dict(self, *args, **kwargs):
     result = super(users, self).to_dict(*args, **kwargs)
     u = current_user()
@@ -220,7 +268,7 @@ def reflective_create(cls, data):
             v = ndb.GeoPt(v["lat"], v["lon"])
             recurse = False
           except api.datastore_errors.BadValueError as e:
-            logging.info("{} key:'{}' value:{}".format(e, k, v))
+            logging.error("{} key:'{}' value:{}".format(e, k, v))
             pass
         if recurse:
           subcls = unicode.encode(k, "ascii", errors="ignore")
@@ -464,8 +512,6 @@ class RestfulHandler(BaseHandler):
           u = config.get_current_user()
           if hasattr(u, "email"):
             m.email = u.email()
-          logging.info("\n\n{}\n\n".format(u))
-          logging.info("\n\n{}\n\n".format(u.__dict__))
         else:
           raise AppError("No {} with id {}.".format(model, id))
       return m.to_dict()
@@ -492,12 +538,10 @@ class RestfulHandler(BaseHandler):
       id = u
     key = parse_id(id, model)
     key.delete()
-    search.delete(key)
-    if _config.METADATA:
-      counter.decrement(model)
+
     return {}
 
-  def set_or_create(self, model, id, parent_key=None):
+  def set_or_create(self, model, id):
     model = model.lower()
     u = current_user(required=True)
     if model == "users":
@@ -521,17 +565,6 @@ class RestfulHandler(BaseHandler):
     key = parse_id(id, model, data.get("Id"))
     clean_data(data)
     validate(cls.__name__, data)
-    already_exists = False
-    if key:
-      old_model = key.get()
-      if old_model:
-        if model != "users" and not old_model.can_write(u):
-          raise AppError("You do not have sufficient privileges.")
-        already_exists = True
-
-    # TODO: might want to add this post creation since you already have the key
-    if parent_key:
-      data[parent_key.kind()] = parent_key.urlsafe()
 
     m = reflective_create(cls, data)
     if key:
@@ -539,12 +572,9 @@ class RestfulHandler(BaseHandler):
     if model != "users":
       if len(m.owners) == 0:
         m.owners.append(u)
+
     m.put()
-    # increment count
-    if not already_exists and _config.METADATA:
-      counter.increment(model)
-    # update indexes
-    search.put(m)
+
     redirect = self.request.get("redirect")
     if redirect:
       self.redirect(redirect)

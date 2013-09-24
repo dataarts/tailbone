@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" href="extras/qunit-git.css">
+  </head>
+  <body>
+  <div id="qunit"></div>
+  <script src="extras/qunit-git.js" type="text/javascript"></script>
+  <script src="extras/jquery.min.js"></script>
+  <script src="/tailbone.js" type="text/javascript" charset="utf-8"></script>
+  <script type="text/javascript">
+
+  module('Authentication');
+  asyncTest('Logout', function() {
+    expect(1);
+    tailbone.logout(function(d) {
+      http.GET('/api/users/me', function(d) {
+        start();
+      }, function() {
+        ok(true, 'logged out');
+        start();
+      });
+    }, '_blank');
+  });
+  asyncTest('Login', function() {
+    expect(1);
+    tailbone.login(function(d) {
+      ok(d.toString() === '[object MessageEvent]', 'Returns the posted MessageObject.')
+      start();
+    }, '_blank');
+  });
+  asyncTest('Authorized', function() {
+    expect(1);
+    tailbone.authorized(function(d) {
+      ok(d.Id !== undefined, 'Has Id, ' + d.Id);
+      start();
+    }, '_blank');
+  });
+  </script>
+  </body>
+  </html>

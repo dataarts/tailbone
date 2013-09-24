@@ -281,10 +281,34 @@ class LogoutHandler(webapp2.RequestHandler):
         config.create_logout_url(
           self.request.get("continue", default_value="/")))
 
+class LoginHelperHandler(webapp2.RequestHandler):
+  def get(self):
+    self.response.out.write("""<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <style type="text/css">
+      * { margin: 0; padding: 0; }
+    </style>
+  </head>
+  <body>
+    If this window should have been automatically closed, you may not have javascript enabled.
+    <script type="text/javascript">
+      var targetOrigin = ( window.location.protocol + "//" + window.location.host );
+      window.opener.postMessage({"ok" : true}, targetOrigin);
+      window.close();
+    </script>
+  </body>
+</html>""")
+
+EXPORTED_JAVASCRIPT = compile_js([
+  "tailbone/authentication.js"
+], ["login", "logout", "login_url", "logout_url", "authorized"])
 
 auth = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
+  (r"{}logup".format(PREFIX), LoginHelperHandler),
 ], debug=DEBUG)
 
 app = webapp2.WSGIApplication([
