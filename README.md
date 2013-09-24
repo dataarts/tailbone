@@ -211,7 +211,7 @@ Note: By including `/tailbone.js` this is automatically added.
 #### Access Control:
 
 Public private exposure of properties on a model is controlled by capitalization of the first letter, similar to `Go`. All models except for `users` have a private owners list which is just a list of user ids that can access and change the private variables of a model. This is prepopulated with the person who first creates this model. __Only the signed in
-user can edit information on their `users` model__. We thought about owners vs. editors to grant access rights like many other systems, but thought it out of scope for this first pass. This is about rapid prototyping.
+user can edit information on their `users` model__. We thought about owners vs. editors to grant access rights like many other systems, but thought it out of scope for this first pass. This is about rapid prototyping. Also, if you need to make something only modifable by an admin prefix the property with admin or Admin.
 
 ```javascript
 $.ajax({
@@ -219,7 +219,8 @@ $.ajax({
   method: "POST",
   data: {
     Text: "some public text",
-    secret: "some secret that only owners can see"
+    secret: "some secret that only owners can see",
+    adminSecret: "only editable by a user who is an admin."
   }
 })
 ```
