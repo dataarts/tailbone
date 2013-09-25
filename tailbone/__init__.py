@@ -211,27 +211,31 @@ def build_service(service_name, api_version, scopes):
 
 # Leave minification etc up to PageSpeed
 def compile_js(files, exports=None, raw_js=None):
-  js = "(function(root) {\n" if exports else ""
-  for fname in files:
-    with open(fname) as f:
-      js += f.read() + "\n"
-  if exports:
-    for export in exports:
-      js += "tailbone.{} = {};\n".format(export, export)
-    # for public, private in exports.iteritems():
-    #   submodules = public.split(".")[:-1]
-    #   for i in range(len(submodules)):
-    #     submodule = ".".join(submodules[:i+1])
-    #     js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
-    #   js += "root.{} = {};\n".format(public, private)
-    if raw_js:
-      js += "\n{}\n".format(raw_js)
-    js += "})(this);\n"
-  return js
+  def compile():
+    js = "(function(root) {\n" if exports else ""
+    for fname in files:
+      with open(fname) as f:
+        js += f.read() + "\n"
+    if exports:
+      for export in exports:
+        js += "tailbone.{} = {};\n".format(export, export)
+      # for public, private in exports.iteritems():
+      #   submodules = public.split(".")[:-1]
+      #   for i in range(len(submodules)):
+      #     submodule = ".".join(submodules[:i+1])
+      #     js += "root.{} = root.{} || {{}};\n".format(submodule, submodule)
+      #   js += "root.{} = {};\n".format(public, private)
+      if raw_js:
+        js += "\n{}\n".format(raw_js)
+      js += "})(this);\n"
+    return js
+  if DEBUG:
+    return compile
+  return compile()
 
 
 # Find all javascript files in included modules
-def js_handler():
+def compile_tailbone_js():
   combined_js = "var tailbone = {};\n"
   with open("tailbone/globals.js") as f:
     combined_js += f.read() + "\n"
@@ -243,29 +247,35 @@ def js_handler():
           module = __import__(include.replace("/", "."), globals(), locals(), ["EXPORTED_JAVASCRIPT"], -1)
           javascript = getattr(module, "EXPORTED_JAVASCRIPT", None)
           if javascript:
-            combined_js += javascript + "\n"
+            if callable(javascript):
+              combined_js += javascript() + "\n"
+            else:
+              combined_js += javascript + "\n"
       except ImportError as e:
         pass
   combined_js += """
 //exports to multiple environments
 if (typeof define === 'function' && define.amd) {
-  //AMD
-  define(function(){ return tailbone; });
+//AMD
+define(function(){ return tailbone; });
 } else if (typeof module != "undefined" && module.exports) {
-  //Node
-  module.exports = tailbone;
+//Node
+module.exports = tailbone;
 }
 """
+  return combined_js
 
-  class JsHandler(webapp2.RequestHandler):
-    def get(self):
-      if not DEBUG:
-        # set cache-control public
-        self.response.headers["Cache-Control"] = "public, max-age=300"
-      self.response.headers["Content-Type"] = "text/javascript"
-      self.response.out.write(combined_js)
+tailbone_js = compile_tailbone_js()
 
-  return JsHandler
+class JsHandler(webapp2.RequestHandler):
+  def get(self):
+    self.response.headers["Content-Type"] = "text/javascript"
+    if DEBUG:
+      self.response.out.write(compile_tailbone_js())
+    else:
+      # set cache-control public
+      self.response.headers["Cache-Control"] = "public, max-age=300"
+      self.response.out.write(tailbone_js)
 
 
 class LoginHandler(webapp2.RequestHandler):
@@ -312,7 +322,7 @@ auth = webapp2.WSGIApplication([
 ], debug=DEBUG)
 
 app = webapp2.WSGIApplication([
-  (r"/tailbone.js", js_handler()),
+  (r"/tailbone.js", JsHandler),
 ], debug=DEBUG)
 
 class AddSlashHandler(webapp2.RequestHandler):
