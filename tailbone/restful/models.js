@@ -70,7 +70,7 @@ var Model = function(type, opt_schema) {
     // xhr query for collection with timeout to allow for chaining.
     //
     //     var results = Todo.query().filter("text =", "sample")
-    setTimeout(function() {
+    query._queued = setTimeout(function() {
       query.fetch(opt_callback);
     }, 0);
     // Bind to watch for changes to this model by others on the server.
@@ -148,7 +148,8 @@ var Model = function(type, opt_schema) {
         _filter = [],
         _order = [],
         _page_size = 100,
-        _more = false,
+        _has_next = false,
+        _has_previous = false,
         _reversed = false,
         _cursor = undefined,
         _query_cursor = undefined,
@@ -179,6 +180,14 @@ var Model = function(type, opt_schema) {
         flip_order();
         _reversed = false;
         _query_cursor = _reverse_cursor;
+        var _prev_page_size = _page_size;
+        _page_size = this.length;
+        query.fetch(function() {
+          _query_cursor = _cursor;
+          _page_size = _prev_page_size;
+          query.fetch(opt_callback)
+        });
+        return this;
       } else {
         _query_cursor = _cursor;
       }
@@ -191,20 +200,37 @@ var Model = function(type, opt_schema) {
         flip_order();
         _reversed = true;
         _query_cursor = _reverse_cursor;
+        var _prev_page_size = _page_size;
+        _page_size = this.length;
+        query.fetch(function() {
+          _query_cursor = _cursor;
+          _page_size = _prev_page_size;
+          query.fetch(opt_callback)
+        });
+        return this;
       } else {
         _query_cursor = _cursor;
       }
       return query.fetch(opt_callback);
     };
 
-    query.__defineGetter__('more', function() { return _more; });
+    query.__defineGetter__('more', function() { 
+      if(window.console) {
+        console.warn('"more" is deprecated please use "has_next"');
+      }
+      return _has_next; 
+    });
+    query.__defineGetter__('has_next', function() { return _has_next; });
+    query.__defineGetter__('has_previous', function() { return _has_previous; });
 
     query.__defineGetter__('page_size',
         function() { return _page_size; });
     query.__defineSetter__('page_size',
         function(page_size) {
           _page_size = page_size;
-          query.fetch();
+          if (!query._queued) {
+            query.fetch();
+          }
         });
 
     // Filter the query results. This can either be a constructed filter using one
@@ -259,10 +285,21 @@ var Model = function(type, opt_schema) {
     // update the results this will fetch and update the current results.
     query.fetch = function(opt_callback) {
       function callback(data, status, xhr) {
+        query._queued = undefined;
+        var more = JSON.parse(xhr.getResponseHeader('more'));
+        if (_reversed) {
+          _has_next = true;
+          _has_previous = more;
+        } else {
+          _has_previous = _query_cursor;
+          _has_next = more;
+        }
         _cursor = xhr.getResponseHeader('cursor');
         _reverse_cursor = xhr.getResponseHeader('reverse-cursor');
-        _more = JSON.parse(xhr.getResponseHeader('more'));
         query.splice(0, query.length);
+        if (_reversed) {
+          data.reverse();
+        }
         query.push.apply(query, data);
         var fn = opt_callback || query.onchange;
         if (fn) {
@@ -283,12 +320,3 @@ var Model = function(type, opt_schema) {
 // User is a built in model that is constructed like a normal model but has some
 // additional functionality built in.
 var User = new Model('users');
-
-// Constructs a login url.
-User.logout_url = function(redirect_url) {
-  return '/api/login?url=' + (redirect_url || '/');
-};
-
-User.login_url = function(redirect_url) {
-  return '/api/login?url=' + (redirect_url || '/');
-};
