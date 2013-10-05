@@ -37,7 +37,6 @@ SocketMultiplexer.prototype.register = function(channel) {
     // if underlying websocket is already open simulate the open for the channel
     if (state === Channel.STATE.OPEN) {
       channel.trigger('open', {
-        timestamp: Date.now(),
         data: ['open']
       });
     }
@@ -66,7 +65,6 @@ SocketMultiplexer.prototype.open = function(channel) {
       var channel = self.channels[id];
       channel.setState(Channel.STATE.OPEN);
       channel.trigger('open', {
-        timestamp: Date.now(),
         data: ['open']
       });
     }
@@ -80,10 +78,9 @@ SocketMultiplexer.prototype.open = function(channel) {
       throw new Error('Invalid container received', container);
     }
     var from = container[0];
-    var timestamp = container[1];
     var data;
     try {
-      data = JSON.parse(container[2]);
+      data = JSON.parse(container[1]);
     } catch (err) {
       throw new Error('Invalid data received', data);
     }
@@ -101,7 +98,6 @@ SocketMultiplexer.prototype.open = function(channel) {
       //   'to', fromChannel.localNode.id, data);
       fromChannel.trigger('message', {
         from: fromChannel.remoteNode.id,
-        timestamp: timestamp,
         data: data
       });
     } else {
@@ -116,7 +112,6 @@ SocketMultiplexer.prototype.open = function(channel) {
       channel.setState(Channel.STATE.CLOSED);
       channel.trigger('close', {
         from: channel.remoteNode.id,
-        timestamp: Date.now(),
         data: ['close']
       });
     }
@@ -130,7 +125,6 @@ SocketMultiplexer.prototype.open = function(channel) {
       channel.setState(Channel.STATE.CLOSED);
       channel.trigger('error', {
         from: channel.remoteNode.id,
-        timestamp: Date.now(),
         data: ['error']
       });
     }

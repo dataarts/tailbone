@@ -369,14 +369,12 @@ var RTCChannelUtils = {
       channel.setState(Channel.STATE.OPEN);
       // console.log('data open', channel.getState(), channel.localNode, channel.remoteNode);
       channel.trigger('open', {
-        timestamp: e.timestamp,
         data: ['open', dataChannel]
       });
     };
     dataChannel.onclose = function(e) {
       // console.log('data close');
       channel.trigger('close', {
-        timestamp: e.timestamp,
         data: ['close', dataChannel]
       });
     };
@@ -388,7 +386,6 @@ var RTCChannelUtils = {
     //   data = JSON.parse(s);
     //   console.log('netchannel', msg);
     //   channel.trigger('message', {
-    //     timestamp: Date.now(),
     //     data: data
     //   });
     // }
@@ -401,7 +398,6 @@ var RTCChannelUtils = {
       }
       // console.log('data message', e.data);
       channel.trigger('message', {
-        timestamp: e.timestamp,
         data: data
       });
     };

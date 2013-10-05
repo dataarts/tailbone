@@ -117,7 +117,7 @@ class ChannelHandler(BaseHandler):
     if client_id == "":
       raise AppError("Must specify client id.")
     clients, payload = json.loads(self.request.body)
-    msg = json.dumps([client_id, time.time(), payload])
+    msg = json.dumps([client_id, payload])
     logging.info(msg)
     for cid in clients:
       # TODO: assert client_id is in mesh_id

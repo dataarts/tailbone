@@ -42,7 +42,7 @@ class _ConfigDefaults(object):
   ROOM_EXPIRATION = 86400  # one day in seconds
   ENABLE_WEBSOCKET = False
   ENABLE_TURN = False
-  PORT = 2345
+  PORT = 8888
   SOURCE_SNAPSHOT = None
   PARAMS = {}
 
@@ -62,20 +62,16 @@ class TailboneWebsocketInstance(TailboneCEInstance):
           "key": "startup-script",
           "value": STARTUP_SCRIPT_BASE + """
 # websocket server
-curl -O https://pypi.python.org/packages/source/t/tornado/tornado-3.0.1.tar.gz
-tar xvfz tornado-3.0.1.tar.gz
-cd tornado-3.0.1
-python setup.py install
-cd ..
-rm -rf tornado-3.0.1
-rm tornado-3.0.1.tar.gz
-
-cat >websocket.py <<EOL
+curl -O http://nodejs.org/dist/v0.10.20/node-v0.10.20-linux-x64.tar.gz
+tar xvfz node-v0.10.20-linux-x64.tar.gz
+mv node-v0.10.20-linux-x64 nodejs
+./nodejs/bin/npm install ws
+cat >websocket.js <<EOL
 %s
 EOL
-python websocket.py -p %s
+./nodejs/bin/node websocket.js %s
 
-""" % (open("tailbone/mesh/websocket.py").read(), _config.PORT),
+""" % (open("tailbone/mesh/websocket.js").read(), _config.PORT),
         },
       ],
     }

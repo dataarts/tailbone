@@ -32,9 +32,9 @@
     ok(new tailbone.Mesh(), 'new tailbone.Mesh() succeeds');
     ok(new tailbone.Mesh('id'), 'new tailbone.Mesh((string) id) succeeds');
     ok(new tailbone.Mesh('id', '/api/mesh'), 'new tailbone.Mesh((string) id, (string) api) succeeds');
-    ok(new tailbone.Mesh('id', {ws: 'ws://localhost:2345/id'}), 'new tailbone.Mesh((string) id, (object) options) succeeds');
+    ok(new tailbone.Mesh('id', {ws: 'ws://localhost:8888/id'}), 'new tailbone.Mesh((string) id, (object) options) succeeds');
     ok(new tailbone.Mesh(null, '/api/mesh'), 'new tailbone.Mesh(null, (string) api) succeeds');
-    ok(new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}), 'new tailbone.Mesh(null, (object) options) succeeds');
+    ok(new tailbone.Mesh(null, {ws: 'ws://localhost:8888/id'}), 'new tailbone.Mesh(null, (object) options) succeeds');
 
     throws(function () {
       new tailbone.Mesh(1);
@@ -46,7 +46,7 @@
 
     equal(new tailbone.Mesh(null, '/api/mesh').options.api, '/api/mesh', 'new tailbone.Mesh(null, (string) options): options is considered options.api');
     equal(new tailbone.Mesh(null, {api: '/api/mesh'}).options.api, '/api/mesh', 'new tailbone.Mesh(null, (object) options) transcribes options.api');
-    equal(new tailbone.Mesh(null, {ws: 'ws://localhost:2345/id'}).options.ws, 'ws://localhost:2345/id', 'new tailbone.Mesh(null, (object) options) transcribes options.ws');
+    equal(new tailbone.Mesh(null, {ws: 'ws://localhost:8888/id'}).options.ws, 'ws://localhost:8888/id', 'new tailbone.Mesh(null, (object) options) transcribes options.ws');
     equal(new tailbone.Mesh(null, {custom: 123}).options.custom, 123, 'new tailbone.Mesh(null, (object) options) transcribes custom properties');
 
   });
