@@ -6,3 +6,4 @@ Gemfile.lock
 credentials.json
 *.p12
 *.pem
+tailbone/mesh/node_modules

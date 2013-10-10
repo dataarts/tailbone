@@ -42,7 +42,7 @@ class _ConfigDefaults(object):
   ROOM_EXPIRATION = 86400  # one day in seconds
   ENABLE_WEBSOCKET = False
   ENABLE_TURN = False
-  PORT = 8888
+  PORT = 8889
   SOURCE_SNAPSHOT = None
   PARAMS = {}
 
