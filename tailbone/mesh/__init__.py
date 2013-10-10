@@ -40,6 +40,7 @@ from google.appengine.api import lib_config
 
 class _ConfigDefaults(object):
   ROOM_EXPIRATION = 86400  # one day in seconds
+  DEBUG_WEBSOCKET_ADDRESS = None
   ENABLE_WEBSOCKET = False
   ENABLE_TURN = False
   PORT = 8888
@@ -99,7 +100,12 @@ def get_or_create_room(request, name=None):
     if _config.ENABLE_WEBSOCKET:
       if DEBUG:
         class DebugInstance(object):
-          address = request.remote_addr if str(request.remote_addr) != "::1" else "localhost"
+          if _config.DEBUG_WEBSOCKET_ADDRESS:
+            address = _config.DEBUG_WEBSOCKET_ADDRESS
+          elif str(request.remote_addr) == "::1":
+            address = "localhost"
+          else:
+            address = request.remote_addr
         instance = DebugInstance()
       else:
         instance = LoadBalancer.find(TailboneWebsocketInstance)
