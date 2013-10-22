@@ -33,6 +33,14 @@
 # tailbone_get_current_user = 
 # tailbone_create_login_url = 
 # tailbone_create_logout_url = 
+## Example of allowing anybody to write to the datastore by always using a fake user
+# class FakeUser(object):
+#   def user_id(self):
+#     return "fakeuser"
+# u = FakeUser()
+# def fake_user():
+#   return u
+# tailbone_get_current_user = fake_user
 
 ## Use cloud store instead of blobstore
 # tailboneFiles_CLOUDSTORE = False
