@@ -51,7 +51,7 @@ asyncTest('Login', function() {
   tailbone.authorized(function(user) {
     if (user['$admin'] !== true) {
       alert('Must be admin');
-      tailbone.logout(function() {
+      tailbone.login(function() {
         window.location.reload();
       });
       return;
@@ -195,6 +195,17 @@ asyncTest('Reference', function() {
       ok(dd.ref == d.Id, 'Same reference string.');
       http.DELETE(models + d.Id);
       http.DELETE(models + dd.Id, start);
+    });
+  });
+});
+asyncTest('Custom Key', function() {
+  var models = this.models;
+  var customId = "specialkey"
+  var model = {Id: customId, text: 'stuff'};
+  http.POST(models, model, function(d) {
+    http.GET(models + customId, function(d) {
+      ok(d.text == model.text, 'Got by custom key.');
+      http.DELETE(models + d.Id, start);
     });
   });
 });

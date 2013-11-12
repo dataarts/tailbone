@@ -303,7 +303,10 @@ def parse_id(id, model, data_id=None):
     else:
       id = data_id
   if id:
-    key = ndb.Key(urlsafe=id)
+    try:
+        key = ndb.Key(urlsafe=id)
+    except:
+        key = ndb.Key(model, id)
     if model != key.kind():
       raise AppError("Key kind must match id kind: {} != {}.".format(model, key.kind()))
     return key
