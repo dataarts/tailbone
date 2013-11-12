@@ -324,7 +324,7 @@ def convert_value(value, parseFloat=True):
   elif _reKey.match(value):
     try:
       value = ndb.Key(urlsafe=value)
-    except TypeError:
+    except:
       pass
   elif parseFloat:
     try:
