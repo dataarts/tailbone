@@ -104,7 +104,7 @@ def validate_modelname(model):
 def current_user(required=False):
   u = config.get_current_user()
   if u:
-    return ndb.Key("users", u.user_id()).urlsafe()
+    return ndb.Key("users", u.user_id())
   if required:
     raise LoginError("User must be logged in.")
   return None
@@ -136,8 +136,8 @@ class HookedModel(ndb.Model):
 # arbitrary document store for your json objects as well as scope the public private nature of
 # objects based on the capitolization of the property.
 class ScopedModel(HookedModel):
-  owners = ndb.StringProperty(repeated=True)
-  viewers = ndb.StringProperty(repeated=True)
+  owners = ndb.KeyProperty(repeated=True)
+  viewers = ndb.KeyProperty(repeated=True)
 
   def can_write(self, u):
     if config.is_current_user_admin():
@@ -215,7 +215,7 @@ class users(HookedModel, ndb.Expando):
   def to_dict(self, *args, **kwargs):
     result = super(users, self).to_dict(*args, **kwargs)
     u = current_user()
-    if u and u == self.key.urlsafe():
+    if u and u.urlsafe() == self.key.urlsafe():
       pass
     else:
       for k in result.keys():
@@ -234,7 +234,6 @@ class users(HookedModel, ndb.Expando):
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
 _reKey = re.compile("^[a-zA-Z0-9\-]{10,500}$")
-
 
 def reflective_create(cls, data):
   m = cls()
@@ -261,6 +260,8 @@ def reflective_create(cls, data):
           except Exception as e:
             # logging.info("{} key:'{}' value:{}".format(e, k, v))
             pass
+      elif t == list:
+        v = [convert_value(x, False) for x in v]
       elif t == dict:
         recurse = True
         if set(v.keys()) == _latlon:
@@ -324,6 +325,14 @@ def convert_value(value, parseFloat=True):
     value = True
   elif value == "false":
     value = False
+  elif _reISO.match(value):
+    try:
+      values = map(int, re.split('[^\d]', v)[:-1])
+      values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
+      value = datetime.datetime(*values)
+    except ValueError as e:
+      # logging.info("{} key:'{}' value:{}".format(e, k, v))
+      pass
   elif _reKey.match(value):
     try:
       value = ndb.Key(urlsafe=value)
@@ -504,7 +513,7 @@ class RestfulHandler(BaseHandler):
       if model == "users":
         if id == "me":
           me = True
-          id = current_user(required=True)
+          id = current_user(required=True).urlsafe()
       key = parse_id(id, model)
       m = key.get()
       if not m:
@@ -538,7 +547,7 @@ class RestfulHandler(BaseHandler):
       if id != "me" and id != u:
         raise AppError("Id must be the current " +
                        "user_id or me. User {} tried to modify user {}.".format(u, id))
-      id = u
+      id = u.urlsafe()
     key = parse_id(id, model)
     key.delete()
 
@@ -548,10 +557,10 @@ class RestfulHandler(BaseHandler):
     model = model.lower()
     u = current_user(required=True)
     if model == "users":
-      if not (id == "me" or id == "" or id == u):
+      if not (id == "me" or id == "" or id == u.urlsafe()):
         raise AppError("Id must be the current " +
                        "user_id or me. User {} tried to modify user {}.".format(u, id))
-      id = u
+      id = u.urlsafe()
       cls = users
     else:
       cls = None
