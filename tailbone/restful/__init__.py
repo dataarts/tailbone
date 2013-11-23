@@ -514,6 +514,11 @@ class RestfulHandler(BaseHandler):
         if id == "me":
           me = True
           id = current_user(required=True).urlsafe()
+      if "," in id:
+        ids = id.split(",")
+        keys = [parse_id(i, model) for i in ids]
+        results = ndb.get_multi(keys)
+        return [m.to_dict() for m in results]
       key = parse_id(id, model)
       m = key.get()
       if not m:

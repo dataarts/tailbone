@@ -22,7 +22,7 @@ function after(counter, callback) {
   };
 }
 // constants
-var WAIT = 500;  // wait time to ensure the database has been updated.   
+var WAIT = 500;  // wait time to ensure the database has been updated.
 
 // var relogin = function() {
 //   alert('You must be logged in.');
@@ -63,10 +63,9 @@ asyncTest('Login', function() {
 
 module('/api/users/me');
 asyncTest('Me', function() {
-  expect(2);
+  expect(1);
   http.GET('/api/users/me', function(d) {
     ok(d.Id !== undefined, 'Has Id, ' + d.Id);
-    ok(d.email !== undefined, 'Has email, ' + d.email);
     start();
   }, function(err) {
     if(err.error !== 'LoginError') {
@@ -83,7 +82,7 @@ var moduleConfig = {
   teardown: function() {
   }
 };
-module('Creating Models', moduleConfig); 
+module('Creating Models', moduleConfig);
 asyncTest('String field', function() {
   var models = this.models;
   var model = {text: 'stuff'};
@@ -218,6 +217,25 @@ asyncTest('Get by Id', function() {
     http.GET(models + d.Id, function(d) {
       ok(d.text == 'stuff', 'Fetched model.');
       http.DELETE(models + d.Id, start);
+    });
+  });
+});
+asyncTest('GetMulti by Id', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  var id1, id2;
+  http.POST(models, model, function(d) {
+    id1 = d.Id;
+    http.POST(models, model, function(d) {
+      id2 = d.Id;
+      http.GET(models + id1 + ',' + id2, function(d) {
+        ok(d.length == 2);
+        ok(d[0] && d[0].text == 'stuff', 'Fetched id1.');
+        ok(d[1] && d[1].text == 'stuff', 'Fetched id2.');
+        http.DELETE(models + id1, function() {
+          http.DELETE(models + id2, start);
+        });
+      });
     });
   });
 });
