@@ -86,6 +86,14 @@ def json_extras(obj):
   if isinstance(obj, ndb.GeoPt):
     return {"lat": obj.lat, "lon": obj.lon}
   if isinstance(obj, ndb.Key):
+    r = webapp2.get_request()
+    if r.get("recurse", default_value=False):
+      item = obj.get()
+      if item == None:
+        return obj.urlsafe()
+      item = item.to_dict()
+      item["$class"] = obj.kind()
+      return item
     return obj.urlsafe()
   return None
 

@@ -166,7 +166,9 @@ class ScopedModel(HookedModel):
     return False
 
   def to_dict(self, *args, **kwargs):
+    # pop kwargs recurse or 0
     result = super(ScopedModel, self).to_dict(*args, **kwargs)
+    # expand(result, recurse)
     if not self.can_read(current_user()):
       # public properties only
       for k in result.keys():
@@ -239,46 +241,43 @@ def reflective_create(cls, data):
   m = cls()
   for k, v in data.iteritems():
     m._default_indexed = True
-    if hasattr(m, k):
-      setattr(m, k, v)
-    else:
-      t = type(v)
-      if t in [unicode, str]:
-        if len(bytearray(v, encoding="utf8")) >= 500:
-          m._default_indexed = False
-        elif _reISO.match(v):
-          try:
-            values = map(int, re.split('[^\d]', v)[:-1])
-            values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
-            v = datetime.datetime(*values)
-          except ValueError as e:
-            # logging.info("{} key:'{}' value:{}".format(e, k, v))
-            pass
-        elif _reKey.match(v):
-          try:
-            v = ndb.Key(urlsafe=v)
-          except Exception as e:
-            # logging.info("{} key:'{}' value:{}".format(e, k, v))
-            pass
-      elif t == list:
-        v = [convert_value(x, False) for x in v]
-      elif t == dict:
-        recurse = True
-        if set(v.keys()) == _latlon:
-          try:
-            v = ndb.GeoPt(v["lat"], v["lon"])
-            recurse = False
-          except api.datastore_errors.BadValueError as e:
-            logging.error("{} key:'{}' value:{}".format(e, k, v))
-            pass
-        if recurse:
-          subcls = unicode.encode(k, "ascii", errors="ignore")
-          v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
-      elif t == float:
-        v = float(v)
-      elif t == int:  # currently all numbers are floats for purpose of quering TODO find better solution
-        v = float(v)
-      setattr(m, k, v)
+    t = type(v)
+    if t in [unicode, str]:
+      if len(bytearray(v, encoding="utf8")) >= 500:
+        m._default_indexed = False
+      elif _reISO.match(v):
+        try:
+          values = map(int, re.split('[^\d]', v)[:-1])
+          values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
+          v = datetime.datetime(*values)
+        except ValueError as e:
+          # logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
+      elif _reKey.match(v):
+        try:
+          v = ndb.Key(urlsafe=v)
+        except Exception as e:
+          logging.info("{} key:'{}' value:{}".format(e, k, v))
+          pass
+    elif t == list:
+      v = [convert_value(x, False) for x in v]
+    elif t == dict:
+      recurse = True
+      if set(v.keys()) == _latlon:
+        try:
+          v = ndb.GeoPt(v["lat"], v["lon"])
+          recurse = False
+        except api.datastore_errors.BadValueError as e:
+          #logging.error("{} key:'{}' value:{}".format(e, k, v))
+          pass
+      if recurse:
+        subcls = unicode.encode(k, "ascii", errors="ignore")
+        v = reflective_create(type(subcls, (ndb.Expando,), {}), v)
+    elif t == float:
+      v = float(v)
+    elif t == int:  # currently all numbers are floats for purpose of quering TODO find better solution
+      v = float(v)
+    setattr(m, k, v)
   return m
 
 
@@ -327,7 +326,7 @@ def convert_value(value, parseFloat=True):
     value = False
   elif _reISO.match(value):
     try:
-      values = map(int, re.split('[^\d]', v)[:-1])
+      values = map(int, re.split('[^\d]', value)[:-1])
       values[-1] *= 1000  # to account for python using microseconds vs js milliseconds
       value = datetime.datetime(*values)
     except ValueError as e:

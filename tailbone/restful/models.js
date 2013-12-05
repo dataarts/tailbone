@@ -48,10 +48,10 @@ var Model = function(type, opt_schema) {
   };
 
   // Get a model by its id.
-  Model.get = function(id, opt_callback, opt_error) {
+  Model.get = function(id, opt_callback, opt_error, opt_recurse) {
     var m = new Model();
     m.Id = id;
-    m.$update(opt_callback, opt_error);
+    m.$update(opt_callback, opt_error, opt_recurse);
     return m;
   };
 
@@ -75,7 +75,7 @@ var Model = function(type, opt_schema) {
     }, 0);
     // Bind to watch for changes to this model by others on the server.
     if (tailbone.databinding) {
-      tailbone.bind(type, function() { query.fetch() });
+      tailbone.bind(type, function() { query.fetch(); });
     }
     return query;
   };
@@ -83,23 +83,38 @@ var Model = function(type, opt_schema) {
   // Helper function to serialize a model and strip any properties that match
   // the set of ignored prefixes or are of an unsupported type such as a
   // function.
-  function serializeModel(model) {
-    var obj = {};
-    for (var member in model) {
-      if (ignored_prefixes.indexOf(member[0]) < 0) {
-        obj[member] = model[member];
+  function serializeModel(model, submodel) {
+    if (model instanceof Array) {
+      var items = [];
+      for(var i=0;i<model.length;i++) {
+        items.push(serializeModel(model[i], true));
       }
+      return items;
+    } else if (model instanceof Object) {
+      if (submodel) {
+        for (var k in model) {
+          if (k === '$class') {
+            return model.Id;
+          }
+        }
+      }
+      var obj = {};
+      for (var member in model) {
+        if (ignored_prefixes.indexOf(member[0]) < 0) {
+          obj[member] = serializeModel(model[member], true);
+        }
+      }
+      return obj;
+    } else {
+      return model;
     }
-    return obj;
-  };
+  }
 
   // Save the model to the server.
   Model.prototype.$save = function(opt_callback, opt_error) {
     var model = this;
     http.POST('/api/' + type + '/', serializeModel(this), function(data) {
-      for (var k in data) {
-        model[k] = data[k];
-      }
+      populate(model, data);
       var fn = opt_callback || model.onchange;
       if (fn) {
         fn(model);
@@ -124,14 +139,50 @@ var Model = function(type, opt_schema) {
     }, opt_error);
   };
 
+  function populate(model, data) {
+    for (var k in data) {
+      var obj = data[k];
+      if (obj instanceof Array) {
+        var items = [];
+        for(var i=0;i<obj.length;i++) {
+          var item = obj[i];
+          if (item.$class) {
+            var newModelClass = tailbone.Model(item.$class);
+            var newModel = new newModelClass();
+            populate(newModel, item);
+            items.push(newModel);
+          } else {
+            populate(item, item);
+            items.push(item);
+          }
+        }
+        model[k] = items;
+      } else if (obj instanceof Object) {
+        if (obj.$class) {
+          var newModelClass = tailbone.Model(obj.$class);
+          var newModel = new newModelClass();
+          populate(newModel, obj);
+          model[k] = newModel;
+        } else {
+          populate(obj, obj);
+          model[k] = obj;
+        }
+      } else {
+        model[k] = obj;
+      }
+    }
+  }
+
   // Update the model by fetching its latest value and overwriting the current
   // object.
-  Model.prototype.$update = function(opt_callback, opt_error) {
+  Model.prototype.$update = function(opt_callback, opt_error, opt_recurse) {
     var model = this;
-    http.GET('/api/' + type + '/' + this.Id, function(data) {
-      for (var k in data) {
-        model[k] = data[k];
-      }
+    var opts = '';
+    if (opt_recurse) {
+      opts = '?recurse=true';
+    }
+    http.GET('/api/' + type + '/' + this.Id + opts, function(data) {
+      populate(model, data);
       var fn = opt_callback || model.onchange;
       if (fn) {
         fn(model);
@@ -151,6 +202,7 @@ var Model = function(type, opt_schema) {
         _has_next = false,
         _has_previous = false,
         _reversed = false,
+        _recurse = false,
         _cursor = undefined,
         _query_cursor = undefined,
         _reverse_cursor = undefined;
@@ -162,7 +214,7 @@ var Model = function(type, opt_schema) {
     query.onchange = undefined;
 
     function flip_order() {
-      if (_order.length == 0) {
+      if (_order.length === 0) {
         _order = ['-key'];
       } else {
         for(var i=0,l=_order.length;i<l;++i) {
@@ -185,7 +237,7 @@ var Model = function(type, opt_schema) {
         query.fetch(function() {
           _query_cursor = _cursor;
           _page_size = _prev_page_size;
-          query.fetch(opt_callback)
+          query.fetch(opt_callback);
         });
         return this;
       } else {
@@ -205,7 +257,7 @@ var Model = function(type, opt_schema) {
         query.fetch(function() {
           _query_cursor = _cursor;
           _page_size = _prev_page_size;
-          query.fetch(opt_callback)
+          query.fetch(opt_callback);
         });
         return this;
       } else {
@@ -214,11 +266,11 @@ var Model = function(type, opt_schema) {
       return query.fetch(opt_callback);
     };
 
-    query.__defineGetter__('more', function() { 
+    query.__defineGetter__('more', function() {
       if(window.console) {
         console.warn('"more" is deprecated please use "has_next"');
       }
-      return _has_next; 
+      return _has_next;
     });
     query.__defineGetter__('has_next', function() { return _has_next; });
     query.__defineGetter__('has_previous', function() { return _has_previous; });
@@ -254,7 +306,7 @@ var Model = function(type, opt_schema) {
         default:
           throw Error('Undefined FILTER format.');
       }
-      if (_filter.length == 0) {
+      if (_filter.length === 0) {
         _filter = ['AND'];
       }
       _filter.push(filter);
@@ -280,6 +332,15 @@ var Model = function(type, opt_schema) {
       });
     };
 
+    query.recurse = function(value) {
+      if (value === undefined) {
+        _recurse = true;
+      } else {
+        _recurse = !!value;
+      }
+      return this;
+    };
+
     // Actually fetches and updates the results in the query. This happens
     // automatically on a query so you shouldn't need this unless you want to
     // update the results this will fetch and update the current results.
@@ -300,13 +361,22 @@ var Model = function(type, opt_schema) {
         if (_reversed) {
           data.reverse();
         }
-        query.push.apply(query, data);
+        for (var i=0;i<data.length;i++) {
+          var item = data[i];
+          var model = new Model();
+          populate(model, data[i]);
+          query.push.call(query, model);
+        }
         var fn = opt_callback || query.onchange;
         if (fn) {
           fn(query);
         }
       }
-      http.GET('/api/' + type + '/?params=' + query.serialize(), callback);
+      var recurse = '';
+      if (_recurse) {
+        recurse = '&recurse=true';
+      }
+      http.GET('/api/' + type + '/?params=' + query.serialize() + recurse, callback);
     };
 
     return query;
