@@ -90,6 +90,8 @@ var Model = function(type, opt_schema) {
         items.push(serializeModel(model[i], true));
       }
       return items;
+    } else if (model instanceof Date) {
+      return model;
     } else if (model instanceof Object) {
       if (submodel) {
         for (var k in model) {
@@ -157,6 +159,8 @@ var Model = function(type, opt_schema) {
           }
         }
         model[k] = items;
+      } else if (obj instanceof Date) { 
+        model[k] = obj;
       } else if (obj instanceof Object) {
         if (obj.$class) {
           var newModelClass = tailbone.Model(obj.$class);
