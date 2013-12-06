@@ -59,6 +59,9 @@ class _ConfigDefaults(object):
   def create_logout_url(*args, **kwargs):
     return api.users.create_logout_url(*args, **kwargs)
 
+  # This is handled by app engine use this if you have some external setup
+  def create_user(*args, **kwargs):
+    return None
 
 config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)
 
@@ -301,6 +304,8 @@ class LogoutHandler(webapp2.RequestHandler):
 
 class LoginHelperHandler(webapp2.RequestHandler):
   def get(self):
+    # run the create_user_hook
+    user = config.create_user()
     self.response.out.write("""<!doctype html>
 <html>
   <head>
