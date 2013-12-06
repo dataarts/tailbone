@@ -82,6 +82,7 @@ class _ConfigDefaults(object):
   RESTRICT_TO_DEFINED_MODELS = True
   PROTECTED_MODEL_NAMES = ["(?i)(mesh|messages|files|events|admin|proxy)",
                            "(?i)tailbone.*"]
+  post_put_hook = None
 
 _config = api.lib_config.register('tailboneRestful', _ConfigDefaults.__dict__)
 
@@ -122,6 +123,8 @@ class HookedModel(ndb.Model):
     search.put(self)
     if _config.METADATA and self._previous is None:
       counter.increment(self.__class__.__name__)
+    if _config.post_put_hook:
+      _config.post_put_hook(self)
 
   @classmethod
   def _post_delete_hook(cls, key, future):
