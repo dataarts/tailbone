@@ -44,7 +44,8 @@ var Model = function(type, opt_schema) {
   // This is a model class for the particular type. This allows you to work with
   // your models directly in javascript and has several built in functions to
   // save them back to the server.
-  var Model = function() {
+  var Model = function(defaults) {
+    populate(this, defaults);
   };
 
   // Get a model by its id.
