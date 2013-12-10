@@ -46,6 +46,7 @@ class _ConfigDefaults(object):
   SERVICE_KEY_PATH = None
   CORS = False
   CORS_RESTRICTED_DOMAINS = None
+  CONFIG = {}
 
   def is_current_user_admin(*args, **kwargs):
     return api.users.is_current_user_admin(*args, **kwargs)
@@ -61,6 +62,9 @@ class _ConfigDefaults(object):
 
   # This is handled by app engine use this if you have some external setup
   def create_user(*args, **kwargs):
+    return None
+
+  def destroy_user(*args, **kwargs):
     return None
 
 config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)
@@ -305,7 +309,7 @@ class LogoutHandler(webapp2.RequestHandler):
 class LoginHelperHandler(webapp2.RequestHandler):
   def get(self):
     # run the create_user_hook
-    user = config.create_user()
+    user = config.create_user(self)
     self.response.out.write("""<!doctype html>
 <html>
   <head>
@@ -324,6 +328,12 @@ class LoginHelperHandler(webapp2.RequestHandler):
   </body>
 </html>""")
 
+class LogoutHelperHandler(webapp2.RequestHandler):
+  def get(self):
+    redirect_uri = self.request.get("continue", default_value="/")
+    config.destroy_user(self)
+    self.redirect(redirect_uri)
+
 EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/authentication.js"
 ], ["login", "logout", "login_url", "logout_url", "authorized"])
@@ -332,11 +342,12 @@ auth = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}logup".format(PREFIX), LoginHelperHandler),
-], debug=DEBUG)
+  (r"{}logdown".format(PREFIX), LogoutHelperHandler),
+], debug=DEBUG, config=config.CONFIG)
 
 app = webapp2.WSGIApplication([
   (r"/tailbone.js", JsHandler),
-], debug=DEBUG)
+], debug=DEBUG, config=config.CONFIG)
 
 class AddSlashHandler(webapp2.RequestHandler):
   def get(self):
@@ -347,4 +358,4 @@ class AddSlashHandler(webapp2.RequestHandler):
 
 add_slash = webapp2.WSGIApplication([
   (r".*", AddSlashHandler)
-], debug=DEBUG)
+], debug=DEBUG, config=config.CONFIG)

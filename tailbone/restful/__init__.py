@@ -494,6 +494,25 @@ def validate(cls_name, data):
       raise AppError("Validation requires all valid models to be listed, use empty quote to skip.")
     _validate(validations, data, acl_attributes)
 
+# evaluate the attributes of your User Class for extra properties
+def getAttributes(item, exclude=[]):
+  attrs = {}
+  d = {}
+  d = dict(item.__class__.__dict__)
+  d.update(item.__dict__)
+  for name, attr in d.items():
+    if not name.startswith("_") and \
+        not type(attr) is staticmethod and \
+        name not in exclude:
+      if callable(attr):
+        try:
+          name = '$' + name
+          attrs[name] = attr(item)
+        except:
+          pass
+      else:
+        attrs[name] = attr
+  return attrs
 
 # This does all the simple restful handling that you would expect. There is a special catch for
 # /users/me which will look up your logged in id and return your information.
@@ -510,12 +529,14 @@ class RestfulHandler(BaseHandler):
     if not cls:
       validate_modelname(model)
       cls = users if model == "users" else type(model, (ScopedExpando,), {})
+    logging.info("ID %s" % id)
     if id:
       me = False
       if model == "users":
         if id == "me":
           me = True
           id = current_user(required=True).urlsafe()
+          logging.info("users me %s" % current_user(required=True))
       if "," in id:
         ids = id.split(",")
         keys = [parse_id(i, model) for i in ids]
@@ -527,12 +548,15 @@ class RestfulHandler(BaseHandler):
         if model == "users" and me:
           m = users()
           m.key = key
-          setattr(m, "$unsaved", True)
-          u = config.get_current_user()
-          if hasattr(u, "email"):
-            m.email = u.email()
         else:
           raise AppError("No {} with id {}.".format(model, id))
+      if model == "users" and me:
+        u = config.get_current_user()
+        if u:
+          for k, v in getAttributes(u).items():
+            if k.startswith("_"):
+              k = "$" + k[1:]
+            setattr(m, k, v)
       return m.to_dict()
     else:
       return query(self, cls, *extra_filters)
@@ -671,4 +695,4 @@ EXPORTED_JAVASCRIPT = compile_js([
 
 app = webapp2.WSGIApplication([
   (r"{}([^/]+)/?(.*)".format(PREFIX), RestfulHandler),
-], debug=DEBUG)
+], debug=DEBUG, config=config.CONFIG)
