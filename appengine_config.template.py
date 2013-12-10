@@ -47,7 +47,7 @@
 #CLIENT_SECRET = ''
 
 #def gplusFriends(gplus, http, token=None):
-  #result = gplus.people().list(userId='me', collection='visible', pageToken=token).execute(http=http)
+  #result = gplus.people().list(userId='me', collection='visible', pageToken=token, orderBy='best').execute(http=http)
   #token = result.pop('nextPageToken', None)
   #if token:
     #result['items'] += gplusFriends(gplus, http, token).get('items', [])
