@@ -97,11 +97,25 @@
 
 #tailbone_get_current_user = get_current_user
 
-#state = 'somestate'
 #scope = 'https://www.googleapis.com/auth/plus.login'
-#redirect_uri = 'http://localhost:8080/api/logup'
+#redirect_uri = 'http://localhost:8080/api/login'
 
-#def create_login_url(*args, **kwargs):
+#def secret():
+  #import random
+  #import string
+  #return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
+
+#def create_login_url(dest_url=None, **kwargs):
+  #request = webapp2.get_request()
+  #session_store = sessions.get_store(request=request)
+  #session = session_store.get_session()
+  #state = {
+      #'secret': session.get('secret')
+  #}
+  #if dest_url:
+    #state['continue'] =  dest_url
+  #import json
+  #state = json.dumps(state)
   #url = 'https://accounts.google.com/o/oauth2/auth?\
 #scope={}&\
 #state={}&\
@@ -114,7 +128,7 @@
 #tailbone_create_login_url = create_login_url
 
 #def create_logout_url(dest_url):
-  #return str('/api/logdown?continue=%s' % dest_url)
+  #return dest_url
 
 #tailbone_create_logout_url = create_logout_url
 
@@ -133,21 +147,37 @@
     #urlfetch.fetch(revoke_uri)
   #session_store.save_sessions(self.response)
 
-#tailbone_destroy_user = destroy_user
+#tailbone_logout_hook = destroy_user
 
 #def create_user(self):
-  #from oauth2client.client import credentials_from_code
-  #if self.request.get('state') != state:
-    #raise Exception('Invalid state')
-  #code = self.request.get('code')
-  #credentials = credentials_from_code(CLIENT_ID, CLIENT_SECRET, scope, code, redirect_uri=redirect_uri)
   #session_store = sessions.get_store(request=self.request)
   #session = session_store.get_session()
-  #session['credentials'] = credentials.to_json()
-  #session['gplus_id'] = credentials.id_token['sub']
-  #session_store.save_sessions(self.response)
 
-#tailbone_create_user = create_user
+  #state = self.request.get('state')
+  #if state:
+    #import json
+    #state = json.loads(state)
+    #if state.get('secret', False) != session.get('secret', True):
+      #raise Exception('Invalid secret.')
+
+    #code = self.request.get('code')
+    #from oauth2client.client import credentials_from_code
+    #credentials = credentials_from_code(CLIENT_ID, CLIENT_SECRET, scope, code,
+        #redirect_uri=redirect_uri)
+
+    #session['credentials'] = credentials.to_json()
+    #session['gplus_id'] = credentials.id_token['sub']
+    #session_store.save_sessions(self.response)
+
+    #redirect = state.get('continue', None)
+    #if redirect:
+      #self.redirect(redirect)
+      #return True
+  #else:
+    #session['secret'] = secret()
+    #session_store.save_sessions(self.response)
+
+#tailbone_login_hook = create_user
 
 #tailbone_CONFIG = {
   #'webapp2_extras.sessions': {

@@ -61,10 +61,10 @@ class _ConfigDefaults(object):
     return api.users.create_logout_url(*args, **kwargs)
 
   # This is handled by app engine use this if you have some external setup
-  def create_user(*args, **kwargs):
+  def login_hook(*args, **kwargs):
     return None
 
-  def destroy_user(*args, **kwargs):
+  def logout_hook(*args, **kwargs):
     return None
 
 config = api.lib_config.register('tailbone', _ConfigDefaults.__dict__)
@@ -295,21 +295,22 @@ class JsHandler(webapp2.RequestHandler):
 
 class LoginHandler(webapp2.RequestHandler):
   def get(self):
-    self.redirect(
-        config.create_login_url(
-          self.request.get("continue", default_value="/")))
+    if not config.login_hook(self):
+      self.redirect(
+          config.create_login_url(
+            self.request.get("continue", default_value="/")))
 
 
 class LogoutHandler(webapp2.RequestHandler):
   def get(self):
-    self.redirect(
-        config.create_logout_url(
-          self.request.get("continue", default_value="/")))
+    if not config.logout_hook(self):
+      self.redirect(
+          config.create_logout_url(
+            self.request.get("continue", default_value="/")))
 
 class LoginHelperHandler(webapp2.RequestHandler):
   def get(self):
     # run the create_user_hook
-    user = config.create_user(self)
     self.response.out.write("""<!doctype html>
 <html>
   <head>
@@ -328,11 +329,6 @@ class LoginHelperHandler(webapp2.RequestHandler):
   </body>
 </html>""")
 
-class LogoutHelperHandler(webapp2.RequestHandler):
-  def get(self):
-    redirect_uri = self.request.get("continue", default_value="/")
-    config.destroy_user(self)
-    self.redirect(redirect_uri)
 
 EXPORTED_JAVASCRIPT = compile_js([
   "tailbone/authentication.js"
@@ -342,7 +338,6 @@ auth = webapp2.WSGIApplication([
   (r"{}login".format(PREFIX), LoginHandler),
   (r"{}logout" .format(PREFIX), LogoutHandler),
   (r"{}logup".format(PREFIX), LoginHelperHandler),
-  (r"{}logdown".format(PREFIX), LogoutHelperHandler),
 ], debug=DEBUG, config=config.CONFIG)
 
 app = webapp2.WSGIApplication([
