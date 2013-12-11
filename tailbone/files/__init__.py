@@ -36,6 +36,12 @@ except:
 from google.appengine.ext.ndb import blobstore
 from google.appengine.ext import blobstore as bs
 from google.appengine.ext.webapp import blobstore_handlers
+from google.appengine.api import lib_config
+
+class _ConfigDefaults(object):
+  CLOUDSTORE = None
+
+_config = lib_config.register('tailboneFiles', _ConfigDefaults.__dict__)
 
 
 re_image = re.compile(r"image/(png|jpeg|jpg|webp|gif|bmp|tiff|ico)", re.IGNORECASE)
@@ -68,6 +74,7 @@ class FilesHandler(blobstore_handlers.BlobstoreDownloadHandler):
         raise AppError("User must be administrator.")
       return restful.query(self, BlobInfo)
     elif key == "create":
+      #, gs_bucket_name=_config.CLOUDSTORE)
       return {
           "upload_url": blobstore.create_upload_url("/api/files/upload")
       }

@@ -13,18 +13,19 @@
 # limitations under the License.
 
 import os
-import webapp2 
+import webapp2
 
 from tailbone import DEBUG
 from tailbone import PREFIX
 
 from google.appengine.ext import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
-from google.appengine.api import lib_config 
+from google.appengine.api import lib_config
 from google.appengine.api import app_identity
 
 class _ConfigDefaults(object):
   BUCKET = app_identity.get_application_id()
+  LOCAL = 'client/data'
 
 _config = lib_config.register('tailboneCloudstore', _ConfigDefaults.__dict__)
 
