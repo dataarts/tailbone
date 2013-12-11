@@ -98,7 +98,7 @@
 #tailbone_get_current_user = get_current_user
 
 #scope = 'https://www.googleapis.com/auth/plus.login'
-#redirect_uri = 'http://localhost:8080/api/login'
+#redirect_path = '/api/login'
 
 #def secret():
   #import random
@@ -116,6 +116,7 @@
     #state['continue'] =  dest_url
   #import json
   #state = json.dumps(state)
+  #redirect_uri = request.host_url + redirect_path
   #url = 'https://accounts.google.com/o/oauth2/auth?\
 #scope={}&\
 #state={}&\
@@ -162,6 +163,7 @@
 
     #code = self.request.get('code')
     #from oauth2client.client import credentials_from_code
+    #redirect_uri = request.host_url + redirect_path
     #credentials = credentials_from_code(CLIENT_ID, CLIENT_SECRET, scope, code,
         #redirect_uri=redirect_uri)
 
