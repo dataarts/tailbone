@@ -32,6 +32,10 @@ _config = lib_config.register('tailboneCloudstore', _ConfigDefaults.__dict__)
 
 class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
   def get(self, resource):
+    if DEBUG:
+      filename = "{}/{}".format(_config.LOCAL, resource)
+      self.response.write(open(filename).read())
+      return
     filename = "/gs/{}/{}".format(_config.BUCKET, resource)
     key = blobstore.create_gs_key(filename)
     self.send_blob(key)
