@@ -541,7 +541,7 @@ class RestfulHandler(BaseHandler):
         ids = id.split(",")
         keys = [parse_id(i, model) for i in ids]
         results = ndb.get_multi(keys)
-        return [m.to_dict() for m in results]
+        return [m.to_dict() if m else m for m in results]
       key = parse_id(id, model)
       m = key.get()
       if not m:

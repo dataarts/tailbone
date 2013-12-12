@@ -239,6 +239,21 @@ asyncTest('GetMulti by Id', function() {
     });
   });
 });
+asyncTest('GetMulti missing Id', function() {
+  var models = this.models;
+  var model = {text: 'stuff'};
+  var id1, id2;
+  http.POST(models, model, function(d) {
+    id1 = d.Id;
+    id2 = 'doesnotexist';
+    http.GET(models + id1 + ',' + id2, function(d) {
+      ok(d.length == 2);
+      ok(d[0] && d[0].text == 'stuff', 'Fetched id1.');
+      ok(d[1] == null, 'id2 is null.');
+      http.DELETE(models + id1, start);
+    });
+  });
+});
 asyncTest('List all', function() {
   var models = this.models;
   var model = {text: 'stuff'};
