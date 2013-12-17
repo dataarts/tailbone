@@ -22,6 +22,17 @@ import json
 class GeoIPHandler(BaseHandler):
   @as_json
   def get(self):
+    if DEBUG:
+      return {
+        "Country": "US",
+        "Region": "ca",
+        "CityLatLong": {
+          "lat": 37.7749,
+          "lon": -122.4194,
+        },
+        "IP": "127.0.0.1",
+        "City": "san francisco",
+       }
     resp = {}
     for x in ["Country", "Region", "City", "CityLatLong"]:
       k = "X-AppEngine-" + x
