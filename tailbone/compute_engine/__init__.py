@@ -76,12 +76,13 @@ python load_reporter.py &
 SCOPES = ["https://www.googleapis.com/auth/compute",
           "https://www.googleapis.com/auth/devstorage.read_write"]
 
-API_VERSION = "v1beta15"
+API_VERSION = "v1"
 BASE_URL = "https://www.googleapis.com/compute/{}/projects/".format(API_VERSION)
 # TODO: throw error on use if no PROJECT_ID defined
 PROJECT_ID = app_identity.get_application_id()
 DEFAULT_ZONE = "us-central1-a"
 DEFAULT_TYPE = "n1-standard-1"
+DEFAULT_SOURCE_IMAGE = "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-7-wheezy-v20131120"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
 STATS_PORT = 8888
 
@@ -251,6 +252,7 @@ class TailboneCEInstance(polymodel.PolyModel):
     return stats.get("mem", 0)
 
   SOURCE_SNAPSHOT = None
+  SOURCE_IMAGE = DEFAULT_SOURCE_IMAGE
 
   PARAMS = {
     "kind": "compute#instance",
@@ -453,23 +455,34 @@ class LoadBalancer(object):
             "sourceSnapshot": instance.SOURCE_SNAPSHOT,
           }).execute()
         _blocking_call(compute, operation)
-        instance.PARAMS.update({
-          "disks": [{
-            "kind": "compute#attachedDisk",
-            "boot": True,
-            "type": "PERSISTENT",
-            "mode": "READ_WRITE",
-            "deviceName": name,
-            "zone": update_zone(instance.PARAMS.get("zone")),
-            "source": api_url(PROJECT_ID, "zones", instance.zone, "disks", name),
-          }],
-        })
+      else:
+        # as of API v1 scratch disks are depricated, so we need to first create 
+        # a persistent boot disk based on the source image
+        operation = compute.disks().insert(
+          project=PROJECT_ID, 
+          zone=instance.zone, 
+          sourceImage=instance.SOURCE_IMAGE,
+          body={
+            "name": name
+          }
+        ).execute()
+        _blocking_call(compute, operation)
 
       instance.PARAMS.update({
         "name": name,
         "zone": update_zone(instance.PARAMS.get("zone")),
         "machineType": update_zone(instance.PARAMS.get("machineType")),
+        "disks": [{
+          "kind": "compute#attachedDisk",
+          "boot": True,
+          "type": "PERSISTENT",
+          "mode": "READ_WRITE",
+          "deviceName": name,
+          "zone": update_zone(instance.PARAMS.get("zone")),
+          "source": api_url(PROJECT_ID, "zones", instance.zone, "disks", name)
+        }]
       })
+
       operation = compute.instances().insert(
         project=PROJECT_ID, zone=instance.zone, body=instance.PARAMS).execute()
       logging.info("Create instance operation {}".format(operation))
@@ -492,11 +505,18 @@ class LoadBalancer(object):
     compute = compute_api()
     if compute:
       name = instance.key.id()
-      if instance.SOURCE_SNAPSHOT:
-        compute.disks().delete(
-          project=PROJECT_ID, zone=instance.zone, disk=name).execute()
-      compute.instances().delete(
+      result = compute.instances().delete(
         project=PROJECT_ID, zone=instance.zone, instance=name).execute()
+
+      # As of v1 this call needs to be blocking to ensure the instance is stopped
+      # before we can delete the boot disk
+      _blocking_call(compute, result)
+      
+      # As scratch is is depricated in v1 we are treating the persistent disk as 
+      # a scratch disk by deleting it when stopping the instance.
+      result = compute.disks().delete(
+        project=PROJECT_ID, zone=instance.zone, disk=name).execute()
+      _blocking_call(compute, result)
     else:
       logging.warn("No compute api defined.")
       raise AppError("No compute api defined.")
@@ -580,7 +600,8 @@ class LoadBalancer(object):
   @staticmethod
   def increase_pool(pool, current_size):
     """Double pool size."""
-    new_size = int(min(pool.max_size, current_size * 2))
+    # making sure if pool is lower than min_size it is increased to at least that
+    new_size = int(max(pool.min_size, min(pool.max_size, current_size * 2)))
     toadd = new_size - current_size
     if toadd <= 0:
       return {}
