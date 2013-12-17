@@ -26,7 +26,7 @@ class GeoIPHandler(BaseHandler):
     for x in ["Country", "Region", "City", "CityLatLong"]:
       k = "X-AppEngine-" + x
       value = self.request.headers.get(k)
-      if x == "CityLatLong" and value != "":
+      if x == "CityLatLong" and value:
         value = [float(v) for v in value.split(",")]
         value = {
           "lat": value[0],
