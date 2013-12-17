@@ -17,6 +17,7 @@ from tailbone import BaseHandler
 from tailbone import DEBUG
 
 import webapp2
+import json
 
 class GeoIPHandler(BaseHandler):
   @as_json
@@ -24,7 +25,14 @@ class GeoIPHandler(BaseHandler):
     resp = {}
     for x in ["Country", "Region", "City", "CityLatLong"]:
       k = "X-AppEngine-" + x
-      resp[x] = self.request.headers.get(k)
+      value = self.request.headers.get(k)
+      if x == "CityLatLong" and value != "":
+        value = [float(v) for v in value.split(",")]
+        value = {
+          "lat": value[0],
+          "lon": value[1],
+        }
+      resp[x] = value
     resp["IP"] = self.request.remote_addr
     return resp
 
