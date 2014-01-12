@@ -65,7 +65,7 @@ class _ConfigDefaults(object):
   });
 </script>
 </head><body>
-You must be an approved logged in user.
+Please do not share
   <p>Authentication:</p>
   <form id="authform">
     <input type="password" id="pass" />
