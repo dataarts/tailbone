@@ -52,8 +52,8 @@ class TailboneTurnInstance(TailboneCEInstance):
           "key": "startup-script",
           "value": STARTUP_SCRIPT_BASE + """
 # load turnserver
-curl -O http://rfc5766-turn-server.googlecode.com/files/turnserver-1.8.7.0-binary-linux-wheezy-ubuntu-mint-x86-64bits.tar.gz
-tar xvfz turnserver-1.8.7.0-binary-linux-wheezy-ubuntu-mint-x86-64bits.tar.gz
+curl -O http://turnserver.open-sys.org/downloads/v3.2.2.4/turnserver-3.2.2.4-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
+tar xvfz turnserver-3.2.2.4-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
 dpkg -i rfc5766-turn-server_1.8.7.0-1_amd64.deb
 apt-get -fy install
 IP=$(gcutil getinstance $(hostname) 2>&1 | grep external-ip | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
