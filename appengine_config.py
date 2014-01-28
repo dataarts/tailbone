@@ -212,10 +212,10 @@
 ## Cloud store bucket to use default is your application id
 # tailboneCloudstore_BUCKET = "mybucketname"
 
-tailboneTurn_RESTIRCTED_DOMAINS = ["localhost"]
+tailboneTurn_RESTRICTED_DOMAINS = ["localhost"]
 tailboneTurn_SECRET = "notasecret"
 
-# tailboneMesh_ENABLE_TURN = True
+tailboneMesh_ENABLE_TURN = True
 # tailboneMesh_ENABLE_WEBSOCKET = True
 
 ## Seconds until room expires

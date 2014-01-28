@@ -27,7 +27,7 @@ includes:
   ## Clocksync simple synchronization of clocks
   # - tailbone/clocksync
   ## Websocket+WebRTC based mesh server with rooms and load balancing
-  # - tailbone/mesh
+  - tailbone/mesh
   ## Load balanced stand alone turn server service
   - tailbone/turn
   ## Run custom load balanced server on compute engine {eg node.js websocket server}
