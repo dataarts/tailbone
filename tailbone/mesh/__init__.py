@@ -32,7 +32,7 @@ import webapp2
 from google.appengine.api import users
 from google.appengine.api import memcache
 from google.appengine.api import app_identity
-from google.appengine.api import lib_config 
+from google.appengine.api import lib_config
 
 # TODO: Use an image instead of a startup-script for downloading dependencies
 
@@ -113,7 +113,7 @@ def get_or_create_room(request, name=None):
         raise AppError('Instance not yet ready, try again later.')
       address = "ws://{}:{}/{}".format(instance.address, _config.PORT, name)
     else:
-      address = "/api/channel/{}".format(name) 
+      address = "/api/channel/{}".format(name)
     if not memcache.add(room, address, time=_config.ROOM_EXPIRATION):
       return get_or_create_room(request, name)
   return name, address
@@ -128,7 +128,7 @@ class MeshHandler(BaseHandler):
       resp["ws"] = address
     else:
       resp["channel"] = address
-    if _config.ENABLE_TURN:
+    if _config.ENABLE_TURN and not DEBUG:
       ts = LoadBalancer.find(turn.TailboneTurnInstance)
       if ts:
         username = self.request.get("username", generate_word())

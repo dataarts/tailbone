@@ -22,7 +22,7 @@ function trace(text) {
 }
 
 if (navigator.mozGetUserMedia) {
-  console.log("This appears to be Firefox");
+  //console.log("This appears to be Firefox");
 
   webrtcDetectedBrowser = "firefox";
 
@@ -86,7 +86,7 @@ if (navigator.mozGetUserMedia) {
     return [];
   };
 } else if (navigator.webkitGetUserMedia) {
-  console.log("This appears to be Chrome");
+  //console.log("This appears to be Chrome");
 
   webrtcDetectedBrowser = "chrome";
   var navMatch = navigator.userAgent.match(/Chrom(e|ium)\/([0-9]+)\./);
@@ -188,7 +188,8 @@ var DATA_CHANNEL_SUPPORTED = (function() {
 
 var BANDWIDTH = 64; // 64 kbps
 
-var RTCChannelUtils = {
+var RTCChannelUtils;
+window.RTCChannelUtils = RTCChannelUtils = {
 
   defaultIceServers: function(channel) {
     var ice = [];
@@ -305,7 +306,7 @@ var RTCChannelUtils = {
 
     pc.ondatachannel = function (event) {
       console.log('add data channel???', event);
-      // RTCChannelUtils.addDataChannel(channel, event.channel); 
+      // RTCChannelUtils.addDataChannel(channel, event.channel);
     };
 
   },
@@ -315,6 +316,7 @@ var RTCChannelUtils = {
       desc.sdp = RTCChannelUtils.preferOpus(desc.sdp);
       desc.sdp = RTCChannelUtils.highBandwidth(desc.sdp);
       channel.pc.setLocalDescription(desc);
+      console.log('offer', desc);
       channel.remoteNode._trigger('rtc_offer', desc);
     }, function () {
       console.log('createOffer error');
@@ -325,6 +327,7 @@ var RTCChannelUtils = {
     channel.pc.createAnswer(function(desc) {
       desc.sdp = RTCChannelUtils.preferOpus(desc.sdp);
       desc.sdp = RTCChannelUtils.highBandwidth(desc.sdp);
+      console.log('answer', desc);
       channel.pc.setLocalDescription(desc);
       channel.remoteNode._trigger('rtc_answer', desc);
     });
@@ -405,7 +408,7 @@ var RTCChannelUtils = {
         data: data
       });
     };
-    
+
     return dataChannel;
   },
 
@@ -445,11 +448,26 @@ RTCChannel.prototype.open = function () {
   if (RTCPeerConnection) {
     RTCChannelUtils.bind(this);
     RTCChannelUtils.createPeerConnection(this);
-    RTCChannelUtils.addStream(this);
-    RTCChannelUtils.createDataChannel(this);
-    if (this.remoteNode.initiator) {
-      RTCChannelUtils.sendOffer(this);
-    }
+
+    var ch = this;
+    ch.pc.onaddstream = function(e) {
+      var video = document.createElement("video");
+      document.body.appendChild(video);
+      video.src = URL.createObjectURL(e.stream);
+    };
+    getUserMedia({video: true}, function(stream) {
+      ch.pc.addStream(stream);
+      RTCChannelUtils.createDataChannel(ch);
+      if (ch.remoteNode.initiator) {
+        RTCChannelUtils.sendOffer(ch);
+      }
+    });
+
+    //RTCChannelUtils.addStream(this);
+    //RTCChannelUtils.createDataChannel(this);
+    //if (this.remoteNode.initiator) {
+      //RTCChannelUtils.sendOffer(this);
+    //}
   }
 
 };
