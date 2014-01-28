@@ -1,5 +1,5 @@
 var WebSocketServer = require('ws').Server
-  , wss = new WebSocketServer({port: parseInt(process.argv[2] || '8888')});
+  , wss = new WebSocketServer({port: parseInt(process.argv[2] || '8889')});
 
 var _global_id = 0;
 function generate_id() {
