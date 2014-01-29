@@ -159,7 +159,7 @@ ChannelMultiplexer.prototype.close = function(channel) {
 ChannelMultiplexer.prototype.send = function(channel, message) {
   // TODO: user defer to batch send messages
   var msg = [[channel.remoteNode.id], message];
-  http.POST('/api/channel/' + this.mesh.id + '/' + this.mesh.self.id, 
+  http.POST('/api/channel/' + this.mesh.id + '/' + this.mesh.self.id,
             msg,
             function(){});
   return true;

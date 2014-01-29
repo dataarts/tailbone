@@ -20,7 +20,6 @@ from tailbone import as_json
 
 import json
 import logging
-import time
 import random
 import webapp2
 
@@ -49,7 +48,7 @@ def extract_mesh_from_cid(client_id):
   return client_id.split(SEPARATOR)[0]
 
 
-class TailbonChannelMesh(ndb.Model):
+class TailboneChannelMesh(ndb.Model):
   clients = ndb.StringProperty(repeated=True)
 
 
@@ -59,9 +58,9 @@ class ConnectedHandler(BaseHandler):
   def post(self):
     client_id = self.request.get('from')
     mesh_id = extract_mesh_from_cid(client_id)
-    mesh = TailbonChannelMesh.get_by_id(mesh_id)
+    mesh = TailboneChannelMesh.get_by_id(mesh_id)
     if not mesh:
-      mesh = TailbonChannelMesh(id=mesh_id)
+      mesh = TailboneChannelMesh(id=mesh_id)
     if client_id in mesh.clients:
       logging.error("Client id {} already in list".format(client_id))
       return
@@ -70,12 +69,12 @@ class ConnectedHandler(BaseHandler):
     mesh.put()
     # send connect
     channel.send_message(client_id, json.dumps([
-      client_id, time.time(), json.dumps(['connect'] + peers)]))
+      client_id, json.dumps(['connect'] + peers)]))
     # send enter
     enter_msg = json.dumps(['enter', client_id])
     for cid in peers:
       channel.send_message(cid, json.dumps([
-        cid, time.time(), enter_msg]))
+        cid, enter_msg]))
 
 
 class DisconnectedHandler(BaseHandler):
@@ -84,7 +83,7 @@ class DisconnectedHandler(BaseHandler):
   def post(self):
     client_id = self.request.get('from')
     mesh_id = extract_mesh_from_cid(client_id)
-    mesh = TailbonChannelMesh.get_by_id(mesh_id)
+    mesh = TailboneChannelMesh.get_by_id(mesh_id)
     if not mesh:
       logging.error("Mesh {} does not exist.".format(mesh_id))
       return
@@ -99,7 +98,7 @@ class DisconnectedHandler(BaseHandler):
     leave_msg = json.dumps(['leave', client_id])
     for cid in mesh.clients:
       channel.send_message(cid, json.dumps([
-        cid, time.time(), leave_msg]))
+        cid, leave_msg]))
 
 
 class ChannelHandler(BaseHandler):
