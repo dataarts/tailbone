@@ -59,7 +59,7 @@ curl -O http://turnserver.open-sys.org/downloads/v3.2.2.4/turnserver-3.2.2.4-deb
 tar xvfz turnserver-3.2.2.4-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
 dpkg -i rfc5766-turn-server_3.2.2.4-1_amd64.deb
 apt-get -fy install
-IP=$(gcutil getinstance $(hostname) 2>&1 | grep external-ip | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
+IP=$(gcutil getinstance $(hostname) 2>&1 | grep '^| *external-ip *| ' | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
 while true
 do
   turnserver --use-auth-secret -v -a -X $IP -f --static-auth-secret %s -r %s
