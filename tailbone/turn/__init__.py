@@ -75,8 +75,8 @@ done
   secret = ndb.StringProperty(default=_config.SECRET)
 
 def credentials(username, secret=None):
-  timestamp = str(time.mktime(time.gmtime())).split('.')[0]
-  username = "{}:{}".format(username, timestamp)
+  timestamp = str(time.mktime(time.gmtime()) + 24 * 3600).split('.')[0]
+  username = "{}:{}".format(timestamp, username)
   if not secret:
     secret = _config.SECRET
   # force string
