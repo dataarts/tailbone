@@ -59,17 +59,23 @@ ulimit -n 10000
 apt-get install -y build-essential python-dev
 
 # load reporter
-curl -O http://psutil.googlecode.com/files/psutil-0.6.1.tar.gz
-tar xvfz psutil-0.6.1.tar.gz
-cd psutil-0.6.1
+curl -O https://pypi.python.org/packages/source/p/psutil/psutil-1.2.1.tar.gz
+tar xvfz psutil-1.2.1.tar.gz
+cd psutil-1.2.1
 python setup.py install
 cd ..
-rm -rf psutil-0.6.1
-rm psutil-0.6.1.tar.gz
+rm -rf psutil-1.2.1
+rm psutil-1.2.1.tar.gz
 cat >load_reporter.py <<EOL
 %s
 EOL
-python load_reporter.py &
+cat >load_reporter.sh <<EOL
+while true
+do
+  python load_reporter.py
+done
+EOL
+python load_reporter.sh &
 
 """ % (open("tailbone/compute_engine/load_reporter.py").read(),)
 
@@ -358,7 +364,7 @@ def update_instance_status(urlsafe_key):
     try:
       resp = urlfetch.fetch(url=address,
                             method=urlfetch.GET,
-                            deadline=30)
+                            deadline=10)
       if resp.status_code == 200:
         stats = json.loads(resp.content)
         instance.load = instance.calc_load(stats)

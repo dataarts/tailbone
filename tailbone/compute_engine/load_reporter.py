@@ -88,5 +88,11 @@ if __name__ == '__main__':
   memory = Value('d', 0)
   net_in = Value('d', 0)
   net_out = Value('d', 0)
-  server = Process(target=ReportServer, args=(cpu, memory, net_in, net_out)).start()
-  stats = Process(target=UpdateStats, args=(cpu, memory, net_in, net_out)).start()
+  server = Process(target=ReportServer, args=(cpu, memory, net_in, net_out))
+  server.start()
+  stats = Process(target=UpdateStats, args=(cpu, memory, net_in, net_out))
+  stats.start()
+  time.sleep(60*60*12)
+  server.terminate()
+  stats.terminate()
+
