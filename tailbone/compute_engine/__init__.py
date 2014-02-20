@@ -75,7 +75,7 @@ do
   python load_reporter.py
 done
 EOL
-python load_reporter.sh &
+sh ./load_reporter.sh &
 
 """ % (open("tailbone/compute_engine/load_reporter.py").read(),)
 
