@@ -211,8 +211,7 @@ def string_to_class(str):
 def _blocking_call(gce_service, response):
   """Blocks until the operation status is done for the given operation."""
 
-  status = response['status']
-  while status != 'DONE' and response:
+  while response['status'] != 'DONE' and 'error' not in response:
     time.sleep(2)
     operation_id = response['name']
 
@@ -228,8 +227,6 @@ def _blocking_call(gce_service, response):
            project=PROJECT_ID, operation=operation_id)
 
     response = request.execute()
-    if response:
-      status = response['status']
   return response
 
 
