@@ -1,6 +1,16 @@
-var WebSocketServer = require('ws').Server
-  , wss = new WebSocketServer({port: parseInt(process.argv[2] || '8889')});
+var port = parseInt(process.argv[2] || '8889')
+  , WebSocketServer = require('ws').Server
+  , http = require('http');
 
+
+var app = http.createServer(function(req, res) {
+  res.writeHead(200, {'Content-Type': 'text/plain'});
+  res.end(''+_count);
+});
+
+var wss = new WebSocketServer({server: app});
+
+var _count = 0;
 var _global_id = 0;
 function generate_id() {
   return ++_global_id;
@@ -10,6 +20,7 @@ var room_to_peers = {};
 var id_to_peer = {};
 
 wss.on('connection', function(ws) {
+  _count++;
   ws.id = generate_id();
   id_to_peer[ws.id] = ws;
   var room = ws.upgradeReq.url.substring(1);
@@ -68,6 +79,7 @@ wss.on('connection', function(ws) {
     }
   });
   ws.on('close', function() {
+    _count--;
     peers.splice(peers.indexOf(ws), 1);
     delete id_to_peer[ws.id];
     peers.forEach(function(peer) {
@@ -77,3 +89,6 @@ wss.on('connection', function(ws) {
     })
   });
 });
+
+
+app.listen(port);

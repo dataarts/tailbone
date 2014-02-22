@@ -47,8 +47,16 @@ from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext import deferred
 from google.appengine.ext.ndb import polymodel
+from google.appengine.api import lib_config
 
 from apiclient.errors import HttpError
+
+class _ConfigDefaults(object):
+  PORT = 8889
+
+
+_config = lib_config.register('tailboneCE', _ConfigDefaults.__dict__)
+
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
@@ -56,28 +64,9 @@ STARTUP_SCRIPT_BASE = """#!/bin/bash
 ulimit -n 10000
 
 # install deps
-apt-get install -y build-essential python-dev
+apt-get install -y build-essential
 
-# load reporter
-curl -O https://pypi.python.org/packages/source/p/psutil/psutil-1.2.1.tar.gz
-tar xvfz psutil-1.2.1.tar.gz
-cd psutil-1.2.1
-python setup.py install
-cd ..
-rm -rf psutil-1.2.1
-rm psutil-1.2.1.tar.gz
-cat >load_reporter.py <<EOL
-%s
-EOL
-cat >load_reporter.sh <<EOL
-while true
-do
-  python load_reporter.py
-done
-EOL
-python load_reporter.sh &
-
-""" % (open("tailbone/compute_engine/load_reporter.py").read(),)
+"""
 
 SCOPES = ["https://www.googleapis.com/auth/compute",
           "https://www.googleapis.com/auth/devstorage.read_write"]
@@ -90,7 +79,6 @@ DEFAULT_ZONE = "us-central1-a"
 DEFAULT_TYPE = "n1-standard-1"
 DEFAULT_SOURCE_IMAGE = "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-7-wheezy-v20131120"
 # DEFAULT_TYPE = "f1-micro"  # needs a boot image defined
-STATS_PORT = 8888
 
 SECONDS = 1
 MINUTES = 60*SECONDS
@@ -252,7 +240,7 @@ class TailboneCEInstance(polymodel.PolyModel):
   @staticmethod
   def calc_load(stats):
     """Calculate load value 0 to 1 from the stats object."""
-    return stats.get("mem", 0)
+    return stats / 100 if stats else 0
 
   SOURCE_SNAPSHOT = None
   SOURCE_IMAGE = DEFAULT_SOURCE_IMAGE
@@ -357,7 +345,7 @@ def update_instance_status(urlsafe_key):
   info = None
   if instance.status == InstanceStatus.RUNNING:
     # check load
-    address = "http://{}:{}".format(instance.address, STATS_PORT)
+    address = "http://{}:{}".format(instance.address, _config.port)
     try:
       resp = urlfetch.fetch(url=address,
                             method=urlfetch.GET,
@@ -459,11 +447,11 @@ class LoadBalancer(object):
           }).execute()
         _blocking_call(compute, operation)
       else:
-        # as of API v1 scratch disks are depricated, so we need to first create 
+        # as of API v1 scratch disks are depricated, so we need to first create
         # a persistent boot disk based on the source image
         operation = compute.disks().insert(
-          project=PROJECT_ID, 
-          zone=instance.zone, 
+          project=PROJECT_ID,
+          zone=instance.zone,
           sourceImage=instance.SOURCE_IMAGE,
           body={
             "name": name
@@ -514,8 +502,8 @@ class LoadBalancer(object):
       # As of v1 this call needs to be blocking to ensure the instance is stopped
       # before we can delete the boot disk
       _blocking_call(compute, result)
-      
-      # As scratch is is depricated in v1 we are treating the persistent disk as 
+
+      # As scratch is is depricated in v1 we are treating the persistent disk as
       # a scratch disk by deleting it when stopping the instance.
       result = compute.disks().delete(
         project=PROJECT_ID, zone=instance.zone, disk=name).execute()
@@ -692,8 +680,8 @@ class LoadBalancerApi(object):
     min_size = int(min_size)
     max_size = int(max_size)
     pool = ndb.Key(urlsafe=urlsafe_pool_key).get()
-    pool.min_size = min_size 
-    pool.max_size = max_size 
+    pool.min_size = min_size
+    pool.max_size = max_size
     pool.put()
     return pool
 
