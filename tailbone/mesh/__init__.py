@@ -63,9 +63,6 @@ class TailboneWebsocketInstance(TailboneCEInstance):
           "key": "startup-script",
           "value": STARTUP_SCRIPT_BASE + """
 # websocket server
-curl -O http://nodejs.org/dist/v0.10.20/node-v0.10.20-linux-x64.tar.gz
-tar xvfz node-v0.10.20-linux-x64.tar.gz
-mv node-v0.10.20-linux-x64 nodejs
 ./nodejs/bin/npm install ws
 cat >websocket.js <<EOL
 %s

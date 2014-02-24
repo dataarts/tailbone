@@ -51,12 +51,7 @@ from google.appengine.api import lib_config
 
 from apiclient.errors import HttpError
 
-class _ConfigDefaults(object):
-  PORT = 8889
-
-
-_config = lib_config.register('tailboneCE', _ConfigDefaults.__dict__)
-
+STATS_PORT = 8888
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
@@ -66,7 +61,31 @@ ulimit -n 10000
 # install deps
 apt-get install -y build-essential
 
-"""
+curl -O http://nodejs.org/dist/v0.10.20/node-v0.10.20-linux-x64.tar.gz
+tar xvfz node-v0.10.20-linux-x64.tar.gz
+mv node-v0.10.20-linux-x64 nodejs
+
+cat >load_reporter.js <<EOL
+var cp = require('child_process');
+var http = require('http');
+var server = http.createServer(function(req, res) {
+  cp.exec('ss -n | wc -l', function(err, stdout, stderr) {
+    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.end(stdout);
+  });
+});
+server.listen(%d);
+EOL
+cat >load_reporter.sh <<EOL
+while true
+do
+./nodejs/bin/node load_reporter.js
+sleep 1
+end
+EOL
+sh ./load_reporter.sh &
+
+""" % (STATS_PORT,)
 
 SCOPES = ["https://www.googleapis.com/auth/compute",
           "https://www.googleapis.com/auth/devstorage.read_write"]
@@ -237,10 +256,11 @@ class TailboneCEInstance(polymodel.PolyModel):
   status = ndb.StringProperty(default=InstanceStatus.PENDING)
   pool = ndb.KeyProperty()
 
-  @staticmethod
-  def calc_load(stats):
+  MAX_CLIENTS = 100
+
+  def calc_load(self, stats):
     """Calculate load value 0 to 1 from the stats object."""
-    return stats / 100 if stats else 0
+    return stats / self.MAX_CLIENTS if stats else 0
 
   SOURCE_SNAPSHOT = None
   SOURCE_IMAGE = DEFAULT_SOURCE_IMAGE
@@ -345,7 +365,7 @@ def update_instance_status(urlsafe_key):
   info = None
   if instance.status == InstanceStatus.RUNNING:
     # check load
-    address = "http://{}:{}".format(instance.address, _config.port)
+    address = "http://{}:{}".format(instance.address, STATS_PORT)
     try:
       resp = urlfetch.fetch(url=address,
                             method=urlfetch.GET,

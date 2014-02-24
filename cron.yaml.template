@@ -1,0 +1,7 @@
+# cron.yaml: this is a list of all cron tasks used by 
+# all modules however these return without executing 
+# if the associated module is not included in the app.yaml
+# You shouldn't have to, but feel free to comment these out 
+# too if they are unused in your projects
+
+cron:
