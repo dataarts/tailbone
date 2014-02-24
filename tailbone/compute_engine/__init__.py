@@ -81,7 +81,7 @@ while true
 do
 ./nodejs/bin/node load_reporter.js
 sleep 1
-end
+done
 EOL
 sh ./load_reporter.sh &
 
