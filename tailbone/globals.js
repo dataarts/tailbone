@@ -1,9 +1,10 @@
-// globals.js 
+// globals.js
 // TODO: need a better way to handle this with proper dependency managment with multiple imports
 
 (function() {
 
-var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/;
+// 2014-02-28T04:29:28.222000
+var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)$/;
 
 JSON._parse = JSON.parse;
 JSON.parse = function(json) {return JSON._parse(json, function(key, value) {
@@ -27,7 +28,7 @@ var http = {};
 
 function json_request(kind, url, success, error, context) {
   var xhr;
-  if (XMLHttpRequest) { 
+  if (XMLHttpRequest) {
     xhr = new XMLHttpRequest();
   } else {
     xhr = new ActiveXObject("Microsoft.XMLHTTP");
