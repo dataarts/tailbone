@@ -238,7 +238,7 @@ class users(HookedModel, ndb.Expando):
 # future there may be a way to express what should be indexed or searchable, but not yet.
 _latlon = set(["lat", "lon"])
 _reISO = re.compile("^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$")
-_reKey = re.compile("^[a-zA-Z0-9\-]{10,500}$")
+_reKey = re.compile("^[a-zA-Z0-9_\-]{10,500}$")
 
 def reflective_create(cls, data):
   m = cls()
