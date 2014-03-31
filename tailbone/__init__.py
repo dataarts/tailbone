@@ -95,12 +95,10 @@ def json_extras(obj):
     return {"lat": obj.lat, "lon": obj.lon}
   if isinstance(obj, ndb.Key):
     r = webapp2.get_request()
-    if r.get("recurse", default_value=False): 
+    current_level = [key for key in recurse_class.keys() if obj.kind() in recurse_class[key]] or 1
+    current_level = current_level[0] if current_level != 1 else 1
+    if r.get("recurse", default_value=False) and current_level <= recurse_depth: 
       item = obj.get()
-      current_level = [key for key in recurse_class.keys() if obj.kind() in recurse_class[key]] or 1
-      current_level = current_level[0] if current_level != 1 else 1
-      if current_level > recurse_depth:
-        return obj.urlsafe()
       if item is None:
         return obj.urlsafe()
       item = item.to_dict()
