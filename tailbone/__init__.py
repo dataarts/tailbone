@@ -147,6 +147,7 @@ def as_json(func):
         self.response.headers.add_header("Access-Control-Allow-Origin", "*")
       elif origin in config.CORS_RESTRICTED_DOMAINS:
         self.response.headers.add_header("Access-Control-Allow-Origin", origin)
+    self.response.out.write(")]}'\n")
     self.response.out.write(resp)
   return wrapper
 
