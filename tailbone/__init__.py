@@ -95,7 +95,8 @@ def json_extras(obj):
     return {"lat": obj.lat, "lon": obj.lon}
   if isinstance(obj, ndb.Key):
     r = webapp2.get_request()
-    if r.get("recurse", default_value=False):
+    if r.get("recurse", default_value=False) and recurse_depth > recurse_excute:
+      recurse_excute += 1
       item = obj.get()
       if item == None:
         return obj.urlsafe()
@@ -111,6 +112,9 @@ def as_json(func):
   """Returns json when callback in url"""
   @functools.wraps(func)
   def wrapper(self, *args, **kwargs):
+    global recurse_excute, recurse_depth
+    recurse_depth = int(self.request.get("depth", default_value=2))
+    recurse_excute = 0
     self.response.headers["Content-Type"] = "application/json"
     if DEBUG:
       self.response.headers["Access-Control-Allow-Origin"] = "*"
