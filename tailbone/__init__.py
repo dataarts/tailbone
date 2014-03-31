@@ -95,13 +95,24 @@ def json_extras(obj):
     return {"lat": obj.lat, "lon": obj.lon}
   if isinstance(obj, ndb.Key):
     r = webapp2.get_request()
-    if r.get("recurse", default_value=False) and recurse_depth > recurse_excute:
-      recurse_excute += 1
+    if r.get("recurse", default_value=False): 
       item = obj.get()
-      if item == None:
+      current_level = [key for key in recurse_class.keys() if obj.kind() in recurse_class[key]] or 1
+      current_level = current_level[0] if current_level != 1 else 1
+      if current_level > recurse_depth:
+        return obj.urlsafe()
+      if item is None:
         return obj.urlsafe()
       item = item.to_dict()
+      item["Id"] = obj.urlsafe()
       item["$class"] = obj.kind()
+      recurse_class[current_level].add(item["$class"])
+      for key in item.keys():
+        if isinstance(item[key], ndb.Key) or (type(item[key]) == list and len(item[key]) > 0 and isinstance(item[key][0], ndb.Key)):
+          child_class = item[key].kind() if isinstance(item[key], ndb.Key) else item[key][0].kind()
+          if not current_level+1 in recurse_class.keys():
+            recurse_class.update({current_level+1: set()})
+          recurse_class[current_level+1].add(child_class)
       return item
     return obj.urlsafe()
   return None
@@ -114,7 +125,7 @@ def as_json(func):
   def wrapper(self, *args, **kwargs):
     global recurse_excute, recurse_depth
     recurse_depth = int(self.request.get("depth", default_value=2))
-    recurse_excute = 0
+    recurse_class = {1: set()}
     self.response.headers["Content-Type"] = "application/json"
     if DEBUG:
       self.response.headers["Access-Control-Allow-Origin"] = "*"
