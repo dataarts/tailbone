@@ -55,9 +55,9 @@ class TailboneTurnInstance(TailboneCEInstance):
 cd /var/run
 ulimit -c 99999999
 cd /
-curl -O http://turnserver.open-sys.org/downloads/v3.2.2.4/turnserver-3.2.2.4-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
-tar xvfz turnserver-3.2.2.4-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
-dpkg -i rfc5766-turn-server_3.2.2.4-1_amd64.deb
+curl -O http://turnserver.open-sys.org/downloads/v3.2.3.6/turnserver-3.2.3.6-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
+tar xvfz turnserver-3.2.3.6-debian-wheezy-ubuntu-mint-x86-64bits.tar.gz
+dpkg -i rfc5766-turn-server_3.2.3.6-1_amd64.deb
 apt-get -fy install
 IP=$(gcutil getinstance $(hostname) 2>&1 | grep '^| *external-ip *| ' | grep -oEi "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
 while true
