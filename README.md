@@ -18,6 +18,9 @@ Your new project
     # <Ctrl-C> to stop local server
     tailbone deploy master
 
+### Alternatives
+
+A lot of the use cases I originally used tailbone for, a simple javascript based datastore, now have some great alternatives available. Wanted to give people information about https://www.firebase.com/ which is great and takes care of a lot of the things tailbone originally had to do.
 
 ### Preamble
 
