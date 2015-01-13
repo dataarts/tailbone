@@ -20,7 +20,9 @@ Your new project
 
 ### Alternatives
 
-A lot of the use cases I originally used tailbone for, a simple javascript based datastore, now have some great alternatives available. Wanted to give people information about https://www.firebase.com/ which is great and takes care of a lot of the things tailbone originally had to do.
+A lot of the use cases I originally used tailbone for, a simple javascript based datastore, now have some great alternatives available. Wanted to give people information about https://www.firebase.com/ which is great and takes care of a lot of the things tailbone originally had to do. 
+
+Posting an alternative created some confusion, I'm still supporting Tailbone, but honestly at this point I don't really know how and if this library is being used. If you have used it and have stories of it being helpful even for something like prototyping an idea, please send them to tailbone.stories@gmail.com.  That would really help me understand how this project is being used in the wild. Thanks!
 
 ### Preamble
 
