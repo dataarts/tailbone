@@ -144,9 +144,9 @@ def as_json(func):
     if config.CORS:
       origin = self.request.headers.get("Origin")
       if not config.CORS_RESTRICTED_DOMAINS:
-        self.response.headers.add_header("Access-Control-Allow-Origin", "*")
+        self.response.headers["Access-Control-Allow-Origin"] =  "*"
       elif origin in config.CORS_RESTRICTED_DOMAINS:
-        self.response.headers.add_header("Access-Control-Allow-Origin", origin)
+        self.response.headers["Access-Control-Allow-Origin"] = origin
     self.response.out.write(resp)
   return wrapper
 
