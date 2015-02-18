@@ -104,9 +104,7 @@ class TurnHandler(BaseHandler):
       "password": password,
       "uris": [
         "turn:{}:3478?transport=udp".format(instance.address),
-        "turn:{}:3478?transport=tcp".format(instance.address),
-        "turn:{}:3479?transport=udp".format(instance.address),
-        "turn:{}:3479?transport=tcp".format(instance.address),
+        "turn:{}:3478?transport=tcp".format(instance.address)
       ],
     }
 
