@@ -108,6 +108,10 @@ class TurnHandler(BaseHandler):
       ],
     }
 
+  @as_json
+  def post(self):
+    return self.get()
+
 app = webapp2.WSGIApplication([
   (r"{}turn/?.*".format(PREFIX), TurnHandler),
 ], debug=DEBUG)
