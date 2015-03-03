@@ -108,7 +108,6 @@ class TurnHandler(BaseHandler):
       ],
     }
 
-  @as_json
   def post(self):
     return self.get()
 
