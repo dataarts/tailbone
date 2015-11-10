@@ -63,6 +63,13 @@ IP=$(gcutil getinstance $(hostname) 2>&1 | grep '^| *external-ip *| ' | grep -oE
 while true
 do
   turnserver --use-auth-secret -v -a -X $IP -f --static-auth-secret %s -r %s
+
+  # Sometimes the packages fail to install due to no public key error.
+  aptitude install -y debian-keyring debian-archive-keyring
+  apt-get update
+  dpkg -i rfc5766-turn-server_3.2.3.6-1_amd64.deb
+  apt-get -fy install
+
   sleep 1
 done
 
