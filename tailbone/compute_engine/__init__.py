@@ -55,6 +55,8 @@ STATS_PORT = 8888
 
 STARTUP_SCRIPT_BASE = """#!/bin/bash
 
+export DEBIAN_FRONTEND=noninteractive
+
 # update open files limit
 ulimit -n 10000
 
